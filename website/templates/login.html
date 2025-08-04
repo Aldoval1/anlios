@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% block title %}Anlios Bot{% endblock %}
+
+{% block body_content %}
+<div class="landing-wrapper">
+    <div class="landing-box">
+        <img src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Icon" class="landing-icon">
+        <h1 class="logo mb-2">Anlios Bot</h1>
+        <p class="lead mb-4" style="color: #ff8282;">Inicia sesión para configurar tu bot</p>
+        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">
+            Login con Discord
+        </a>
+    </div>
+
+    <div class="video-container">
+        <iframe width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </div>
+
+    <div class="stats-container">
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.servers }}</div>
+            <div class="stat-label">Servidores</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.users }}</div>
+            <div class="stat-label">Usuarios</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.uptime }}</div>
+            <div class="stat-label">Tiempo en Línea</div>
+        </div>
+    </div>
+
+    <footer class="page-footer">
+        <div class="footer-links">
+            <a href="#">Documentación</a>
+            <a href="#">Servidor de Soporte</a>
+            <a href="#">Términos y Servicios</a>
+            <a href="#">Estado del Servidor</a>
+            <a href="#">Sobre nosotros</a>
+        </div>
+        <div class="copyright">
+            &copy; 2024-2025 Anlios
+        </div>
+    </footer>
+</div>
+{% endblock %}

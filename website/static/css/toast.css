@@ -1,0 +1,59 @@
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px; /* Movido a la derecha */
+    z-index: 2000;
+    width: 350px;
+    opacity: 0;
+    transform: translateX(120%); /* Animación desde la derecha */
+    transition: opacity 0.5s, transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    visibility: hidden;
+}
+
+#toast-container.show {
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+}
+
+#toast-gif {
+    width: 100%;
+    display: block;
+    /* Se elimina el borde del GIF */
+}
+
+.toast-card {
+    background-color: #330000;
+    border: 2px solid #ff4141; /* Borde completo solo en la tarjeta */
+    padding: 15px;
+}
+
+.toast-content {
+    width: 100%;
+}
+
+#toast-message {
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+#toast-buttons {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 10px;
+}
+
+.toast-progress-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #1a0000;
+    border: 1px solid #ff8282;
+}
+
+#toast-progress {
+    height: 100%;
+    width: 100%;
+    background-color: #ff4141;
+    transition: width 5s linear;
+}

@@ -1,0 +1,26 @@
+{
+    "panel": {
+        "title": "Sistema de ticketssss",
+        "description": "Haz clic pafdfdf\r\nra abrir un ticket.sss",
+        "color": "#99b496",
+        "button_label": "Pruebassssss",
+        "author_name": "testingsss",
+        "author_icon": "",
+        "image": "",
+        "thumbnail": "",
+        "footer_text": "",
+        "footer_icon": ""
+    },
+    "welcome": {
+        "title": "¡Bienvenido, {user}!",
+        "description": "Un asistente te atenderá pronto. ",
+        "color": "#57f287",
+        "author_name": "testing",
+        "author_icon": "",
+        "image": "",
+        "thumbnail": "",
+        "footer_text": "testing",
+        "footer_icon": ""
+    },
+    "ai_prompt": "Eres Anlios, un amigable y servicial asistente de IA para este servidor de Discord. Tu propósito es ayudar a los usuarios y responder sus preguntas. Para preguntas específicas sobre el servidor, consulta la siguiente 'Base de Conocimientos'. Si la respuesta no está ahí, indícalo amablemente sin inventar información. O si es una pregunta tecnica o de otra indole parecida puedas ayudarlo. Para preguntas generales o conversacionales (como 'hola', 'cómo estás', o 'quién eres'), responde de forma natural y amigable.\r\n\r\n--- BASE DE CONOCIMIENTOS ---\r\n{knowledge}"
+}
