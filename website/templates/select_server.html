@@ -2,33 +2,8 @@
 {% block title %}Seleccionar Servidor{% endblock %}
 
 {% block dashboard_content %}
-    <h1>Bienvenido, {{ user.username }}</h1>
-    <p>Por favor, selecciona un servidor del menú de la izquierda para empezar a configurar.</p>
-    <hr style="border-color: #ff4141;">
-    
-    <h4>Invitar a más servidores</h4>
-    <p>Usa este menú para añadir a Anlios Bot a otros servidores donde seas administrador.</p>
-    <div class="input-group" style="max-width: 400px;">
-        <select class="form-select" id="server-select">
-            <option selected disabled>Elige un servidor...</option>
-            {% for guild in guilds_without_bot %}
-            <option value="{{ guild.id }}">{{ guild.name }}</option>
-            {% endfor %}
-        </select>
-        <button class="btn btn-primary" type="button" onclick="inviteBot()">Invitar</button>
+    <div class="initial-prompt-wrapper">
+        <img src="{{ url_for('static', filename='images/loading.gif') }}" alt="Selecciona un servidor" class="prompt-gif">
+        <p class="prompt-text">Selecciona un servidor o añade uno</p>
     </div>
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
-<script>
-function inviteBot() {
-    const serverId = document.getElementById('server-select').value;
-    if (serverId && serverId !== "Elige un servidor...") {
-        const permissions = 8; // Administrador
-        const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id={{ client_id }}&guild_id=${serverId}&permissions=${permissions}&scope=bot%20applications.commands`;
-        window.open(inviteUrl, '_blank');
-    }
-}
-</script>
 {% endblock %}
