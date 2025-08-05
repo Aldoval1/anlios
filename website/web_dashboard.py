@@ -12,6 +12,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 import redis
 import time
 import uuid
+from datetime import datetime
 
 # --- CONFIGURACIÓN INICIAL ---
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -41,6 +42,11 @@ REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_CODES_KEY = "premium_codes"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
+
+# --- FILTRO DE PLANTILLA PARA FECHAS ---
+@app.template_filter('timestamp_to_date')
+def timestamp_to_date(s):
+    return datetime.fromtimestamp(s).strftime('%Y-%m-%d %H:%M:%S UTC')
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
 def load_data_from_redis(key: str, default_value):
@@ -167,13 +173,15 @@ def select_page(guild_id, page):
                     duration = all_codes.pop(code)
                     save_data_to_redis(REDIS_CODES_KEY, all_codes)
                     subs = load_data_from_redis(REDIS_SUBSCRIPTIONS_KEY, {})
-                    user_id = session.get('user', {}).get('id')
+                    user = session.get('user', {})
+                    user_id = user.get('id')
+                    user_name = user.get('username', 'N/A')
                     if not user_id:
                         flash("Error: No se pudo obtener tu ID de usuario.", "error")
                         return redirect(url_for('select_page', guild_id=guild_id, page=page))
                     current_expiry = subs.get(str(guild_id), {}).get('expires_at', time.time())
                     new_expiry = max(current_expiry, time.time()) + duration
-                    subs[str(guild_id)] = {'expires_at': new_expiry, 'user_id': user_id}
+                    subs[str(guild_id)] = {'expires_at': new_expiry, 'user_id': user_id, 'user_name': user_name}
                     save_data_to_redis(REDIS_SUBSCRIPTIONS_KEY, subs)
                     command = {'command': 'assign_premium_role', 'user_id': user_id, 'guild_id': 1400202989549129928, 'role_id': 1401935354575065158}
                     if redis_client: redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
