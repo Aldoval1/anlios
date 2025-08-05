@@ -21,7 +21,11 @@ load_dotenv(dotenv_path=env_path)
 
 # --- CONSTANTES ---
 CLIENT_ID, CLIENT_SECRET, BOT_TOKEN = os.getenv('DISCORD_CLIENT_ID'), os.getenv('DISCORD_CLIENT_SECRET'), os.getenv('DISCORD_BOT_TOKEN')
-REDIRECT_URI = 'http://127.0.0.1:5000/callback'
+
+# URL de Redirección Dinámica
+DOMAIN = os.getenv('DOMAIN_URL', 'http://127.0.0.1:5000')
+REDIRECT_URI = f'{DOMAIN}/callback'
+
 API_BASE_URL = 'https://discord.com/api'
 AUTHORIZATION_BASE_URL, TOKEN_URL = f'{API_BASE_URL}/oauth2/authorize', f'{API_BASE_URL}/oauth2/token'
 SCOPES = ['identify', 'guilds']
@@ -94,8 +98,12 @@ def login():
 def callback():
     if request.values.get('error'): return request.values['error']
     discord = OAuth2Session(CLIENT_ID, state=session.get('oauth2_state'), redirect_uri=REDIRECT_URI)
-    secure_url = request.url.replace('http://', 'https://', 1)
-    token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=secure_url)
+    
+    token_url_to_use = request.url
+    if DOMAIN.startswith('http://'):
+        token_url_to_use = request.url.replace('http://', 'https://', 1)
+
+    token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=token_url_to_use)
     session['discord_token'] = token
     return redirect(url_for('dashboard_home'))
 @app.route("/logout")
@@ -132,30 +140,53 @@ def select_page(guild_id, page):
     if 'discord_token' not in session: return redirect(url_for('login'))
     
     if request.method == 'POST':
-        app.logger.info(f"--- POST request received for page '{page}' ---")
-        form_type = request.form.get('form_type')
-        app.logger.info(f"Form type: {form_type}")
-        
-        if form_type == 'toggle_module':
-            module_name = request.form.get('module_name')
-            is_enabled = 'enabled' in request.form
-            app.logger.info(f"Toggling module '{module_name}' for guild {guild_id}. New state: {is_enabled}")
+        save_status = 'success'
+        try:
+            form_type = request.form.get('form_type')
+            if form_type == 'toggle_module':
+                module_name = request.form.get('module_name')
+                is_enabled = 'enabled' in request.form
+                config = load_module_config()
+                if str(guild_id) not in config: config[str(guild_id)] = {}
+                if 'modules' not in config[str(guild_id)]: config[str(guild_id)]['modules'] = {}
+                config[str(guild_id)]['modules'][module_name] = is_enabled
+                save_module_config(config)
             
-            config = load_module_config()
-            if str(guild_id) not in config: config[str(guild_id)] = {}
-            if 'modules' not in config[str(guild_id)]: config[str(guild_id)]['modules'] = {}
-            config[str(guild_id)]['modules'][module_name] = is_enabled
-            
-            app.logger.info(f"Saving new module config: {config}")
-            save_module_config(config)
-            app.logger.info("Module config saved.")
-        
-        # ... (resto de la lógica POST) ...
-        
-        return redirect(url_for('select_page', guild_id=guild_id, page=page))
+            if page == 'modules':
+                knowledge = load_knowledge(guild_id)
+                if form_type == 'config':
+                    current_config = load_embed_config(guild_id)
+                    for embed_type in ['panel', 'welcome']:
+                        for key in current_config[embed_type]:
+                            current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}')
+                    current_config['ai_prompt'] = request.form.get('ai_prompt')
+                    save_embed_config(guild_id, current_config)
+                elif form_type == 'knowledge_add':
+                    if text := request.form.get('new_knowledge'): knowledge.append(text)
+                elif form_type == 'knowledge_delete':
+                    if (index := request.form.get('item_index')) and 0 <= int(index) < len(knowledge): knowledge.pop(int(index))
+                elif form_type == 'knowledge_web':
+                    if url := request.form.get('web_url'):
+                        page_req = requests.get(url, timeout=5)
+                        soup = BeautifulSoup(page_req.content, 'html.parser')
+                        knowledge.append(f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}")
+                elif form_type == 'knowledge_youtube':
+                    if url := request.form.get('youtube_url'):
+                        video_id = url.split('v=')[1].split('&')[0]
+                        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+                        text = ' '.join([t['text'] for t in transcript])
+                        knowledge.append(f"Transcripción de YouTube {url}:\n{text}")
+                elif form_type == 'knowledge_pdf':
+                    if 'pdf_file' in request.files and (file := request.files['pdf_file']).filename != '':
+                        reader = PyPDF2.PdfReader(file.stream)
+                        text = ''.join(page.extract_text() for page in reader.pages)
+                        knowledge.append(f"Contenido del PDF {file.filename}:\n{text}")
+                save_knowledge(guild_id, knowledge)
+        except Exception as e:
+            app.logger.error(f"Error saving form: {e}")
+            save_status = 'error'
+        return redirect(url_for('select_page', guild_id=guild_id, page=page, save=save_status))
 
-    # --- Lógica GET con logging ---
-    app.logger.info(f"--- GET request for page '{page}' ---")
     with open(BOT_GUILDS_FILE, 'r') as f: bot_guild_ids = json.load(f)
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
@@ -174,10 +205,7 @@ def select_page(guild_id, page):
 
     if page == 'modules':
         module_config = load_module_config()
-        app.logger.info(f"Loaded module config: {module_config}")
-        module_status = module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False)
-        app.logger.info(f"Module status for guild {guild_id} is: {module_status}")
-        render_data['module_status'] = module_status
+        render_data['module_status'] = module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False)
         
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
         channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/channels', headers=bot_headers)
