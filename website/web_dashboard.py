@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 from requests_oauthlib import OAuth2Session
 from oauthlib.oauth2 import TokenExpiredError
 import os
@@ -10,6 +10,8 @@ from bs4 import BeautifulSoup
 import PyPDF2
 from youtube_transcript_api import YouTubeTranscriptApi
 import redis
+import time
+import uuid
 
 # --- CONFIGURACIÓN INICIAL ---
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -37,6 +39,8 @@ AUTHORIZATION_BASE_URL, TOKEN_URL = f'{API_BASE_URL}/oauth2/authorize', f'{API_B
 SCOPES = ['identify', 'guilds']
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
+REDIS_CODES_KEY = "premium_codes"
+REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
 def load_data_from_redis(key: str, default_value):
@@ -54,6 +58,13 @@ def save_data_to_redis(key: str, data):
         redis_client.set(key, json.dumps(data))
     except Exception as e:
         app.logger.error(f"Error guardando datos en Redis para la clave {key}: {e}")
+
+def get_subscription_status(guild_id: int) -> dict:
+    subs = load_data_from_redis(REDIS_SUBSCRIPTIONS_KEY, {})
+    sub_data = subs.get(str(guild_id))
+    if sub_data and sub_data.get('expires_at', 0) > time.time():
+        return {"is_premium": True, "expires_at": sub_data['expires_at']}
+    return {"is_premium": False, "expires_at": None}
 
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
@@ -99,6 +110,7 @@ def callback():
     token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=token_url_to_use)
     session['discord_token'] = token
     return redirect(url_for('dashboard_home'))
+
 @app.route("/logout")
 def logout():
     session.clear()
@@ -147,7 +159,29 @@ def select_page(guild_id, page):
                 if 'modules' not in config[str(guild_id)]: config[str(guild_id)]['modules'] = {}
                 config[str(guild_id)]['modules'][module_name] = is_enabled
                 save_module_config(config)
-            if page == 'modules':
+            
+            elif page == 'membership':
+                code = request.form.get('code', '').strip().upper()
+                all_codes = load_data_from_redis(REDIS_CODES_KEY, {})
+                if code in all_codes:
+                    duration = all_codes.pop(code)
+                    save_data_to_redis(REDIS_CODES_KEY, all_codes)
+                    subs = load_data_from_redis(REDIS_SUBSCRIPTIONS_KEY, {})
+                    user_id = session.get('user', {}).get('id')
+                    if not user_id:
+                        flash("Error: No se pudo obtener tu ID de usuario.", "error")
+                        return redirect(url_for('select_page', guild_id=guild_id, page=page))
+                    current_expiry = subs.get(str(guild_id), {}).get('expires_at', time.time())
+                    new_expiry = max(current_expiry, time.time()) + duration
+                    subs[str(guild_id)] = {'expires_at': new_expiry, 'user_id': user_id}
+                    save_data_to_redis(REDIS_SUBSCRIPTIONS_KEY, subs)
+                    command = {'command': 'assign_premium_role', 'user_id': user_id, 'guild_id': 1400202989549129928, 'role_id': 1401935354575065158}
+                    if redis_client: redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
+                    flash("¡Código canjeado con éxito!", "success")
+                else:
+                    flash("El código no es válido o ya ha sido utilizado.", "error")
+
+            elif page == 'modules':
                 knowledge = load_knowledge(guild_id)
                 if form_type == 'config':
                     current_config = load_embed_config(guild_id)
@@ -187,7 +221,7 @@ def select_page(guild_id, page):
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
     user_guilds = guilds_response.json()
     guilds_with_bot = [g for g in user_guilds if isinstance(g, dict) and int(g['id']) in bot_guild_ids and (g.get('permissions', 0) & 0x8) == 0x8]
-    template_map = { "modules": "module_ticket_ia.html", "membership": "under_construction.html", "data": "under_construction.html", "customization": "under_construction.html", "settings": "under_construction.html" }
+    template_map = { "modules": "module_ticket_ia.html", "membership": "membership.html", "data": "under_construction.html", "customization": "under_construction.html", "settings": "under_construction.html" }
     template_to_render = template_map.get(page)
     render_data = { "user": session['user'], "guilds_with_bot": guilds_with_bot, "active_guild_id": guild_id, "page": page }
     if page == 'modules':
@@ -198,18 +232,17 @@ def select_page(guild_id, page):
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
         render_data['embed_config'] = load_embed_config(guild_id)
         render_data['knowledge_base'] = load_knowledge(guild_id)
+    elif page == 'membership':
+        render_data['subscription'] = get_subscription_status(guild_id)
     return render_template(template_to_render, **render_data)
 
 @app.route("/dashboard/<int:guild_id>/send_panel", methods=['POST'])
 def send_panel(guild_id):
     if 'discord_token' not in session: return redirect(url_for('login'))
     if not redis_client: return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
-    
     channel_id = int(request.form.get('channel_id'))
     command = {'command': 'send_panel', 'guild_id': guild_id, 'channel_id': channel_id}
-    
     redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
-    
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
 if __name__ == "__main__":
