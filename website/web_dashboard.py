@@ -35,8 +35,8 @@ REDIRECT_URI = f'{DOMAIN}/callback'
 API_BASE_URL = 'https://discord.com/api'
 AUTHORIZATION_BASE_URL, TOKEN_URL = f'{API_BASE_URL}/oauth2/authorize', f'{API_BASE_URL}/oauth2/token'
 SCOPES = ['identify', 'guilds']
-COMMAND_QUEUE_FILE = os.path.join(os.path.dirname(__file__), '..', 'command_queue.json')
 REDIS_GUILDS_KEY = "bot_guilds_list"
+REDIS_COMMAND_QUEUE_KEY = "command_queue"
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
 def load_data_from_redis(key: str, default_value):
@@ -123,7 +123,6 @@ def dashboard_home():
         admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (g.get('permissions', 0) & 0x8) == 0x8]
         guilds_with_bot = [g for g in admin_guilds if int(g['id']) in bot_guild_ids]
         
-        # --- CORRECCIÓN: Redirección Automática ---
         if guilds_with_bot:
             first_guild_id = guilds_with_bot[0]['id']
             return redirect(url_for('select_page', guild_id=first_guild_id, page='modules'))
@@ -204,13 +203,13 @@ def select_page(guild_id, page):
 @app.route("/dashboard/<int:guild_id>/send_panel", methods=['POST'])
 def send_panel(guild_id):
     if 'discord_token' not in session: return redirect(url_for('login'))
+    if not redis_client: return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
+    
     channel_id = int(request.form.get('channel_id'))
     command = {'command': 'send_panel', 'guild_id': guild_id, 'channel_id': channel_id}
-    try:
-        with open(COMMAND_QUEUE_FILE, 'r+') as f:
-            queue = json.load(f); queue.append(command); f.seek(0); json.dump(queue, f, indent=4)
-    except (FileNotFoundError, json.JSONDecodeError):
-        with open(COMMAND_QUEUE_FILE, 'w') as f: json.dump([command], f, indent=4)
+    
+    redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
+    
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
 if __name__ == "__main__":
