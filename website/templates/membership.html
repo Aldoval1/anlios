@@ -1,0 +1,51 @@
+{% extends "dashboard.html" %}
+{% block title %}Membresía Premium{% endblock %}
+
+{% block dashboard_content %}
+    <h1>Membresía Premium</h1>
+    <p>Gestiona el estado de tu suscripción y desbloquea funciones exclusivas.</p>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5>Estado Actual</h5>
+                </div>
+                <div class="card-body">
+                    {% if subscription.is_premium %}
+                        <p class="fs-5" style="color: #28a745;">¡Este servidor es Premium!</p>
+                        <p>Tu acceso expira el: <span class="fw-bold">{{ subscription.expires_at|timestamp_to_date }}</span></p>
+                    {% else %}
+                        <p class="fs-5" style="color: #ffc107;">Este servidor no tiene una suscripción activa.</p>
+                        <p>¡Canjea un código para desbloquear todo el potencial de Anlios Bot!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5>Canjear Código</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="code" class="form-label">Introduce tu código premium:</label>
+                            <input type="text" class="form-control" id="code" name="code" required>
+                        </div>
+                        <button type="submit" class="btn btn-info w-100">Canjear</button>
+                    </form>
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} mt-3" style="font-family: 'Roboto', sans-serif; font-size: 0.9rem;">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
