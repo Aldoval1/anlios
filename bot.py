@@ -55,6 +55,7 @@ def save_data_to_redis(key: str, data):
         print(f"Error guardando datos en Redis para la clave {key}: {e}")
 
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
+def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
 def load_embed_config(guild_id: int) -> dict:
     default_config = {
         'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
@@ -147,11 +148,29 @@ async def check_command_queue():
             guild_id, user_id, role_id = command_data.get('guild_id'), command_data.get('user_id'), command_data.get('role_id')
             guild = bot.get_guild(guild_id)
             if not guild: return
-            member = await guild.fetch_member(user_id)
-            role = guild.get_role(role_id)
-            if member and role:
-                await member.add_roles(role, reason="Código premium canjeado")
-                print(f"Rol premium asignado a {member.name} en {guild.name}.")
+            try:
+                member = await guild.fetch_member(user_id)
+                role = guild.get_role(role_id)
+                if member and role:
+                    await member.add_roles(role, reason="Código premium canjeado")
+                    print(f"Rol premium asignado a {member.name} en {guild.name}.")
+            except Exception as e:
+                print(f"[TAREA] ERROR al asignar rol: {e}")
+
+        elif command == 'remove_premium_role':
+            guild_id, user_id, role_id = command_data.get('guild_id'), command_data.get('user_id'), command_data.get('role_id')
+            guild = bot.get_guild(guild_id)
+            if not guild: return
+            try:
+                member = await guild.fetch_member(user_id)
+                role = guild.get_role(role_id)
+                if member and role and role in member.roles:
+                    await member.remove_roles(role, reason="Suscripción premium revocada/expirada")
+                    print(f"Rol premium eliminado de {member.name} en {guild.name}.")
+            except discord.NotFound:
+                print(f"[TAREA] Usuario {user_id} no encontrado al intentar quitar rol.")
+            except Exception as e:
+                print(f"[TAREA] ERROR al quitar rol: {e}")
 
     except Exception as e: print(f"[TAREA] ERROR: {e}")
 
