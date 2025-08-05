@@ -28,10 +28,10 @@ if GEMINI_API_KEY:
 else:
     print("⚠️ ADVERTENCIA: No se encontró la clave de API de Gemini.")
 
-# --- Nombres de archivos y claves de Redis ---
-COMMAND_QUEUE_FILE = 'command_queue.json' # Para órdenes simples, el archivo sigue siendo viable
+# --- Nombres de Claves de Redis ---
 CLAIMED_TAG = "[RECLAMADO]"
 REDIS_GUILDS_KEY = "bot_guilds_list"
+REDIS_COMMAND_QUEUE_KEY = "command_queue"
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
 def load_data_from_redis(key: str, default_value):
@@ -121,27 +121,26 @@ class TicketCreateView(discord.ui.View):
 @tasks.loop(seconds=5.0)
 async def check_command_queue():
     await bot.wait_until_ready()
-    if not os.path.exists(COMMAND_QUEUE_FILE): return
-    module_config = load_module_config()
-    lock = asyncio.Lock()
-    async with lock:
-        try:
-            with open(COMMAND_QUEUE_FILE, 'r+') as f:
-                queue = json.load(f)
-                if not queue: return
-                command_data = queue.pop(0)
-                if command_data.get('command') == 'send_panel':
-                    guild_id, channel_id = command_data.get('guild_id'), command_data.get('channel_id')
-                    if not module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False):
-                        return
-                    guild, channel = bot.get_guild(guild_id), bot.get_channel(channel_id)
-                    if guild and isinstance(channel, discord.TextChannel):
-                        panel_config = load_embed_config(guild_id).get('panel', {})
-                        panel_embed = build_embed_from_config(panel_config)
-                        view = TicketCreateView(button_label=panel_config.get('button_label', 'Crear Ticket'))
-                        await channel.send(embed=panel_embed, view=view)
-                f.seek(0); json.dump(queue, f, indent=4); f.truncate()
-        except Exception as e: print(f"[TAREA] ERROR: {e}")
+    if not redis_client: return
+    
+    try:
+        command_json = redis_client.rpop(REDIS_COMMAND_QUEUE_KEY)
+        if not command_json: return
+        
+        command_data = json.loads(command_json)
+        module_config = load_module_config()
+        
+        if command_data.get('command') == 'send_panel':
+            guild_id, channel_id = command_data.get('guild_id'), command_data.get('channel_id')
+            if not module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False):
+                return
+            guild, channel = bot.get_guild(guild_id), bot.get_channel(channel_id)
+            if guild and isinstance(channel, discord.TextChannel):
+                panel_config = load_embed_config(guild_id).get('panel', {})
+                panel_embed = build_embed_from_config(panel_config)
+                view = TicketCreateView(button_label=panel_config.get('button_label', 'Crear Ticket'))
+                await channel.send(embed=panel_embed, view=view)
+    except Exception as e: print(f"[TAREA] ERROR: {e}")
 
 # --- EVENTOS DEL BOT ---
 @bot.event
