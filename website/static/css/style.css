@@ -286,3 +286,44 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
     font-size: 0.75rem;
     color: #c7c9cb !important;
 }
+
+/* --- Estilos para la Vista Inicial del Dashboard --- */
+.initial-prompt-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    text-align: center;
+}
+
+.prompt-gif {
+    width: 150px; /* Ajusta el tamaño del gif según necesites */
+    height: auto;
+    margin-bottom: 20px;
+}
+
+.prompt-text {
+    font-size: 1.2rem;
+    color: #ff8282;
+}
+
+/* --- Ajuste para el botón de añadir servidor --- */
+.sidebar .btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 1.2rem; /* Hace el '+' un poco más grande */
+    line-height: 1.5;
+}
+
+/* --- Estilo para el contenido del Modal --- */
+.modal-content {
+    background-color: #330000;
+    border: 2px solid #ff4141;
+    color: #fbebeb;
+}
+.modal-header, .modal-footer {
+    border-color: #ff4141;
+}
+.modal-body p {
+    font-family: 'Roboto', sans-serif;
+}
