@@ -122,6 +122,12 @@ def dashboard_home():
         user_guilds = guilds_response.json()
         admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (g.get('permissions', 0) & 0x8) == 0x8]
         guilds_with_bot = [g for g in admin_guilds if int(g['id']) in bot_guild_ids]
+        
+        # --- CORRECCIÓN: Redirección Automática ---
+        if guilds_with_bot:
+            first_guild_id = guilds_with_bot[0]['id']
+            return redirect(url_for('select_page', guild_id=first_guild_id, page='modules'))
+
         guilds_without_bot = [g for g in admin_guilds if int(g['id']) not in bot_guild_ids]
         return render_template("select_server.html", user=session['user'], guilds_with_bot=guilds_with_bot, guilds_without_bot=guilds_without_bot, client_id=CLIENT_ID, active_guild_id=None)
     except TokenExpiredError:
