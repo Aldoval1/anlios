@@ -30,7 +30,12 @@ except Exception as e:
 
 # --- CONSTANTES ---
 CLIENT_ID, CLIENT_SECRET, BOT_TOKEN = os.getenv('DISCORD_CLIENT_ID'), os.getenv('DISCORD_CLIENT_SECRET'), os.getenv('DISCORD_BOT_TOKEN')
-REDIRECT_URI = 'http://127.0.0.1:5000/callback' # Esto se debe cambiar por la URL de producción
+
+# --- CORRECCIÓN: URL de Redirección Dinámica ---
+# Usa la variable de entorno DOMAIN_URL en producción, si no, usa localhost.
+DOMAIN = os.getenv('DOMAIN_URL', 'http://127.0.0.1:5000')
+REDIRECT_URI = f'{DOMAIN}/callback'
+
 API_BASE_URL = 'https://discord.com/api'
 AUTHORIZATION_BASE_URL, TOKEN_URL = f'{API_BASE_URL}/oauth2/authorize', f'{API_BASE_URL}/oauth2/token'
 SCOPES = ['identify', 'guilds']
@@ -94,8 +99,13 @@ def login():
 def callback():
     if request.values.get('error'): return request.values['error']
     discord = OAuth2Session(CLIENT_ID, state=session.get('oauth2_state'), redirect_uri=REDIRECT_URI)
-    secure_url = request.url.replace('http://', 'https://', 1)
-    token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=secure_url)
+    
+    # No es necesario reemplazar http por https cuando se usa un dominio de producción
+    token_url_to_use = request.url
+    if DOMAIN.startswith('http://'):
+        token_url_to_use = request.url.replace('http://', 'https://', 1)
+
+    token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=token_url_to_use)
     session['discord_token'] = token
     return redirect(url_for('dashboard_home'))
 @app.route("/logout")
