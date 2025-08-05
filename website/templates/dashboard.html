@@ -2,29 +2,26 @@
 
 {% block body_content %}
 <div class="dashboard-wrapper">
-    <!-- Menú Lateral -->
     <aside class="sidebar">
-        <!-- Selector de Servidor -->
-        <div class="mb-4">
+        <div class="mb-4 d-flex align-items-center">
             <select class="form-select" onchange="if (this.value) window.location.href=this.value;">
                 <option selected disabled>Seleccionar Servidor...</option>
                 {% for guild in guilds_with_bot %}
-                <option value="{{ url_for('select_page', guild_id=guild.id, page='modules') }}" {% if guild.id == active_guild_id|string %}selected{% endif %}>
+                <option value="{{ url_for('select_page', guild_id=guild.id, page='modules') }}" {% if guild.id == active_guild_id %}selected{% endif %}>
                     {{ guild.name }}
                 </option>
                 {% endfor %}
             </select>
+            <button class="btn btn-primary ms-2" type="button" data-bs-toggle="modal" data-bs-target="#inviteBotModal" title="Añadir bot a un servidor">+</button>
         </div>
 
         {% if active_guild_id %}
-        <!-- Menú de Cuenta -->
         <div class="menu-category">Cuenta</div>
         <nav class="nav flex-column">
             <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='membership') }}">Membresía</a>
             <a class="nav-link {% if page == 'data' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='data') }}">Eliminación de datos</a>
         </nav>
 
-        <!-- Menú de Módulos con Desplegable -->
         <div class="menu-category">Módulos</div>
         <nav class="nav flex-column">
             <a class="nav-link nav-link-collapse {% if page == 'modules' %}active{% endif %}" data-bs-toggle="collapse" href="#ticket-submenu" role="button" aria-expanded="true">
@@ -38,7 +35,6 @@
             </div>
         </nav>
 
-        <!-- Menú del Bot -->
         <div class="menu-category">Bot</div>
         <nav class="nav flex-column">
             <a class="nav-link {% if page == 'customization' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='customization') }}">Personalización</a>
@@ -46,7 +42,6 @@
         </nav>
         {% endif %}
 
-        <!-- Info de Usuario y Logout -->
         <div class="user-info">
             <img src="{{ user.avatar_url }}" alt="Avatar">
             <span class="username">{{ user.username }}</span>
@@ -55,17 +50,14 @@
     </aside>
 
     <div class="content-wrapper">
-        <!-- Barra Superior -->
         <header class="topbar">
             <div class="logo">Anlios</div>
         </header>
 
-        <!-- Contenido Principal -->
         <main class="main-content">
             {% block dashboard_content %}{% endblock %}
         </main>
 
-        <!-- Pie de Página -->
         <footer class="page-footer">
             <div class="footer-links">
                 <a href="#">Documentación</a>
@@ -80,4 +72,44 @@
         </footer>
     </div>
 </div>
+
+<div class="modal fade" id="inviteBotModal" tabindex="-1" aria-labelledby="inviteBotModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="inviteBotModalLabel">Invitar Anlios Bot a un Servidor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Selecciona un servidor donde tengas permisos de administrador para añadir a Anlios.</p>
+        <select class="form-select" id="server-invite-select">
+            <option selected disabled>Elige un servidor...</option>
+            {% for guild in guilds_without_bot %}
+            <option value="{{ guild.id }}">{{ guild.name }}</option>
+            {% endfor %}
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="inviteBot()">Invitar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function inviteBot() {
+    const serverId = document.getElementById('server-invite-select').value;
+    if (serverId && serverId !== "Elige un servidor...") {
+        const permissions = 8; // Administrador
+        const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id={{ client_id }}&guild_id=${serverId}&permissions=${permissions}&scope=bot%20applications.commands`;
+        window.open(inviteUrl, '_blank');
+    } else {
+        alert("Por favor, elige un servidor de la lista.");
+    }
+}
+</script>
 {% endblock %}
