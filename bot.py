@@ -6,12 +6,14 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import asyncio
 import redis
+import time
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
 intents = discord.Intents.default()
 intents.guilds = True
 intents.message_content = True
+intents.members = True # Requerido para buscar miembros y asignar/quitar roles
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- CONFIGURACIÓN DE REDIS ---
@@ -28,10 +30,12 @@ if GEMINI_API_KEY:
 else:
     print("⚠️ ADVERTENCIA: No se encontró la clave de API de Gemini.")
 
-# --- Nombres de Claves de Redis ---
+# --- Nombres de Claves de Redis y Constantes ---
 CLAIMED_TAG = "[RECLAMADO]"
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
+REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
+REDIS_CODES_KEY = "premium_codes"
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
 def load_data_from_redis(key: str, default_value):
@@ -61,7 +65,6 @@ def load_embed_config(guild_id: int) -> dict:
 def load_module_config() -> dict: return load_data_from_redis("module_config", {})
 
 def update_guilds_in_redis():
-    """Actualiza la lista de servidores del bot en Redis."""
     if not redis_client: return
     print("Actualizando la lista de servidores en Redis...")
     guild_ids = [guild.id for guild in bot.guilds]
@@ -117,30 +120,67 @@ class TicketCreateView(discord.ui.View):
         await ticket_channel.send(embed=welcome_embed, view=TicketActionsView())
         await interaction.followup.send(f"✅ ¡Ticket creado! Ve a {ticket_channel.mention} para continuar.", ephemeral=True)
 
-# --- TAREA EN SEGUNDO PLANO ---
+# --- TAREAS EN SEGUNDO PLANO ---
 @tasks.loop(seconds=5.0)
 async def check_command_queue():
     await bot.wait_until_ready()
     if not redis_client: return
-    
     try:
         command_json = redis_client.rpop(REDIS_COMMAND_QUEUE_KEY)
         if not command_json: return
         
         command_data = json.loads(command_json)
+        command = command_data.get('command')
         module_config = load_module_config()
         
-        if command_data.get('command') == 'send_panel':
+        if command == 'send_panel':
             guild_id, channel_id = command_data.get('guild_id'), command_data.get('channel_id')
-            if not module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False):
-                return
+            if not module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False): return
             guild, channel = bot.get_guild(guild_id), bot.get_channel(channel_id)
             if guild and isinstance(channel, discord.TextChannel):
                 panel_config = load_embed_config(guild_id).get('panel', {})
                 panel_embed = build_embed_from_config(panel_config)
                 view = TicketCreateView(button_label=panel_config.get('button_label', 'Crear Ticket'))
                 await channel.send(embed=panel_embed, view=view)
+        
+        elif command == 'assign_premium_role':
+            guild_id, user_id, role_id = command_data.get('guild_id'), command_data.get('user_id'), command_data.get('role_id')
+            guild = bot.get_guild(guild_id)
+            if not guild: return
+            member = await guild.fetch_member(user_id)
+            role = guild.get_role(role_id)
+            if member and role:
+                await member.add_roles(role, reason="Código premium canjeado")
+                print(f"Rol premium asignado a {member.name} en {guild.name}.")
+
     except Exception as e: print(f"[TAREA] ERROR: {e}")
+
+@tasks.loop(hours=1)
+async def check_expired_subscriptions():
+    await bot.wait_until_ready()
+    if not redis_client: return
+    print("[TAREA DE SUSCRIPCIÓN] Verificando suscripciones expiradas...")
+    all_subscriptions = load_data_from_redis(REDIS_SUBSCRIPTIONS_KEY, {})
+    current_time = time.time()
+    for guild_id_str, sub_data in list(all_subscriptions.items()):
+        if sub_data.get('expires_at', 0) < current_time:
+            print(f"Suscripción expirada para el servidor {guild_id_str}.")
+            guild_id, user_id, role_id = int(guild_id_str), sub_data.get('user_id'), 1401935354575065158
+            guild = bot.get_guild(guild_id)
+            if not guild:
+                del all_subscriptions[guild_id_str]
+                continue
+            try:
+                member = await guild.fetch_member(user_id)
+                role = guild.get_role(role_id)
+                if member and role and role in member.roles:
+                    await member.remove_roles(role, reason="Suscripción premium expirada")
+                    print(f"  -> Rol premium eliminado de {member.name} en {guild.name}.")
+            except Exception as e:
+                print(f"  -> ERROR al quitar rol: {e}")
+            del all_subscriptions[guild_id_str]
+    save_data_to_redis(REDIS_SUBSCRIPTIONS_KEY, all_subscriptions)
+    print("[TAREA DE SUSCRIPCIÓN] Verificación completada.")
 
 # --- EVENTOS DEL BOT ---
 @bot.event
@@ -149,6 +189,7 @@ async def on_ready():
     bot.add_view(TicketActionsView())
     update_guilds_in_redis()
     check_command_queue.start()
+    check_expired_subscriptions.start()
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
