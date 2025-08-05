@@ -5,7 +5,6 @@ import json
 import google.generativeai as genai
 from dotenv import load_dotenv
 import asyncio
-import redis
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
@@ -14,55 +13,56 @@ intents.guilds = True
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- CONFIGURACIÓN DE REDIS ---
-try:
-    # Railway y otros proveedores de hosting proporcionan la URL de conexión en una variable de entorno
-    redis_client = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
-    print("Conexión con Redis establecida.")
-except Exception as e:
-    print(f"ERROR: No se pudo conectar a Redis. Asegúrate de que REDIS_URL está en tus variables de entorno. Error: {e}")
-    redis_client = None
-
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 else:
     print("⚠️ ADVERTENCIA: No se encontró la clave de API de Gemini.")
 
-# --- Nombres de archivos y claves ---
-BOT_GUILDS_FILE = 'bot_guilds.json' # Se mantiene como archivo para comunicación simple con la web
+# --- Nombres de archivos ---
+BOT_GUILDS_FILE = 'bot_guilds.json'
 COMMAND_QUEUE_FILE = 'command_queue.json'
+MODULE_CONFIG_FILE = 'module_config.json'
 CLAIMED_TAG = "[RECLAMADO]"
 
-# --- FUNCIONES AUXILIARES CON REDIS ---
-def load_data_from_redis(key: str, default_value):
-    if not redis_client: return default_value
-    try:
-        data = redis_client.get(key)
-        return json.loads(data) if data else default_value
-    except Exception as e:
-        print(f"Error cargando datos de Redis para la clave {key}: {e}")
-        return default_value
+# --- FUNCIONES AUXILIARES ---
+def load_module_config() -> dict:
+    if not os.path.exists(MODULE_CONFIG_FILE): return {}
+    with open(MODULE_CONFIG_FILE, 'r') as f: return json.load(f)
 
-def save_data_to_redis(key: str, data):
-    if not redis_client: return
+def get_knowledge_path(guild_id: int) -> str: return f"knowledge_{guild_id}.json"
+def load_knowledge(guild_id: int) -> list:
+    path = get_knowledge_path(guild_id)
+    if not os.path.exists(path): return []
     try:
-        redis_client.set(key, json.dumps(data))
-    except Exception as e:
-        print(f"Error guardando datos en Redis para la clave {key}: {e}")
-
-# Funciones de alto nivel que usan Redis
-def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
+        with open(path, 'r', encoding='utf-8') as f: return json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError): return []
+def save_knowledge(guild_id: int, data: list):
+    path = get_knowledge_path(guild_id)
+    with open(path, 'w', encoding='utf-8') as f: json.dump(data, f, indent=4, ensure_ascii=False)
+def get_embed_config_path(guild_id: int) -> str: return f"embed_config_{guild_id}.json"
 def load_embed_config(guild_id: int) -> dict:
+    path = get_embed_config_path(guild_id)
     default_config = {
         'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'welcome': {'title': '¡Bienvenido, {user}!', 'description': 'Un asistente te atenderá pronto.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
-        'ai_prompt': "Eres Anlios, un amigable y servicial asistente de IA..."
+        'ai_prompt': "Eres Anlios, un amigable y servicial asistente de IA para este servidor de Discord. Tu propósito es ayudar a los usuarios y responder sus preguntas. Para preguntas específicas sobre el servidor, consulta la siguiente 'Base de Conocimientos'. Si la respuesta no está ahí, indícalo amablemente sin inventar información. Para preguntas generales o conversacionales (como 'hola', 'cómo estás', o 'quién eres'), responde de forma natural y amigable.\n\n--- BASE DE CONOCIMIENTOS ---\n{knowledge}"
     }
-    return load_data_from_redis(f"embed_config:{guild_id}", default_config)
-def load_module_config() -> dict: return load_data_from_redis("module_config", {})
+    if not os.path.exists(path): return default_config
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            for embed_type in ['panel', 'welcome']:
+                for key, value in default_config[embed_type].items():
+                    if key not in config.get(embed_type, {}):
+                        if embed_type not in config: config[embed_type] = {}
+                        config[embed_type][key] = value
+            if 'ai_prompt' not in config: config['ai_prompt'] = default_config['ai_prompt']
+            return config
+    except (json.JSONDecodeError, FileNotFoundError): return default_config
 
 def update_guilds_file():
+    print("Actualizando el archivo de servidores...")
     guild_ids = [guild.id for guild in bot.guilds]
     with open(BOT_GUILDS_FILE, 'w') as f: json.dump(guild_ids, f)
     print(f"El bot está ahora en {len(guild_ids)} servidores.")
@@ -101,6 +101,7 @@ class TicketCreateView(discord.ui.View):
         create_button = discord.ui.Button(label=button_label, style=discord.ButtonStyle.primary, custom_id="persistent_view:create_ticket")
         create_button.callback = self.create_ticket_button_callback
         self.add_item(create_button)
+
     async def create_ticket_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         ticket_channel_name = f"ticket-{interaction.user.name}"
@@ -164,8 +165,11 @@ async def on_guild_remove(guild: discord.Guild):
 async def on_message(message: discord.Message):
     await bot.process_commands(message)
     if message.author.bot or not message.channel.name.startswith('ticket-'): return
+    
     module_config = load_module_config()
-    if not module_config.get(str(message.guild.id), {}).get('modules', {}).get('ticket_ia', False): return
+    if not module_config.get(str(message.guild.id), {}).get('modules', {}).get('ticket_ia', False):
+        return
+
     if message.channel.topic and CLAIMED_TAG in message.channel.topic: return
     if not GEMINI_API_KEY: return
     
