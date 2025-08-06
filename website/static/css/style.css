@@ -19,81 +19,46 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
 
 /* --- Estructura de Páginas y Transición --- */
 .page-section {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    visibility: hidden;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    opacity: 0; visibility: hidden;
     transition: opacity 0.5s ease-in-out, visibility 0.5s;
 }
-.page-section.active {
-    opacity: 1;
-    visibility: visible;
-}
+.page-section.active { opacity: 1; visibility: visible; }
 #animation-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: #000;
-    z-index: 5000;
-    opacity: 0;
-    visibility: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #000; z-index: 5000;
+    opacity: 0; visibility: hidden;
+    display: flex; justify-content: center; align-items: center;
     transition: opacity 0.4s ease-in-out;
 }
-#animation-overlay.visible {
-    opacity: 1;
-    visibility: visible;
-}
+#animation-overlay.visible { opacity: 1; visibility: visible; }
 #animated-mustache {
-    position: absolute;
-    transform-origin: center center;
+    position: absolute; transform-origin: center center;
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    display: none; /* Oculto hasta que se activa */
+    display: none;
 }
 
 /* --- Estructura Landing Page --- */
 .landing-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 40px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 40px;
 }
 .landing-box {
-    text-align: center;
-    padding: 40px;
-    background-color: #330000;
-    border: 4px solid #ff4141;
-    margin-bottom: 40px;
+    text-align: center; padding: 40px;
+    background-color: #330000; border: 4px solid #ff4141; margin-bottom: 40px;
 }
 .landing-icon {
-    width: 180px;
-    height: auto;
-    margin-bottom: 10px;
-    animation: float-animation 4s ease-in-out infinite;
-    cursor: pointer;
+    width: 180px; height: auto; margin-bottom: 10px;
+    animation: float-animation 4s ease-in-out infinite; cursor: pointer;
 }
-.click-me-prompt {
-    color: #ff8282;
-    font-size: 0.7rem;
-    margin-top: -10px;
-    margin-bottom: 20px;
-}
+.click-me-prompt { color: #ff8282; font-size: 0.7rem; margin-top: -10px; margin-bottom: 20px; }
 .stats-container { display: flex; gap: 40px; text-align: center; margin-bottom: 40px; }
 .stat-item .stat-value { font-size: 2rem; color: #ff4141; }
 .stat-item .stat-label { font-size: 0.8rem; color: #ff8282; }
 
 /* --- Estructura Principal del Dashboard --- */
-.dashboard-wrapper { display: flex; min-height: 100vh; }
-.content-wrapper { display: flex; flex-direction: column; width: calc(100% - 260px); }
+.dashboard-wrapper { display: flex; height: 100vh; }
+.content-wrapper { display: flex; flex-direction: column; flex-grow: 1; }
 .topbar { height: 70px; background-color: #330000; border-bottom: 4px solid #ff4141; display: flex; align-items: center; padding: 0 40px; flex-shrink: 0; }
 .topbar .logo { font-size: 1.5rem; color: #ff4141; text-shadow: 2px 2px #000; }
 .sidebar { width: 260px; background-color: #330000; padding: 20px; border-right: 4px solid #ff4141; box-shadow: 5px 0px 15px rgba(255, 0, 0, 0.2); display: flex; flex-direction: column; flex-shrink: 0; }
@@ -104,8 +69,20 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
 .sidebar .user-info img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ff4141; margin-right: 10px; }
 
 /* --- Contenido Principal y Pie de Página --- */
-.main-content { flex-grow: 1; padding: 40px; overflow-y: auto; }
-.page-footer { padding: 20px 40px; background-color: #330000; border-top: 4px solid #ff4141; flex-shrink: 0; text-align: center; }
+.main-content {
+    flex-grow: 1;
+    padding: 40px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.page-footer {
+    padding: 20px 40px;
+    background-color: #330000;
+    border-top: 4px solid #ff4141;
+    flex-shrink: 0;
+    text-align: center;
+}
 .page-footer .footer-links a { color: #ffb3b3; text-decoration: none; margin: 0 15px; font-size: 0.8rem; }
 
 /* --- Formularios y Tarjetas --- */
@@ -118,92 +95,39 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
 .nav-pills .nav-link { background-color: #4d0000; color: #ffb3b3; border: 2px solid transparent; border-radius: 0; font-size: 0.7rem; padding: 5px 10px;}
 .nav-pills .nav-link.active { background-color: #ff4141; color: #1a0000; border-color: #ff4141; }
 
-/* --- Estilos para la Demo (Sandbox) --- */
-#demo-page {
-    display: flex;
-    background-color: #1a0000;
-}
-.demo-sidebar {
-    width: 400px;
-    background-color: #330000;
-    border-right: 4px solid #ff4141;
-    padding: 20px;
+/* --- Estilos para la Vista Inicial del Dashboard --- */
+.initial-prompt-wrapper {
     display: flex;
     flex-direction: column;
-}
-.sidebar-header {
-    display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
+    flex-grow: 1; /* Hace que ocupe todo el espacio vertical disponible */
+    text-align: center;
+}
+.prompt-gif {
+    width: 150px;
+    height: auto;
     margin-bottom: 20px;
 }
-.sidebar-header h2 { font-size: 1.2rem; }
-.sidebar-content {
-    flex-grow: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-}
-.sidebar-content .card, .sidebar-content .form-control {
-    font-family: 'Roboto', sans-serif;
-    font-size: 0.9rem;
-}
-.demo-main-content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    background-color: #36393f; /* Color de fondo de Discord */
-}
-.discord-channel-header {
-    padding: 10px 20px;
-    border-bottom: 1px solid rgba(0,0,0,0.2);
-    color: #fff;
-    font-weight: 500;
-    font-family: 'Roboto', sans-serif;
-}
-.discord-chat-area {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-.discord-message {
-    display: flex;
-    gap: 20px;
-    font-family: 'Roboto', sans-serif;
-}
-.discord-message-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-}
-.discord-message-content .username {
+.prompt-text {
+    font-size: 1.2rem;
     color: #ff8282;
-    font-weight: 500;
-    margin-bottom: 4px;
 }
-.discord-message-content .text {
-    color: #dcddde;
-    line-height: 1.4;
-    white-space: pre-wrap;
-}
-.discord-input-bar {
-    padding: 20px;
-    background-color: #40444b;
-    display: flex;
-    gap: 10px;
-}
-.discord-input-bar input {
-    flex-grow: 1;
-    background-color: #36393f;
-    border: none;
-    border-radius: 5px;
-    color: #fff;
-    padding: 10px;
-    font-family: 'Roboto', sans-serif;
-}
-.discord-input-bar input::placeholder {
-    color: #72767d;
-}
+
+/* --- Estilos para la Demo (Sandbox) --- */
+#demo-page { display: flex; background-color: #1a0000; }
+.demo-sidebar { width: 400px; background-color: #330000; border-right: 4px solid #ff4141; padding: 20px; display: flex; flex-direction: column; }
+.sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.sidebar-header h2 { font-size: 1.2rem; }
+.sidebar-content { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.sidebar-content .card, .sidebar-content .form-control { font-family: 'Roboto', sans-serif; font-size: 0.9rem; }
+.demo-main-content { flex-grow: 1; display: flex; flex-direction: column; background-color: #36393f; }
+.discord-channel-header { padding: 10px 20px; border-bottom: 1px solid rgba(0,0,0,0.2); color: #fff; font-weight: 500; font-family: 'Roboto', sans-serif; }
+.discord-chat-area { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 1rem; }
+.discord-message { display: flex; gap: 20px; font-family: 'Roboto', sans-serif; }
+.discord-message-avatar { width: 40px; height: 40px; border-radius: 50%; }
+.discord-message-content .username { color: #ff8282; font-weight: 500; margin-bottom: 4px; }
+.discord-message-content .text { color: #dcddde; line-height: 1.4; white-space: pre-wrap; }
+.discord-input-bar { padding: 20px; background-color: #40444b; display: flex; gap: 10px; }
+.discord-input-bar input { flex-grow: 1; background-color: #36393f; border: none; border-radius: 5px; color: #fff; padding: 10px; font-family: 'Roboto', sans-serif; }
+.discord-input-bar input::placeholder { color: #72767d; }
