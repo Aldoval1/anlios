@@ -22,30 +22,29 @@
         <div class="menu-category">Cuenta</div>
         <nav class="nav flex-column">
             <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='membership') }}">Membresía</a>
-            <a class="nav-link {% if page == 'data' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='data') }}">Eliminación de datos</a>
         </nav>
 
         <!-- Menú de Módulos con Desplegable -->
         <div class="menu-category">Módulos</div>
         <nav class="nav flex-column">
-            <a class="nav-link nav-link-collapse {% if page == 'modules' %}active{% endif %}" data-bs-toggle="collapse" href="#ticket-submenu" role="button" aria-expanded="true">
-                Ticket I.A
-            </a>
+            <div class="nav-link-with-switch">
+                <a class="nav-link nav-link-collapse {% if page == 'modules' %}active{% endif %}" data-bs-toggle="collapse" href="#ticket-submenu" role="button" aria-expanded="true">
+                    Ticket I.A
+                </a>
+                <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
+                    <input type="hidden" name="action" value="toggle_module">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" name="enabled" {% if module_status %}checked{% endif %} onchange="this.form.submit()">
+                    </div>
+                </form>
+            </div>
             <div class="collapse show" id="ticket-submenu">
                 <div class="sub-menu">
                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#embeds-section">Editor de Embeds</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#personality-section">Personalidad IA</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#knowledge-section">Base de Conocimiento</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#config-section">Configuración</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#ai-section">IA y Conocimiento</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#configs-section">Configuración</a>
                 </div>
             </div>
-        </nav>
-
-        <!-- Menú del Bot -->
-        <div class="menu-category">Bot</div>
-        <nav class="nav flex-column">
-            <a class="nav-link {% if page == 'customization' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='customization') }}">Personalización</a>
-            <a class="nav-link {% if page == 'settings' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='settings') }}">Ajustes</a>
         </nav>
         {% endif %}
 
