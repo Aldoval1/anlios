@@ -2,6 +2,12 @@
 {% block title %}Módulo: Ticket I.A{% endblock %}
 
 {% block dashboard_content %}
+    {% if not module_status %}
+    <div class="text-center p-5" style="background-color: #330000; border: 2px solid #ff8282;">
+        <h3>Módulo Deshabilitado</h3>
+        <p>Activa el interruptor en la barra lateral para empezar a configurar.</p>
+    </div>
+    {% else %}
     <form method="POST" id="main-config-form" enctype="multipart/form-data">
         <div class="row g-5">
             <!-- Columna Izquierda: Formularios de Configuración -->
@@ -69,9 +75,10 @@
                                     <span class="me-2 text-truncate">{{ item }}</span>
                                     <button type="submit" name="action" value="knowledge_delete_{{ loop.index0 }}" class="btn btn-danger btn-sm py-0 px-2" title="Eliminar">&times;</button>
                                 </li>
-                                {% else %}
-                                <li class="list-group-item text-muted">La base de conocimientos está vacía.</li>
                                 {% endfor %}
+                                {% if not knowledge_base %}
+                                <li class="list-group-item text-muted">La base de conocimientos está vacía.</li>
+                                {% endif %}
                             </ul>
                             <hr>
                             <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
@@ -96,7 +103,7 @@
                     <hr class="border-danger">
                     <div class="card mt-4 shadow-sm">
                         <div class="card-body">
-                            <p class="text-muted small">Haz doble clic en un rol para añadirlo a la lista de administradores de tickets.</p>
+                            <p class="text-muted small">Haz doble clic en un rol para añadirlo o quitarlo de la lista de administradores de tickets.</p>
                             <div id="role-list-container">
                                 {% for role in roles %}
                                     <div class="role-item" data-role-id="{{ role.id }}" data-role-name="{{ role.name }}">{{ role.name }}</div>
@@ -109,36 +116,36 @@
                 </section>
 
                 <button type="submit" name="action" value="save_all" class="btn btn-success w-100 btn-lg">Guardar Toda la Configuración</button>
-            </form>
-        </div>
-        <!-- Columna Derecha: Vista Previa y Acciones -->
-        <div class="col-md-5">
-            <div class="sticky-top" style="top: 2rem;">
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header"><h5 class="mb-0">Publicar Panel de Tickets</h5></div>
-                    <div class="card-body">
-                        <p class="small text-muted">Elige un canal para enviar el panel.</p>
-                        <form action="{{ url_for('send_panel', guild_id=active_guild_id) }}" method="POST">
-                            <div class="input-group"><select class="form-select" name="channel_id" required><option value="" disabled selected>Selecciona un canal...</option>{% for channel in channels %}<option value="{{ channel.id }}">#{{ channel.name }}</option>{% endfor %}</select><button class="btn btn-primary" type="submit">Enviar</button></div>
-                        </form>
+            </div>
+            <!-- Columna Derecha: Vista Previa y Acciones -->
+            <div class="col-md-5">
+                <div class="sticky-top" style="top: 2rem;">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header"><h5 class="mb-0">Publicar Panel de Tickets</h5></div>
+                        <div class="card-body">
+                            <p class="small text-muted">Elige un canal para enviar el panel.</p>
+                            <form action="{{ url_for('send_panel', guild_id=active_guild_id) }}" method="POST">
+                                <div class="input-group"><select class="form-select" name="channel_id" required><option value="" disabled selected>Selecciona un canal...</option>{% for channel in channels %}<option value="{{ channel.id }}">#{{ channel.name }}</option>{% endfor %}</select><button class="btn btn-primary" type="submit">Enviar</button></div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-                <div class="card shadow-sm">
-                    <div class="card-header"><h5 class="mb-0">Vista Previa</h5></div>
-                    <div class="card-body" style="background-color: #36393f; padding: 20px;">
-                        <div class="discord-chat-message">
-                            <img src="{{ url_for('static', filename='images/favicon.png') }}" class="discord-avatar">
-                            <div>
-                                <span class="discord-username">Anlios Bot</span>
-                                <div id="panel-preview" class="discord-embed">
-                                    <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
-                                    <div class="embed-image-container"><img class="embed-image" src=""></div>
-                                    <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
-                                </div>
-                                <div id="welcome-preview" class="discord-embed" style="display:none;">
-                                     <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
-                                     <div class="embed-image-container"><img class="embed-image" src=""></div>
-                                     <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
+                    <div class="card shadow-sm">
+                        <div class="card-header"><h5 class="mb-0">Vista Previa</h5></div>
+                        <div class="card-body" style="background-color: #36393f; padding: 20px;">
+                            <div class="discord-chat-message">
+                                <img src="{{ url_for('static', filename='images/favicon.png') }}" class="discord-avatar">
+                                <div>
+                                    <span class="discord-username">Anlios Bot</span>
+                                    <div id="panel-preview" class="discord-embed">
+                                        <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
+                                        <div class="embed-image-container"><img class="embed-image" src=""></div>
+                                        <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
+                                    </div>
+                                    <div id="welcome-preview" class="discord-embed" style="display:none;">
+                                         <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
+                                         <div class="embed-image-container"><img class="embed-image" src=""></div>
+                                         <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -146,12 +153,7 @@
                 </div>
             </div>
         </div>
-    </div>
-    {% else %}
-    <div class="text-center p-5" style="background-color: #330000; border: 2px solid #ff8282;">
-        <h3>Módulo Deshabilitado</h3>
-        <p>Activa el interruptor en la barra lateral para empezar a configurar.</p>
-    </div>
+    </form>
     {% endif %}
 {% endblock %}
 
