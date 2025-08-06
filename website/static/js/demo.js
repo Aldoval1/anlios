@@ -32,44 +32,48 @@ document.addEventListener('DOMContentLoaded', () => {
         animatedMustache.style.height = `${rect.height}px`;
         animatedMustache.style.top = `${rect.top}px`;
         animatedMustache.style.left = `${rect.left}px`;
-        animatedMustache.style.display = 'block';
         animatedMustache.style.transform = 'scale(1)';
+        animatedMustache.style.display = 'block';
 
-        // 2. Mostrar la capa de superposición negra
+        // 2. Mostrar la capa de superposición y ocultar la página de inicio
         overlay.classList.add('visible');
+        landingPage.classList.remove('active');
 
-        // 3. Animar el bigote y desvanecer la página de inicio
+        // 3. Animar el bigote
         setTimeout(() => {
             const scale = window.innerWidth / rect.width * 1.5;
             animatedMustache.style.transform = `scale(${scale})`;
-            landingPage.classList.remove('active');
-        }, 50); // Pequeño retraso para asegurar que las transiciones se apliquen
+        }, 50);
 
-        // 4. Cuando la animación termina, mostrar la página de la demo
+        // 4. Cuando la animación del bigote termina, mostrar la demo y desvanecer la capa negra
         setTimeout(() => {
             demoPage.classList.add('active');
+            overlay.style.opacity = '0'; // Empezar a desvanecer la capa
             if (!sessionStorage.getItem('demoWelcomed')) {
                 showWelcomeMessage();
                 sessionStorage.setItem('demoWelcomed', 'true');
             }
-        }, 600); // Duración de la animación del bigote + un poco más
+        }, 600); // Duración de la animación del bigote
+
+        // 5. Limpiar la capa de superposición después de que se desvanezca
+        setTimeout(() => {
+            overlay.classList.remove('visible');
+            overlay.style.opacity = '1'; // Resetear para la próxima vez
+            animatedMustache.style.display = 'none';
+        }, 1100); // 600ms (espera) + 500ms (desvanecimiento)
     });
 
     exitDemoBtn.addEventListener('click', () => {
-        // 1. Ocultar la demo y empezar a desvanecer la capa negra
+        // 1. Ocultar la demo
         demoPage.classList.remove('active');
-        overlay.style.opacity = '0';
         
         // 2. Limpiar todo
         resetDemo();
         
-        // 3. Cuando la transición termina, ocultar la capa y el bigote animado
+        // 3. Mostrar la página de inicio después de que la demo se desvanezca
         setTimeout(() => {
-            overlay.classList.remove('visible');
-            overlay.style.opacity = '1'; // Reset para la próxima vez
-            animatedMustache.style.display = 'none';
             landingPage.classList.add('active');
-        }, 500);
+        }, 500); // Coincide con la duración de la transición de la página
     });
 
     function resetDemo() {
