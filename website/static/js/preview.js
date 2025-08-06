@@ -1,66 +1,82 @@
+document.addEventListener('DOMContentLoaded', () => {
+    // Escuchar cambios en las pestañas para alternar la vista previa
+    const embedTabs = document.querySelectorAll('#embedTabs button');
+    embedTabs.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', event => {
+            const targetId = event.target.getAttribute('data-bs-target');
+            const panelPreview = document.getElementById('panel-preview');
+            const welcomePreview = document.getElementById('welcome-preview');
+
+            if (targetId === '#panel-editor') {
+                panelPreview.style.display = 'block';
+                welcomePreview.style.display = 'none';
+            } else if (targetId === '#welcome-editor') {
+                panelPreview.style.display = 'none';
+                welcomePreview.style.display = 'block';
+            }
+            updatePreview();
+        });
+    });
+
+    // Llamada inicial para asegurar que la vista previa esté correcta al cargar
+    updatePreview();
+});
+
 function updatePreview() {
-    // Helper function to set content and visibility
+    const activeTab = document.querySelector('#embedTabs .nav-link.active');
+    if (!activeTab) return;
+    
+    const prefix = activeTab.id.includes('panel') ? 'panel' : 'welcome';
+    const preview = document.getElementById(`${prefix}-preview`);
+
+    // --- Helper para establecer contenido y visibilidad ---
     const setElement = (element, content, property = 'textContent') => {
-        const hasContent = content && content.trim() !== '';
-        element.style.display = hasContent ? (property === 'src' ? 'block' : 'initial') : 'none';
+        if (!element) return;
+        const hasContent = content && String(content).trim() !== '';
+        // El contenedor del elemento (p.ej. el div del autor) se oculta si no hay contenido
+        const parentContainer = element.parentElement;
+        if (parentContainer && parentContainer.classList.contains('embed-author')) {
+             const nameEl = parentContainer.querySelector('.embed-author-name');
+             const iconEl = parentContainer.querySelector('.embed-author-icon');
+             const hasName = nameEl ? nameEl.textContent.trim() !== '' : false;
+             const hasIcon = iconEl ? iconEl.src.trim() !== '' && !iconEl.src.endsWith('/') : false;
+             parentContainer.style.display = (hasName || hasIcon) ? 'flex' : 'none';
+        } else if (parentContainer && parentContainer.classList.contains('embed-footer')) {
+            const textEl = parentContainer.querySelector('.embed-footer-text');
+            const iconEl = parentContainer.querySelector('.embed-footer-icon');
+            const hasText = textEl ? textEl.textContent.trim() !== '' : false;
+            const hasIcon = iconEl ? iconEl.src.trim() !== '' && !iconEl.src.endsWith('/') : false;
+            parentContainer.style.display = (hasText || hasIcon) ? 'flex' : 'none';
+        } else {
+             element.style.display = hasContent ? 'block' : 'none';
+        }
+        
         if (hasContent) {
-            element[property] = content;
+            if (property === 'src' && element.tagName === 'IMG') {
+                element.src = content;
+            } else {
+                element[property] = content;
+            }
         }
     };
 
-    // Helper function to update a full embed preview
-    const updateEmbed = (prefix) => {
-        const preview = document.getElementById(`${prefix}-preview`);
-        
-        // Color
-        const color = document.getElementById(`${prefix}_color`).value;
-        preview.style.borderColor = color;
+    // --- Actualizar campos del embed ---
+    const color = document.getElementById(`${prefix}_color`).value;
+    preview.style.borderColor = color;
 
-        // Author
-        const authorName = document.getElementById(`${prefix}_author_name`).value;
-        const authorIcon = document.getElementById(`${prefix}_author_icon`).value;
-        const authorContainer = preview.querySelector('.author');
-        setElement(authorContainer, authorName || authorIcon, 'style.display');
-        if (authorName || authorIcon) {
-            authorContainer.style.display = 'flex';
-            setElement(authorContainer.querySelector('.author-name'), authorName);
-            setElement(authorContainer.querySelector('.author-icon'), authorIcon, 'src');
-        }
+    setElement(preview.querySelector('.embed-author-name'), document.getElementById(`${prefix}_author_name`).value);
+    setElement(preview.querySelector('.embed-author-icon'), document.getElementById(`${prefix}_author_icon`).value, 'src');
 
-        // Title
-        let title = document.getElementById(`${prefix}_title`).value;
-        if (prefix === 'welcome') {
-            title = title.replace('{user}', 'UsuarioEjemplo');
-        }
-        setElement(preview.querySelector('.title'), title);
+    let title = document.getElementById(`${prefix}_title`).value;
+    if (prefix === 'welcome') {
+        title = title.replace('{user}', 'UsuarioEjemplo');
+    }
+    setElement(preview.querySelector('.embed-title'), title);
 
-        // Description
-        const description = document.getElementById(`${prefix}_description`).value;
-        setElement(preview.querySelector('.description'), description);
-
-        // Thumbnail
-        const thumbnail = document.getElementById(`${prefix}_thumbnail`).value;
-        setElement(preview.querySelector('.thumbnail'), thumbnail, 'src');
-        
-        // Main Image
-        const image = document.getElementById(`${prefix}_image`).value;
-        setElement(preview.querySelector('.main-image'), image, 'src');
-
-        // Footer
-        const footerText = document.getElementById(`${prefix}_footer_text`).value;
-        const footerIcon = document.getElementById(`${prefix}_footer_icon`).value;
-        const footerContainer = preview.querySelector('.footer');
-        setElement(footerContainer, footerText || footerIcon, 'style.display');
-        if (footerText || footerIcon) {
-            footerContainer.style.display = 'flex';
-            setElement(footerContainer.querySelector('.footer-text'), footerText);
-            setElement(footerContainer.querySelector('.footer-icon'), footerIcon, 'src');
-        }
-    };
-
-    updateEmbed('panel');
-    updateEmbed('welcome');
+    setElement(preview.querySelector('.embed-description'), document.getElementById(`${prefix}_description`).value);
+    setElement(preview.querySelector('.embed-thumbnail'), document.getElementById(`${prefix}_thumbnail`).value, 'src');
+    setElement(preview.querySelector('.embed-image'), document.getElementById(`${prefix}_image`).value, 'src');
+    
+    setElement(preview.querySelector('.embed-footer-text'), document.getElementById(`${prefix}_footer_text`).value);
+    setElement(preview.querySelector('.embed-footer-icon'), document.getElementById(`${prefix}_footer_icon`).value, 'src');
 }
-
-// Llama a la función una vez al cargar la página para inicializar la vista previa
-document.addEventListener('DOMContentLoaded', updatePreview);
