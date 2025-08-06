@@ -36,6 +36,7 @@ REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 REDIS_CODES_KEY = "premium_codes"
+PREMIUM_ROLE_ID = 1401935354575065158 # ID del rol premium
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
 def load_data_from_redis(key: str, default_value):
@@ -53,6 +54,10 @@ def save_data_to_redis(key: str, data):
         redis_client.set(key, json.dumps(data))
     except Exception as e:
         print(f"Error guardando datos en Redis para la clave {key}: {e}")
+
+def load_ticket_config(guild_id: int) -> dict:
+    default_config = {'admin_roles': []}
+    return load_data_from_redis(f"ticket_config:{guild_id}", default_config)
 
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
@@ -73,7 +78,8 @@ def update_guilds_in_redis():
     print(f"El bot está ahora en {len(guild_ids)} servidores. Lista actualizada en Redis.")
 
 def build_embed_from_config(config: dict, user: discord.Member = None) -> discord.Embed:
-    color = int(config.get('color', '#000000').lstrip('#'), 16)
+    color_str = config.get('color', '#000000').lstrip('#')
+    color = int(color_str, 16) if color_str else 0
     title = config.get('title', '')
     if user: title = title.replace('{user}', user.display_name)
     embed = discord.Embed(title=title, description=config.get('description', ''), color=color)
@@ -86,16 +92,27 @@ def build_embed_from_config(config: dict, user: discord.Member = None) -> discor
 # --- VISTAS DE BOTONES ---
 class TicketActionsView(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
+    
+    async def check_permissions(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.guild_permissions.manage_channels: return True
+        ticket_config = load_ticket_config(interaction.guild.id)
+        admin_role_ids = set(ticket_config.get('admin_roles', []))
+        user_role_ids = {role.id for role in interaction.user.roles}
+        return not admin_role_ids.isdisjoint(user_role_ids)
+
     @discord.ui.button(label="Reclamar Ticket", style=discord.ButtonStyle.primary, custom_id="ticket_actions:claim")
     async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.manage_channels:
+        if not await self.check_permissions(interaction):
             return await interaction.response.send_message("❌ No tienes permisos para reclamar este ticket.", ephemeral=True)
         button.disabled = True
         await interaction.response.edit_message(view=self)
         await interaction.channel.edit(topic=f"{interaction.channel.topic} {CLAIMED_TAG}")
         await interaction.channel.send(f"✅ Ticket reclamado por **{interaction.user.display_name}**. El asistente de IA ha sido desactivado.")
+
     @discord.ui.button(label="Cerrar Ticket", style=discord.ButtonStyle.danger, custom_id="ticket_actions:close")
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self.check_permissions(interaction):
+            return await interaction.response.send_message("❌ No tienes permisos para cerrar este ticket.", ephemeral=True)
         await interaction.response.send_message("✅ **Ticket cerrado.** Este canal se eliminará en 5 segundos.")
         await asyncio.sleep(5)
         await interaction.channel.delete(reason=f"Ticket cerrado por {interaction.user}")
@@ -106,6 +123,7 @@ class TicketCreateView(discord.ui.View):
         create_button = discord.ui.Button(label=button_label, style=discord.ButtonStyle.primary, custom_id="persistent_view:create_ticket")
         create_button.callback = self.create_ticket_button_callback
         self.add_item(create_button)
+
     async def create_ticket_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         ticket_channel_name = f"ticket-{interaction.user.name}"
@@ -114,7 +132,15 @@ class TicketCreateView(discord.ui.View):
                 return await interaction.followup.send("⚠️ ¡Ya tienes un ticket abierto!", ephemeral=True)
         category = discord.utils.get(interaction.guild.categories, name="Tickets")
         if category is None: category = await interaction.guild.create_category("Tickets")
-        overwrites = { interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False), interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True), interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True) }
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+            interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        }
+        ticket_config = load_ticket_config(interaction.guild.id)
+        for role_id in ticket_config.get('admin_roles', []):
+            role = interaction.guild.get_role(role_id)
+            if role: overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
         ticket_channel = await interaction.guild.create_text_channel(name=ticket_channel_name, category=category, overwrites=overwrites, topic=f"Ticket de {interaction.user.id}")
         welcome_config = load_embed_config(interaction.guild.id).get('welcome', {})
         welcome_embed = build_embed_from_config(welcome_config, user=interaction.user)
@@ -129,14 +155,11 @@ async def check_command_queue():
     try:
         command_json = redis_client.rpop(REDIS_COMMAND_QUEUE_KEY)
         if not command_json: return
-        
         command_data = json.loads(command_json)
         command = command_data.get('command')
-        module_config = load_module_config()
         
         if command == 'send_panel':
             guild_id, channel_id = command_data.get('guild_id'), command_data.get('channel_id')
-            if not module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False): return
             guild, channel = bot.get_guild(guild_id), bot.get_channel(channel_id)
             if guild and isinstance(channel, discord.TextChannel):
                 panel_config = load_embed_config(guild_id).get('panel', {})
@@ -145,32 +168,26 @@ async def check_command_queue():
                 await channel.send(embed=panel_embed, view=view)
         
         elif command == 'assign_premium_role':
-            guild_id, user_id, role_id = command_data.get('guild_id'), command_data.get('user_id'), command_data.get('role_id')
+            guild_id, user_id = command_data.get('guild_id'), command_data.get('user_id')
             guild = bot.get_guild(guild_id)
             if not guild: return
             try:
                 member = await guild.fetch_member(user_id)
-                role = guild.get_role(role_id)
-                if member and role:
-                    await member.add_roles(role, reason="Código premium canjeado")
-                    print(f"Rol premium asignado a {member.name} en {guild.name}.")
-            except Exception as e:
-                print(f"[TAREA] ERROR al asignar rol: {e}")
+                role = guild.get_role(PREMIUM_ROLE_ID)
+                if member and role: await member.add_roles(role, reason="Código premium canjeado")
+            except Exception as e: print(f"[TAREA] ERROR al asignar rol: {e}")
 
         elif command == 'remove_premium_role':
-            guild_id, user_id, role_id = command_data.get('guild_id'), command_data.get('user_id'), command_data.get('role_id')
+            guild_id, user_id = command_data.get('guild_id'), command_data.get('user_id')
             guild = bot.get_guild(guild_id)
             if not guild: return
             try:
                 member = await guild.fetch_member(user_id)
-                role = guild.get_role(role_id)
+                role = guild.get_role(PREMIUM_ROLE_ID)
                 if member and role and role in member.roles:
-                    await member.remove_roles(role, reason="Suscripción premium revocada/expirada")
-                    print(f"Rol premium eliminado de {member.name} en {guild.name}.")
-            except discord.NotFound:
-                print(f"[TAREA] Usuario {user_id} no encontrado al intentar quitar rol.")
-            except Exception as e:
-                print(f"[TAREA] ERROR al quitar rol: {e}")
+                    await member.remove_roles(role, reason="Suscripción premium expirada")
+            except discord.NotFound: pass
+            except Exception as e: print(f"[TAREA] ERROR al quitar rol: {e}")
 
     except Exception as e: print(f"[TAREA] ERROR: {e}")
 
@@ -184,19 +201,8 @@ async def check_expired_subscriptions():
     for guild_id_str, sub_data in list(all_subscriptions.items()):
         if sub_data.get('expires_at', 0) < current_time:
             print(f"Suscripción expirada para el servidor {guild_id_str}.")
-            guild_id, user_id, role_id = int(guild_id_str), sub_data.get('user_id'), 1401935354575065158
-            guild = bot.get_guild(guild_id)
-            if not guild:
-                del all_subscriptions[guild_id_str]
-                continue
-            try:
-                member = await guild.fetch_member(user_id)
-                role = guild.get_role(role_id)
-                if member and role and role in member.roles:
-                    await member.remove_roles(role, reason="Suscripción premium expirada")
-                    print(f"  -> Rol premium eliminado de {member.name} en {guild.name}.")
-            except Exception as e:
-                print(f"  -> ERROR al quitar rol: {e}")
+            command = {'command': 'remove_premium_role', 'user_id': sub_data.get('user_id'), 'guild_id': int(guild_id_str)}
+            redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
             del all_subscriptions[guild_id_str]
     save_data_to_redis(REDIS_SUBSCRIPTIONS_KEY, all_subscriptions)
     print("[TAREA DE SUSCRIPCIÓN] Verificación completada.")
@@ -206,6 +212,11 @@ async def check_expired_subscriptions():
 async def on_ready():
     print(f'✅ ¡Bot conectado como {bot.user}!')
     bot.add_view(TicketActionsView())
+    guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
+    for guild_id in guild_ids:
+        config = load_embed_config(guild_id)
+        button_label = config.get('panel', {}).get('button_label', 'Crear Ticket')
+        bot.add_view(TicketCreateView(button_label=button_label))
     update_guilds_in_redis()
     check_command_queue.start()
     check_expired_subscriptions.start()
@@ -249,22 +260,16 @@ async def on_message(message: discord.Message):
             await message.reply("🤖 Ocurrió un error al contactar con la IA.")
 
 # --- COMANDOS DEL BOT ---
-@bot.command(name="añadir")
-@commands.has_permissions(administrator=True)
-async def add_knowledge(ctx: commands.Context, *, texto: str):
-    knowledge = load_knowledge(ctx.guild.id); knowledge.append(texto); save_knowledge(ctx.guild.id, knowledge)
-    await ctx.send(f"✅ Conocimiento añadido: '{texto}'")
-
 @bot.command()
 @commands.guild_only()
 @commands.is_owner()
-async def clear_commands(ctx: commands.Context):
-    await ctx.send("Limpiando todos los comandos globales...")
-    bot.tree.clear_commands(guild=None)
-    await bot.tree.sync(guild=None)
-    await ctx.send("✅ Comandos de barra (slash commands) globales limpiados.")
+async def sync(ctx: commands.Context):
+    synced = await bot.tree.sync()
+    await ctx.send(f"Sincronizados {len(synced)} comandos.")
 
 # --- EJECUCIÓN DEL BOT ---
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-if not BOT_TOKEN: print("❌ ERROR: No se encontró el token del bot.")
-else: bot.run(BOT_TOKEN)
+if not BOT_TOKEN: 
+    print("❌ ERROR: No se encontró el token del bot.")
+else: 
+    bot.run(BOT_TOKEN)
