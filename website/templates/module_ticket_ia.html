@@ -102,6 +102,24 @@
                     </div>
                 </section>
 
+                <!-- SECCIÓN 4: Configuración de Roles -->
+                <section id="config-section" class="mb-5">
+                    <h2>Configuración de Roles</h2>
+                    <hr class="border-danger">
+                    <div class="card mt-4 shadow-sm">
+                        <div class="card-body">
+                            <p class="text-muted small">Selecciona los roles que podrán gestionar y reclamar tickets. Los administradores del servidor siempre tendrán acceso.</p>
+                            <select name="admin_roles" class="form-select" multiple size="8">
+                                {% for role in roles %}
+                                    <option value="{{ role.id }}" {% if role.id in ticket_config.admin_roles %}selected{% endif %}>
+                                        {{ role.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
                 <button type="submit" class="btn btn-success w-100 btn-lg">Guardar Toda la Configuración</button>
             </form>
         </div>
