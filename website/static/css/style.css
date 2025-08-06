@@ -11,6 +11,20 @@ body {
     color: #fbebeb;
 }
 
+/* --- Animación de Flote --- */
+@keyframes float-animation {
+    0% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-15px);
+    }
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+
 /* --- FUENTE PIXELADA PARA LA INTERFAZ --- */
 body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .form-control, .page-footer, .landing-wrapper {
     font-family: 'Press Start 2P', cursive;
@@ -35,9 +49,10 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
     margin-bottom: 40px;
 }
 .landing-icon {
-    width: 100px;
+    width: 180px; /* Aumentamos el tamaño */
     height: auto;
     margin-bottom: 20px;
+    animation: float-animation 4s ease-in-out infinite; /* Aplicamos la animación */
 }
 .video-container {
     margin-bottom: 40px;
