@@ -18,92 +18,52 @@
     <div class="row g-5">
         <!-- Columna Izquierda: Formularios de Configuración -->
         <div class="col-md-7">
-            <!-- SECCIÓN 1: Editor de Embeds y Personalidad -->
-            <section id="embeds-section" class="mb-5">
-                <h2>Editor de Embeds y Personalidad</h2>
-                <hr class="border-danger">
-                <form method="POST">
-                    <input type="hidden" name="form_type" value="config">
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header">
-                            <ul class="nav nav-tabs card-header-tabs" id="embedTabs" role="tablist">
-                                <li class="nav-item" role="presentation"><button class="nav-link active" id="panel-tab" data-bs-toggle="tab" data-bs-target="#panel-editor" type="button" role="tab">Panel de Tickets</button></li>
-                                <li class="nav-item" role="presentation"><button class="nav-link" id="welcome-tab" data-bs-toggle="tab" data-bs-target="#welcome-editor" type="button" role="tab">Embed de Bienvenida</button></li>
-                                <li class="nav-item" role="presentation"><button class="nav-link" id="ai-tab" data-bs-toggle="tab" data-bs-target="#ai-editor" type="button" role="tab">Personalidad IA</button></li>
-                            </ul>
-                        </div>
-                        <div class="card-body tab-content" id="embedTabsContent">
-                            <!-- Editor del Panel de Tickets -->
-                            <div class="tab-pane fade show active" id="panel-editor" role="tabpanel">
-                                <div class="mb-3"><label class="form-label small">Texto del Botón</label><input type="text" class="form-control" id="panel_button_label" name="panel_button_label" value="{{ embed_config.panel.button_label }}" oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Título</label><input type="text" class="form-control" id="panel_title" name="panel_title" value="{{ embed_config.panel.title }}" oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Descripción</label><textarea class="form-control" id="panel_description" name="panel_description" rows="3" oninput="updatePreview()">{{ embed_config.panel.description }}</textarea></div>
-                                <div class="mb-3"><label class="form-label small">Autor</label><input type="text" class="form-control" id="panel_author_name" name="panel_author_name" value="{{ embed_config.panel.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Icono del Autor (URL)</label><input type="url" class="form-control" id="panel_author_icon" name="panel_author_icon" value="{{ embed_config.panel.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Imagen Principal (URL)</label><input type="url" class="form-control" id="panel_image" name="panel_image" value="{{ embed_config.panel.image }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Miniatura (URL)</label><input type="url" class="form-control" id="panel_thumbnail" name="panel_thumbnail" value="{{ embed_config.panel.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Pie de Página (Footer)</label><input type="text" class="form-control" id="panel_footer_text" name="panel_footer_text" value="{{ embed_config.panel.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
-                                <div class="mb-3"><label class="form-label small">Icono del Pie de Página (URL)</label><input type="url" class="form-control" id="panel_footer_icon" name="panel_footer_icon" value="{{ embed_config.panel.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Color</label><input type="color" class="form-control form-control-color" id="panel_color" name="panel_color" value="{{ embed_config.panel.color }}" oninput="updatePreview()"></div>
-                            </div>
-                            <!-- Editor del Embed de Bienvenida -->
-                            <div class="tab-pane fade" id="welcome-editor" role="tabpanel">
-                                <p class="text-muted small">Puedes usar `{user}` para mencionar al usuario.</p>
-                                <div class="mb-3"><label class="form-label small">Título</label><input type="text" class="form-control" id="welcome_title" name="welcome_title" value="{{ embed_config.welcome.title }}" oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Descripción</label><textarea class="form-control" id="welcome_description" name="welcome_description" rows="3" oninput="updatePreview()">{{ embed_config.welcome.description }}</textarea></div>
-                                <div class="mb-3"><label class="form-label small">Autor</label><input type="text" class="form-control" id="welcome_author_name" name="welcome_author_name" value="{{ embed_config.welcome.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Icono del Autor (URL)</label><input type="url" class="form-control" id="welcome_author_icon" name="welcome_author_icon" value="{{ embed_config.welcome.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Imagen Principal (URL)</label><input type="url" class="form-control" id="welcome_image" name="welcome_image" value="{{ embed_config.welcome.image }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Miniatura (URL)</label><input type="url" class="form-control" id="welcome_thumbnail" name="welcome_thumbnail" value="{{ embed_config.welcome.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Pie de Página (Footer)</label><input type="text" class="form-control" id="welcome_footer_text" name="welcome_footer_text" value="{{ embed_config.welcome.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
-                                <div class="mb-3"><label class="form-label small">Icono del Pie de Página (URL)</label><input type="url" class="form-control" id="welcome_footer_icon" name="welcome_footer_icon" value="{{ embed_config.welcome.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Color</label><input type="color" class="form-control form-control-color" id="welcome_color" name="welcome_color" value="{{ embed_config.welcome.color }}" oninput="updatePreview()"></div>
-                            </div>
-                            <!-- Editor de Personalidad IA -->
-                            <div class="tab-pane fade" id="ai-editor" role="tabpanel">
-                                <p class="text-muted small">Define la personalidad y las reglas de la IA. Usa <code>{knowledge}</code> para indicarle dónde usar la información que le proporcionas.</p>
-                                <textarea class="form-control" name="ai_prompt" rows="12">{{ embed_config.ai_prompt }}</textarea>
-                            </div>
-                        </div>
+            <form method="POST">
+                <input type="hidden" name="form_type" value="config">
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" id="embedTabs" role="tablist">
+                            <li class="nav-item" role="presentation"><button class="nav-link active" id="panel-tab" data-bs-toggle="tab" data-bs-target="#panel-editor" type="button" role="tab">Panel de Tickets</button></li>
+                            <li class="nav-item" role="presentation"><button class="nav-link" id="welcome-tab" data-bs-toggle="tab" data-bs-target="#welcome-editor" type="button" role="tab">Embed de Bienvenida</button></li>
+                            <li class="nav-item" role="presentation"><button class="nav-link" id="ai-tab" data-bs-toggle="tab" data-bs-target="#ai-editor" type="button" role="tab">Personalidad IA</button></li>
+                        </ul>
                     </div>
-                    <button type="submit" class="btn btn-success w-100 btn-lg">Guardar Configuración General</button>
-                </form>
-            </section>
-
-            <!-- SECCIÓN 2: Base de Conocimiento -->
-            <section id="knowledge-section">
-                <h2>Base de Conocimiento</h2>
-                <hr class="border-danger">
-                <div class="card mt-4 shadow-sm">
-                    <div class="card-body">
-                        <h6>Conocimiento Actual:</h6>
-                        <ul class="list-group list-group-flush mb-3" style="max-height: 200px; overflow-y: auto;">
-                            {% for item in knowledge_base %}<li class="list-group-item d-flex justify-content-between align-items-center"><span class="me-2 text-truncate">{{ item }}</span><form method="POST" class="d-inline"><input type="hidden" name="form_type" value="knowledge_delete"><input type="hidden" name="item_index" value="{{ loop.index0 }}"><button type="submit" class="btn btn-danger btn-sm py-0 px-2" title="Eliminar">&times;</button></form></li>{% else %}<li class="list-group-item text-muted">La base de conocimientos está vacía.</li>{% endfor %}
-                        </ul>
-                        <hr>
-                        <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
-                            <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab" data-bs-toggle="pill" data-bs-target="#pills-text" type="button" role="tab">Añadir Texto</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-web-tab" data-bs-toggle="pill" data-bs-target="#pills-web" type="button" role="tab">Leer Web</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-youtube-tab" data-bs-toggle="pill" data-bs-target="#pills-youtube" type="button" role="tab">YouTube</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-pdf-tab" data-bs-toggle="pill" data-bs-target="#pills-pdf" type="button" role="tab">Subir PDF</button></li>
-                        </ul>
-                        <div class="tab-content" id="pills-tabContent">
-                            <div class="tab-pane fade show active" id="pills-text" role="tabpanel">
-                                <form method="POST"><input type="hidden" name="form_type" value="knowledge_add"><div class="mb-3"><textarea class="form-control" name="new_knowledge" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div><button type="submit" class="btn btn-info w-100">Añadir Texto</button></form>
-                            </div>
-                            <div class="tab-pane fade" id="pills-web" role="tabpanel">
-                                <form method="POST"><input type="hidden" name="form_type" value="knowledge_web"><div class="input-group"><input type="url" class="form-control" name="web_url" placeholder="https://ejemplo.com" required><button type="submit" class="btn btn-info">Leer Página Web</button></div></form>
-                            </div>
-                            <div class="tab-pane fade" id="pills-youtube" role="tabpanel">
-                                <form method="POST"><input type="hidden" name="form_type" value="knowledge_youtube"><div class="input-group"><input type="url" class="form-control" name="youtube_url" placeholder="https://www.youtube.com/watch?v=..." required><button type="submit" class="btn btn-info">Transcribir Video</button></div></form>
-                            </div>
-                            <div class="tab-pane fade" id="pills-pdf" role="tabpanel">
-                                <form method="POST" enctype="multipart/form-data"><input type="hidden" name="form_type" value="knowledge_pdf"><div class="input-group"><input type="file" class="form-control" name="pdf_file" accept=".pdf" required><button type="submit" class="btn btn-info">Subir PDF</button></div></form>
-                            </div>
+                    <div class="card-body tab-content" id="embedTabsContent">
+                        <!-- Editor del Panel de Tickets -->
+                        <div class="tab-pane fade show active" id="panel-editor" role="tabpanel">
+                            <div class="mb-3"><label class="form-label small">Texto del Botón</label><input type="text" class="form-control" id="panel_button_label" name="panel_button_label" value="{{ embed_config.panel.button_label }}" oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Título</label><input type="text" class="form-control" id="panel_title" name="panel_title" value="{{ embed_config.panel.title }}" oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Descripción</label><textarea class="form-control" id="panel_description" name="panel_description" rows="3" oninput="updatePreview()">{{ embed_config.panel.description }}</textarea></div>
+                            <div class="mb-3"><label class="form-label small">Autor</label><input type="text" class="form-control" id="panel_author_name" name="panel_author_name" value="{{ embed_config.panel.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Icono del Autor (URL)</label><input type="url" class="form-control" id="panel_author_icon" name="panel_author_icon" value="{{ embed_config.panel.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Imagen Principal (URL)</label><input type="url" class="form-control" id="panel_image" name="panel_image" value="{{ embed_config.panel.image }}" placeholder="https://..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Miniatura (URL)</label><input type="url" class="form-control" id="panel_thumbnail" name="panel_thumbnail" value="{{ embed_config.panel.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Pie de Página (Footer)</label><input type="text" class="form-control" id="panel_footer_text" name="panel_footer_text" value="{{ embed_config.panel.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
+                            <div class="mb-3"><label class="form-label small">Icono del Pie de Página (URL)</label><input type="url" class="form-control" id="panel_footer_icon" name="panel_footer_icon" value="{{ embed_config.panel.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Color</label><input type="color" class="form-control form-control-color" id="panel_color" name="panel_color" value="{{ embed_config.panel.color }}" oninput="updatePreview()"></div>
+                        </div>
+                        <!-- Editor del Embed de Bienvenida -->
+                        <div class="tab-pane fade" id="welcome-editor" role="tabpanel">
+                            <p class="text-muted small">Puedes usar `{user}` para mencionar al usuario.</p>
+                            <div class="mb-3"><label class="form-label small">Título</label><input type="text" class="form-control" id="welcome_title" name="welcome_title" value="{{ embed_config.welcome.title }}" oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Descripción</label><textarea class="form-control" id="welcome_description" name="welcome_description" rows="3" oninput="updatePreview()">{{ embed_config.welcome.description }}</textarea></div>
+                            <div class="mb-3"><label class="form-label small">Autor</label><input type="text" class="form-control" id="welcome_author_name" name="welcome_author_name" value="{{ embed_config.welcome.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Icono del Autor (URL)</label><input type="url" class="form-control" id="welcome_author_icon" name="welcome_author_icon" value="{{ embed_config.welcome.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Imagen Principal (URL)</label><input type="url" class="form-control" id="welcome_image" name="welcome_image" value="{{ embed_config.welcome.image }}" placeholder="https://..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Miniatura (URL)</label><input type="url" class="form-control" id="welcome_thumbnail" name="welcome_thumbnail" value="{{ embed_config.welcome.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Pie de Página (Footer)</label><input type="text" class="form-control" id="welcome_footer_text" name="welcome_footer_text" value="{{ embed_config.welcome.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
+                            <div class="mb-3"><label class="form-label small">Icono del Pie de Página (URL)</label><input type="url" class="form-control" id="welcome_footer_icon" name="welcome_footer_icon" value="{{ embed_config.welcome.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
+                            <div class="mb-3"><label class="form-label small">Color</label><input type="color" class="form-control form-control-color" id="welcome_color" name="welcome_color" value="{{ embed_config.welcome.color }}" oninput="updatePreview()"></div>
+                        </div>
+                        <!-- Editor de Personalidad IA -->
+                        <div class="tab-pane fade" id="ai-editor" role="tabpanel">
+                            <p class="text-muted small">Define la personalidad y las reglas de la IA. Usa <code>{knowledge}</code> para indicarle dónde usar la información que le proporcionas.</p>
+                            <textarea class="form-control" name="ai_prompt" rows="12">{{ embed_config.ai_prompt }}</textarea>
                         </div>
                     </div>
                 </div>
-            </section>
+                <button type="submit" class="btn btn-success w-100 btn-lg">Guardar Configuración General</button>
+            </form>
         </div>
         <!-- Columna Derecha: Vista Previa y Acciones -->
         <div class="col-md-5">
@@ -113,41 +73,44 @@
                     <div class="card-body">
                         <p class="small text-muted">Elige un canal para enviar el panel de creación de tickets.</p>
                         <form action="{{ url_for('send_panel', guild_id=active_guild_id) }}" method="POST">
-                            <div class="input-group">
-                                <select class="form-select" name="channel_id" required><option value="" disabled selected>Selecciona un canal...</option>{% for channel in channels %}<option value="{{ channel.id }}">#{{ channel.name }}</option>{% endfor %}</select>
-                                <button class="btn btn-primary" type="submit">Enviar</button>
-                            </div>
+                            <div class="input-group"><select class="form-select" name="channel_id" required><option value="" disabled selected>Selecciona un canal...</option>{% for channel in channels %}<option value="{{ channel.id }}">#{{ channel.name }}</option>{% endfor %}</select><button class="btn btn-primary" type="submit">Enviar</button></div>
                         </form>
                     </div>
                 </div>
                 <div class="card shadow-sm">
                     <div class="card-header"><h5 class="mb-0">Vista Previa</h5></div>
-                    <div class="card-body bg-dark rounded-bottom">
-                        <div class="preview-header">Panel de Creación</div>
-                        <div id="panel-preview" class="embed-preview mb-4">
-                            <div class="author" style="display: none;"><img class="author-icon" src=""><span class="author-name"></span></div>
-                            <div class="d-flex">
-                                <div>
-                                    <div class="title" style="display: none;"></div>
-                                    <div class="description" style="display: none;"></div>
+                    <div class="card-body" style="background-color: #36393f; padding: 20px;">
+                        <div class="discord-chat-message">
+                            <img src="{{ url_for('static', filename='images/favicon.png') }}" class="discord-avatar">
+                            <div>
+                                <span class="discord-username">Anlios Bot</span>
+                                <!-- Panel Preview -->
+                                <div id="panel-preview" class="discord-embed">
+                                    <div class="embed-grid">
+                                        <div class="embed-content">
+                                            <div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div>
+                                            <div class="embed-title"></div>
+                                            <div class="embed-description"></div>
+                                        </div>
+                                        <div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div>
+                                    </div>
+                                    <div class="embed-image-container"><img class="embed-image" src=""></div>
+                                    <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
                                 </div>
-                                <img class="thumbnail ms-auto" src="" style="display: none;">
-                            </div>
-                            <img class="main-image" src="" style="display: none;">
-                            <div class="footer" style="display: none;"><img class="footer-icon" src=""><span class="footer-text"></span></div>
-                        </div>
-                        <div class="preview-header">Mensaje de Bienvenida</div>
-                        <div id="welcome-preview" class="embed-preview">
-                            <div class="author" style="display: none;"><img class="author-icon" src=""><span class="author-name"></span></div>
-                            <div class="d-flex">
-                                <div>
-                                    <div class="title" style="display: none;"></div>
-                                    <div class="description" style="display: none;"></div>
+                                <!-- Welcome Preview (se muestra/oculta con JS) -->
+                                <div id="welcome-preview" class="discord-embed" style="display:none;">
+                                     <div class="embed-grid">
+                                        <div class="embed-content">
+                                            <div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div>
+                                            <div class="embed-title"></div>
+                                            <div class="embed-description"></div>
+                                        </div>
+                                        <div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div>
+                                    </div>
+                                    <div class="embed-image-container"><img class="embed-image" src=""></div>
+                                    <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
                                 </div>
-                                <img class="thumbnail ms-auto" src="" style="display: none;">
                             </div>
-                            <img class="main-image" src="" style="display: none;">
-                            <div class="footer" style="display: none;"><img class="footer-icon" src=""><span class="footer-text"></span></div>
                         </div>
                     </div>
                 </div>
@@ -165,6 +128,5 @@
 {% block scripts %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/preview.js') }}"></script>
-<!-- NUEVO: Script para la validación de formularios -->
 <script src="{{ url_for('static', filename='js/validation.js') }}"></script>
 {% endblock %}
