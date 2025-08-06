@@ -176,12 +176,10 @@ def select_page(guild_id, page):
             action = request.form.get('action')
 
             if action == 'toggle_module':
-                module_name = request.form.get('module_name')
-                is_enabled = 'enabled' in request.form
                 config = load_module_config()
                 if guild_id_str not in config: config[guild_id_str] = {}
                 if 'modules' not in config[guild_id_str]: config[guild_id_str]['modules'] = {}
-                config[guild_id_str]['modules'][module_name] = is_enabled
+                config[guild_id_str]['modules']['ticket_ia'] = 'enabled' in request.form
                 save_module_config(config)
             else:
                 # --- Guardado Unificado ---
@@ -239,14 +237,15 @@ def select_page(guild_id, page):
     guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
     guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
 
-    template_map = { "modules": "module_ticket_ia.html", "membership": "membership.html", "data": "under_construction.html", "customization": "under_construction.html", "settings": "under_construction.html" }
-    template_to_render = template_map.get(page)
+    template_map = { "modules": "module_ticket_ia.html", "membership": "membership.html" }
+    template_to_render = template_map.get(page, "under_construction.html")
     
     render_data = { "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot, "client_id": CLIENT_ID, "active_guild_id": guild_id_str, "page": page }
     
+    module_config = load_module_config()
+    render_data['module_status'] = module_config.get(guild_id_str, {}).get('modules', {}).get('ticket_ia', False)
+
     if page == 'modules':
-        module_config = load_module_config()
-        render_data['module_status'] = module_config.get(guild_id_str, {}).get('modules', {}).get('ticket_ia', False)
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
         channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id_str}/channels', headers=bot_headers)
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
