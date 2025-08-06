@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from requests_oauthlib import OAuth2Session
 from oauthlib.oauth2 import TokenExpiredError
 import os
@@ -8,11 +8,12 @@ from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
 import PyPDF2
-from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
 import redis
 import time
 import uuid
 from datetime import datetime
+import google.generativeai as genai
 
 # --- CONFIGURACIÓN INICIAL ---
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -22,6 +23,13 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 logging.basicConfig(level=logging.INFO)
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(dotenv_path=env_path)
+
+# --- CONFIGURACIÓN DE IA DE GEMINI ---
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    app.logger.warning("No se encontró la clave de API de Gemini. La demo de chat no funcionará.")
 
 # --- CONFIGURACIÓN DE REDIS ---
 try:
@@ -99,6 +107,71 @@ def index():
     stats = { "servers": len(bot_guild_ids), "users": "1K+", "uptime": "99.9%" }
     return render_template("login.html", stats=stats)
 
+@app.route("/demo_chat", methods=['POST'])
+def demo_chat():
+    if not GEMINI_API_KEY:
+        return jsonify({'reply': 'Error: La API de IA no está configurada en el servidor.'}), 500
+
+    data = request.json
+    user_message = data.get('message')
+    ai_prompt = data.get('prompt')
+    knowledge = data.get('knowledge')
+
+    if not all([user_message, ai_prompt]):
+        return jsonify({'reply': 'Error: Faltan datos en la solicitud.'}), 400
+
+    try:
+        knowledge_text = "\n".join(f"- {item}" for item in knowledge.splitlines() if item) if knowledge else "No hay información específica proporcionada."
+        final_prompt_template = ai_prompt.replace('{knowledge}', knowledge_text)
+        final_prompt = f"{final_prompt_template}\n\n--- CONVERSACIÓN ---\nUsuario: {user_message}\nAnlios:"
+
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(final_prompt)
+        
+        return jsonify({'reply': response.text})
+    except Exception as e:
+        app.logger.error(f"Error en la API de Gemini durante la demo: {e}")
+        return jsonify({'reply': 'Ocurrió un error al procesar la respuesta de la IA.'}), 500
+
+@app.route("/demo_extract_knowledge", methods=['POST'])
+def demo_extract_knowledge():
+    source_type = request.form.get('source_type')
+    text = ""
+    try:
+        if source_type == 'web':
+            url = request.form.get('url')
+            page_req = requests.get(url, timeout=10)
+            page_req.raise_for_status()
+            soup = BeautifulSoup(page_req.content, 'html.parser')
+            text = f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}"
+        
+        elif source_type == 'youtube':
+            url = request.form.get('url')
+            if 'v=' not in url: raise ValueError("URL de YouTube no válida.")
+            video_id = url.split('v=')[1].split('&')[0]
+            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+            text = f"Transcripción de YouTube {url}:\n{' '.join([t['text'] for t in transcript])}"
+
+        elif source_type == 'pdf':
+            if 'file' not in request.files: raise ValueError("No se encontró el archivo PDF.")
+            file = request.files['file']
+            if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
+            reader = PyPDF2.PdfReader(file.stream)
+            pdf_text = ''.join(page.extract_text() for page in reader.pages)
+            text = f"Contenido del PDF {file.filename}:\n{pdf_text}"
+        
+        else:
+            return jsonify({'success': False, 'error': 'Tipo de fuente no válido.'}), 400
+        
+        return jsonify({'success': True, 'text': text})
+
+    except (NoTranscriptFound, TranscriptsDisabled):
+        return jsonify({'success': False, 'error': 'No se encontraron transcripciones o están desactivadas para este video.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error en la extracción de conocimiento para demo: {e}")
+        return jsonify({'success': False, 'error': f'Error al procesar la fuente: {e}'}), 500
+
+
 @app.route("/login")
 def login():
     discord = make_user_session()
@@ -160,7 +233,6 @@ def dashboard_home():
 def select_page(guild_id, page):
     if 'discord_token' not in session: return redirect(url_for('login'))
     
-    # Convertir guild_id a string para consistencia, ya que de la URL viene como string
     guild_id_str = str(guild_id)
 
     if request.method == 'POST':
@@ -200,14 +272,14 @@ def select_page(guild_id, page):
                     flash("El código no es válido o ya ha sido utilizado.", "error")
 
             elif page == 'modules':
-                knowledge = load_knowledge(guild_id_str)
+                knowledge = load_knowledge(int(guild_id_str))
                 if form_type == 'config':
-                    current_config = load_embed_config(guild_id_str)
+                    current_config = load_embed_config(int(guild_id_str))
                     for embed_type in ['panel', 'welcome']:
                         for key in current_config[embed_type]:
                             current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}')
                     current_config['ai_prompt'] = request.form.get('ai_prompt')
-                    save_embed_config(guild_id_str, current_config)
+                    save_embed_config(int(guild_id_str), current_config)
                 elif form_type == 'knowledge_add':
                     if text := request.form.get('new_knowledge'): knowledge.append(text)
                 elif form_type == 'knowledge_delete':
@@ -228,7 +300,7 @@ def select_page(guild_id, page):
                         reader = PyPDF2.PdfReader(file.stream)
                         text = ''.join(page.extract_text() for page in reader.pages)
                         knowledge.append(f"Contenido del PDF {file.filename}:\n{text}")
-                save_knowledge(guild_id_str, knowledge)
+                save_knowledge(int(guild_id_str), knowledge)
         except Exception as e:
             app.logger.error(f"Error saving form: {e}")
             save_status = 'error'
@@ -263,10 +335,10 @@ def select_page(guild_id, page):
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
         channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id_str}/channels', headers=bot_headers)
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
-        render_data['embed_config'] = load_embed_config(guild_id_str)
-        render_data['knowledge_base'] = load_knowledge(guild_id_str)
+        render_data['embed_config'] = load_embed_config(int(guild_id_str))
+        render_data['knowledge_base'] = load_knowledge(int(guild_id_str))
     elif page == 'membership':
-        render_data['subscription'] = get_subscription_status(guild_id_str)
+        render_data['subscription'] = get_subscription_status(int(guild_id_str))
         
     return render_template(template_to_render, **render_data)
 
