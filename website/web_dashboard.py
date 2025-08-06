@@ -54,6 +54,7 @@ REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 # --- FILTRO DE PLANTILLA PARA FECHAS ---
 @app.template_filter('timestamp_to_date')
 def timestamp_to_date(s):
+    if not s: return "N/A"
     return datetime.fromtimestamp(s).strftime('%Y-%m-%d %H:%M:%S UTC')
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
@@ -73,23 +74,31 @@ def save_data_to_redis(key: str, data):
     except Exception as e:
         app.logger.error(f"Error guardando datos en Redis para la clave {key}: {e}")
 
-def get_subscription_status(guild_id: int) -> dict:
-    subs = load_data_from_redis(REDIS_SUBSCRIPTIONS_KEY, {})
-    sub_data = subs.get(str(guild_id))
-    if sub_data and sub_data.get('expires_at', 0) > time.time():
-        return {"is_premium": True, "expires_at": sub_data['expires_at']}
-    return {"is_premium": False, "expires_at": None}
+def load_ticket_config(guild_id: int) -> dict:
+    default_config = {'admin_roles': []}
+    return load_data_from_redis(f"ticket_config:{guild_id}", default_config)
+def save_ticket_config(guild_id: int, data: dict): save_data_to_redis(f"ticket_config:{guild_id}", data)
 
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
+
 def load_embed_config(guild_id: int) -> dict:
     default_config = {
         'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'welcome': {'title': '¡Bienvenido, {user}!', 'description': 'Un asistente te atenderá pronto.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'ai_prompt': "Eres Anlios, un amigable y servicial asistente de IA..."
     }
-    return load_data_from_redis(f"embed_config:{guild_id}", default_config)
+    config = load_data_from_redis(f"embed_config:{guild_id}", {})
+    for key, value in default_config.items():
+        if key not in config:
+            config[key] = value
+        elif isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                if sub_key not in config[key]:
+                    config[key][sub_key] = sub_value
+    return config
 def save_embed_config(guild_id: int, data: dict): save_data_to_redis(f"embed_config:{guild_id}", data)
+
 def load_module_config() -> dict: return load_data_from_redis("module_config", {})
 def save_module_config(data: dict): save_data_to_redis("module_config", data)
 
@@ -107,71 +116,6 @@ def index():
     stats = { "servers": len(bot_guild_ids), "users": "1K+", "uptime": "99.9%" }
     return render_template("login.html", stats=stats)
 
-@app.route("/demo_chat", methods=['POST'])
-def demo_chat():
-    if not GEMINI_API_KEY:
-        return jsonify({'reply': 'Error: La API de IA no está configurada en el servidor.'}), 500
-
-    data = request.json
-    user_message = data.get('message')
-    ai_prompt = data.get('prompt')
-    knowledge = data.get('knowledge')
-
-    if not all([user_message, ai_prompt]):
-        return jsonify({'reply': 'Error: Faltan datos en la solicitud.'}), 400
-
-    try:
-        knowledge_text = "\n".join(f"- {item}" for item in knowledge.splitlines() if item) if knowledge else "No hay información específica proporcionada."
-        final_prompt_template = ai_prompt.replace('{knowledge}', knowledge_text)
-        final_prompt = f"{final_prompt_template}\n\n--- CONVERSACIÓN ---\nUsuario: {user_message}\nAnlios:"
-
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(final_prompt)
-        
-        return jsonify({'reply': response.text})
-    except Exception as e:
-        app.logger.error(f"Error en la API de Gemini durante la demo: {e}")
-        return jsonify({'reply': 'Ocurrió un error al procesar la respuesta de la IA.'}), 500
-
-@app.route("/demo_extract_knowledge", methods=['POST'])
-def demo_extract_knowledge():
-    source_type = request.form.get('source_type')
-    text = ""
-    try:
-        if source_type == 'web':
-            url = request.form.get('url')
-            page_req = requests.get(url, timeout=10)
-            page_req.raise_for_status()
-            soup = BeautifulSoup(page_req.content, 'html.parser')
-            text = f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}"
-        
-        elif source_type == 'youtube':
-            url = request.form.get('url')
-            if 'v=' not in url: raise ValueError("URL de YouTube no válida.")
-            video_id = url.split('v=')[1].split('&')[0]
-            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-            text = f"Transcripción de YouTube {url}:\n{' '.join([t['text'] for t in transcript])}"
-
-        elif source_type == 'pdf':
-            if 'file' not in request.files: raise ValueError("No se encontró el archivo PDF.")
-            file = request.files['file']
-            if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
-            reader = PyPDF2.PdfReader(file.stream)
-            pdf_text = ''.join(page.extract_text() for page in reader.pages)
-            text = f"Contenido del PDF {file.filename}:\n{pdf_text}"
-        
-        else:
-            return jsonify({'success': False, 'error': 'Tipo de fuente no válido.'}), 400
-        
-        return jsonify({'success': True, 'text': text})
-
-    except (NoTranscriptFound, TranscriptsDisabled):
-        return jsonify({'success': False, 'error': 'No se encontraron transcripciones o están desactivadas para este video.'}), 400
-    except Exception as e:
-        app.logger.error(f"Error en la extracción de conocimiento para demo: {e}")
-        return jsonify({'success': False, 'error': f'Error al procesar la fuente: {e}'}), 500
-
-
 @app.route("/login")
 def login():
     discord = make_user_session()
@@ -184,8 +128,7 @@ def callback():
     if request.values.get('error'): return request.values['error']
     discord = OAuth2Session(CLIENT_ID, state=session.get('oauth2_state'), redirect_uri=REDIRECT_URI)
     token_url_to_use = request.url
-    if DOMAIN.startswith('http://'):
-        token_url_to_use = request.url.replace('http://', 'https://', 1)
+    if DOMAIN.startswith('http://'): token_url_to_use = request.url.replace('http://', 'https://', 1)
     token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=token_url_to_use)
     session['discord_token'] = token
     return redirect(url_for('dashboard_home'))
@@ -203,7 +146,7 @@ def dashboard_home():
         user_response = discord.get(f'{API_BASE_URL}/users/@me')
         if user_response.status_code != 200: return redirect(url_for('logout'))
         user_data = user_response.json()
-        user_data['avatar_url'] = f"https://cdn.discordapp.com/avatars/{user_data['id']}/{user_data['avatar']}.png"
+        user_data['avatar_url'] = f"https://cdn.discordapp.com/avatars/{user_data['id']}/{user_data['avatar']}.png" if user_data.get('avatar') else "https://cdn.discordapp.com/embed/avatars/0.png"
         session['user'] = user_data
         
         guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
@@ -218,21 +161,13 @@ def dashboard_home():
         guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
         guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
         
-        return render_template("select_server.html", 
-                               user=session['user'], 
-                               guilds_with_bot=guilds_with_bot, 
-                               guilds_without_bot=guilds_without_bot, 
-                               client_id=CLIENT_ID, 
-                               active_guild_id=None,
-                               page=None)
+        return render_template("select_server.html", user=session['user'], guilds_with_bot=guilds_with_bot, guilds_without_bot=guilds_without_bot, client_id=CLIENT_ID, active_guild_id=None, page=None)
     except TokenExpiredError:
         return redirect(url_for('logout'))
-
 
 @app.route("/dashboard/<guild_id>/<page>", methods=['GET', 'POST'])
 def select_page(guild_id, page):
     if 'discord_token' not in session: return redirect(url_for('login'))
-    
     guild_id_str = str(guild_id)
 
     if request.method == 'POST':
@@ -248,58 +183,26 @@ def select_page(guild_id, page):
                 config[guild_id_str]['modules'][module_name] = is_enabled
                 save_module_config(config)
             
-            elif page == 'membership':
-                code = request.form.get('code', '').strip().upper()
-                all_codes = load_data_from_redis(REDIS_CODES_KEY, {})
-                if code in all_codes:
-                    duration = all_codes.pop(code)
-                    save_data_to_redis(REDIS_CODES_KEY, all_codes)
-                    subs = load_data_from_redis(REDIS_SUBSCRIPTIONS_KEY, {})
-                    user = session.get('user', {})
-                    user_id = user.get('id')
-                    user_name = user.get('username', 'N/A')
-                    if not user_id:
-                        flash("Error: No se pudo obtener tu ID de usuario.", "error")
-                        return redirect(url_for('select_page', guild_id=guild_id_str, page=page))
-                    current_expiry = subs.get(guild_id_str, {}).get('expires_at', time.time())
-                    new_expiry = max(current_expiry, time.time()) + duration
-                    subs[guild_id_str] = {'expires_at': new_expiry, 'user_id': user_id, 'user_name': user_name}
-                    save_data_to_redis(REDIS_SUBSCRIPTIONS_KEY, subs)
-                    command = {'command': 'assign_premium_role', 'user_id': user_id, 'guild_id': 1400202989549129928, 'role_id': 1401935354575065158}
-                    if redis_client: redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
-                    flash("¡Código canjeado con éxito!", "success")
-                else:
-                    flash("El código no es válido o ya ha sido utilizado.", "error")
+            elif form_type == 'config':
+                current_config = load_embed_config(int(guild_id_str))
+                for embed_type in ['panel', 'welcome']:
+                    for key in current_config[embed_type]:
+                        current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}')
+                current_config['ai_prompt'] = request.form.get('ai_prompt')
+                save_embed_config(int(guild_id_str), current_config)
+                
+                admin_roles = request.form.getlist('admin_roles')
+                ticket_config = load_ticket_config(int(guild_id_str))
+                ticket_config['admin_roles'] = [int(role_id) for role_id in admin_roles]
+                save_ticket_config(int(guild_id_str), ticket_config)
 
-            elif page == 'modules':
+            elif form_type == 'knowledge_add':
                 knowledge = load_knowledge(int(guild_id_str))
-                if form_type == 'config':
-                    current_config = load_embed_config(int(guild_id_str))
-                    for embed_type in ['panel', 'welcome']:
-                        for key in current_config[embed_type]:
-                            current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}')
-                    current_config['ai_prompt'] = request.form.get('ai_prompt')
-                    save_embed_config(int(guild_id_str), current_config)
-                elif form_type == 'knowledge_add':
-                    if text := request.form.get('new_knowledge'): knowledge.append(text)
-                elif form_type == 'knowledge_delete':
-                    if (index := request.form.get('item_index')) and 0 <= int(index) < len(knowledge): knowledge.pop(int(index))
-                elif form_type == 'knowledge_web':
-                    if url := request.form.get('web_url'):
-                        page_req = requests.get(url, timeout=5)
-                        soup = BeautifulSoup(page_req.content, 'html.parser')
-                        knowledge.append(f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}")
-                elif form_type == 'knowledge_youtube':
-                    if url := request.form.get('youtube_url'):
-                        video_id = url.split('v=')[1].split('&')[0]
-                        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-                        text = ' '.join([t['text'] for t in transcript])
-                        knowledge.append(f"Transcripción de YouTube {url}:\n{text}")
-                elif form_type == 'knowledge_pdf':
-                    if 'pdf_file' in request.files and (file := request.files['pdf_file']).filename != '':
-                        reader = PyPDF2.PdfReader(file.stream)
-                        text = ''.join(page.extract_text() for page in reader.pages)
-                        knowledge.append(f"Contenido del PDF {file.filename}:\n{text}")
+                if text := request.form.get('new_knowledge'): knowledge.append(text)
+                save_knowledge(int(guild_id_str), knowledge)
+            elif form_type == 'knowledge_delete':
+                knowledge = load_knowledge(int(guild_id_str))
+                if (index := request.form.get('item_index')) and 0 <= int(index) < len(knowledge): knowledge.pop(int(index))
                 save_knowledge(int(guild_id_str), knowledge)
         except Exception as e:
             app.logger.error(f"Error saving form: {e}")
@@ -320,14 +223,7 @@ def select_page(guild_id, page):
     template_map = { "modules": "module_ticket_ia.html", "membership": "membership.html", "data": "under_construction.html", "customization": "under_construction.html", "settings": "under_construction.html" }
     template_to_render = template_map.get(page)
     
-    render_data = { 
-        "user": session['user'], 
-        "guilds_with_bot": guilds_with_bot, 
-        "guilds_without_bot": guilds_without_bot,
-        "client_id": CLIENT_ID,
-        "active_guild_id": guild_id_str, 
-        "page": page 
-    }
+    render_data = { "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot, "client_id": CLIENT_ID, "active_guild_id": guild_id_str, "page": page }
     
     if page == 'modules':
         module_config = load_module_config()
@@ -335,13 +231,17 @@ def select_page(guild_id, page):
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
         channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id_str}/channels', headers=bot_headers)
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
+        roles_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id_str}/roles', headers=bot_headers)
+        if roles_response.status_code == 200:
+            all_roles = roles_response.json()
+            render_data['roles'] = [r for r in all_roles if r['name'] != '@everyone' and not r.get('tags', {}).get('bot_id')]
+        else:
+            render_data['roles'] = []
         render_data['embed_config'] = load_embed_config(int(guild_id_str))
         render_data['knowledge_base'] = load_knowledge(int(guild_id_str))
-    elif page == 'membership':
-        render_data['subscription'] = get_subscription_status(int(guild_id_str))
+        render_data['ticket_config'] = load_ticket_config(int(guild_id_str))
         
     return render_template(template_to_render, **render_data)
-
 
 @app.route("/dashboard/<guild_id>/send_panel", methods=['POST'])
 def send_panel(guild_id):
@@ -351,6 +251,54 @@ def send_panel(guild_id):
     command = {'command': 'send_panel', 'guild_id': int(guild_id), 'channel_id': channel_id}
     redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
+
+# --- RUTAS PARA LA DEMO ---
+@app.route("/demo_chat", methods=['POST'])
+def demo_chat():
+    if not GEMINI_API_KEY: return jsonify({'reply': 'Error: La API de IA no está configurada en el servidor.'}), 500
+    data = request.json
+    try:
+        knowledge_text = "\n".join(f"- {item}" for item in data['knowledge'].splitlines() if item) if data.get('knowledge') else "No hay información."
+        final_prompt = f"{data['prompt'].replace('{knowledge}', knowledge_text)}\n\n--- CONVERSACIÓN ---\nUsuario: {data['message']}\nAnlios:"
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(final_prompt)
+        return jsonify({'reply': response.text})
+    except Exception as e:
+        app.logger.error(f"Error en la API de Gemini durante la demo: {e}")
+        return jsonify({'reply': 'Ocurrió un error al procesar la respuesta de la IA.'}), 500
+
+@app.route("/demo_extract_knowledge", methods=['POST'])
+def demo_extract_knowledge():
+    source_type = request.form.get('source_type')
+    text = ""
+    try:
+        if source_type == 'web':
+            url = request.form.get('url')
+            page_req = requests.get(url, timeout=10)
+            page_req.raise_for_status()
+            soup = BeautifulSoup(page_req.content, 'html.parser')
+            text = f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}"
+        elif source_type == 'youtube':
+            url = request.form.get('url')
+            if 'v=' not in url: raise ValueError("URL de YouTube no válida.")
+            video_id = url.split('v=')[1].split('&')[0]
+            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+            text = f"Transcripción de YouTube {url}:\n{' '.join([t['text'] for t in transcript])}"
+        elif source_type == 'pdf':
+            if 'file' not in request.files: raise ValueError("No se encontró el archivo PDF.")
+            file = request.files['file']
+            if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
+            reader = PyPDF2.PdfReader(file.stream)
+            pdf_text = ''.join(page.extract_text() for page in reader.pages)
+            text = f"Contenido del PDF {file.filename}:\n{pdf_text}"
+        else:
+            return jsonify({'success': False, 'error': 'Tipo de fuente no válido.'}), 400
+        return jsonify({'success': True, 'text': text})
+    except (NoTranscriptFound, TranscriptsDisabled):
+        return jsonify({'success': False, 'error': 'No se encontraron transcripciones o están desactivadas para este video.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error en la extracción de conocimiento para demo: {e}")
+        return jsonify({'success': False, 'error': f'Error al procesar la fuente: {e}'}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
