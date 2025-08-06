@@ -173,8 +173,9 @@ def select_page(guild_id, page):
     if request.method == 'POST':
         save_status = 'success'
         try:
-            form_type = request.form.get('form_type')
-            if form_type == 'toggle_module':
+            action = request.form.get('action')
+
+            if action == 'toggle_module':
                 module_name = request.form.get('module_name')
                 is_enabled = 'enabled' in request.form
                 config = load_module_config()
@@ -182,8 +183,8 @@ def select_page(guild_id, page):
                 if 'modules' not in config[guild_id_str]: config[guild_id_str]['modules'] = {}
                 config[guild_id_str]['modules'][module_name] = is_enabled
                 save_module_config(config)
-            
-            elif form_type == 'config':
+            else:
+                # --- Guardado Unificado ---
                 current_config = load_embed_config(int(guild_id_str))
                 for embed_type in ['panel', 'welcome']:
                     for key in current_config[embed_type]:
@@ -196,14 +197,32 @@ def select_page(guild_id, page):
                 ticket_config['admin_roles'] = [int(role_id) for role_id in admin_roles]
                 save_ticket_config(int(guild_id_str), ticket_config)
 
-            elif form_type == 'knowledge_add':
                 knowledge = load_knowledge(int(guild_id_str))
-                if text := request.form.get('new_knowledge'): knowledge.append(text)
+                if action == 'knowledge_add':
+                    if text := request.form.get('new_knowledge'): knowledge.append(text)
+                elif action == 'knowledge_web':
+                    if url := request.form.get('web_url'):
+                        page_req = requests.get(url, timeout=10)
+                        soup = BeautifulSoup(page_req.content, 'html.parser')
+                        knowledge.append(f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}")
+                elif action == 'knowledge_youtube':
+                    if url := request.form.get('youtube_url'):
+                        video_id = url.split('v=')[1].split('&')[0]
+                        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+                        text = ' '.join([t['text'] for t in transcript])
+                        knowledge.append(f"Transcripción de YouTube {url}:\n{text}")
+                elif action == 'knowledge_pdf':
+                    if 'pdf_file' in request.files and (file := request.files['pdf_file']).filename != '':
+                        reader = PyPDF2.PdfReader(file.stream)
+                        text = ''.join(page.extract_text() for page in reader.pages)
+                        knowledge.append(f"Contenido del PDF {file.filename}:\n{text}")
+                elif action and action.startswith('knowledge_delete_'):
+                    index_to_delete = int(action.split('_')[-1])
+                    if 0 <= index_to_delete < len(knowledge):
+                        knowledge.pop(index_to_delete)
+                
                 save_knowledge(int(guild_id_str), knowledge)
-            elif form_type == 'knowledge_delete':
-                knowledge = load_knowledge(int(guild_id_str))
-                if (index := request.form.get('item_index')) and 0 <= int(index) < len(knowledge): knowledge.pop(int(index))
-                save_knowledge(int(guild_id_str), knowledge)
+
         except Exception as e:
             app.logger.error(f"Error saving form: {e}")
             save_status = 'error'
