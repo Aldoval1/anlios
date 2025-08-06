@@ -25,10 +25,19 @@
             <a class="nav-link {% if page == 'data' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='data') }}">Eliminación de datos</a>
         </nav>
 
-        <!-- Menú de Módulos -->
+        <!-- Menú de Módulos con Desplegable -->
         <div class="menu-category">Módulos</div>
         <nav class="nav flex-column">
-             <a class="nav-link {% if page == 'modules' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">Ticket I.A</a>
+            <a class="nav-link nav-link-collapse {% if page == 'modules' %}active{% endif %}" data-bs-toggle="collapse" href="#ticket-submenu" role="button" aria-expanded="true">
+                Ticket I.A
+            </a>
+            <div class="collapse show" id="ticket-submenu">
+                <div class="sub-menu">
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#embeds-section">Editor de Embeds</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#personality-section">Personalidad IA</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#knowledge-section">Base de Conocimiento</a>
+                </div>
+            </div>
         </nav>
 
         <!-- Menú del Bot -->
