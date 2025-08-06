@@ -5,7 +5,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Módulo: Ticket I.A</h1>
         <form method="POST">
-            <input type="hidden" name="form_type" value="toggle_module">
+            <input type="hidden" name="action" value="toggle_module">
             <input type="hidden" name="module_name" value="ticket_ia">
             <div class="form-check form-switch fs-5">
                 <input class="form-check-input" type="checkbox" role="switch" id="module-toggle" name="enabled" {% if module_status %}checked{% endif %} onchange="this.form.submit()">
@@ -18,8 +18,7 @@
     <div class="row g-5">
         <!-- Columna Izquierda: Formularios de Configuración -->
         <div class="col-md-7">
-            <form method="POST" id="main-config-form">
-                <input type="hidden" name="form_type" value="config">
+            <form method="POST" id="main-config-form" enctype="multipart/form-data">
                 
                 <!-- SECCIÓN 1: Editor de Embeds -->
                 <section id="embeds-section" class="mb-5">
@@ -83,7 +82,14 @@
                         <div class="card-body">
                             <h6>Conocimiento Actual:</h6>
                             <ul class="list-group list-group-flush mb-3" style="max-height: 200px; overflow-y: auto;">
-                                {% for item in knowledge_base %}<li class="list-group-item d-flex justify-content-between align-items-center"><span class="me-2 text-truncate">{{ item }}</span><form method="POST" class="d-inline"><input type="hidden" name="form_type" value="knowledge_delete"><input type="hidden" name="item_index" value="{{ loop.index0 }}"><button type="submit" class="btn btn-danger btn-sm py-0 px-2" title="Eliminar">&times;</button></form></li>{% else %}<li class="list-group-item text-muted">La base de conocimientos está vacía.</li>{% endfor %}
+                                {% for item in knowledge_base %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span class="me-2 text-truncate">{{ item }}</span>
+                                    <button type="submit" name="action" value="knowledge_delete_{{ loop.index0 }}" class="btn btn-danger btn-sm py-0 px-2" title="Eliminar">&times;</button>
+                                </li>
+                                {% else %}
+                                <li class="list-group-item text-muted">La base de conocimientos está vacía.</li>
+                                {% endfor %}
                             </ul>
                             <hr>
                             <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
@@ -93,10 +99,10 @@
                                 <li class="nav-item" role="presentation"><button class="nav-link" id="pills-pdf-tab" data-bs-toggle="pill" data-bs-target="#pills-pdf" type="button" role="tab">Subir PDF</button></li>
                             </ul>
                             <div class="tab-content" id="pills-tabContent">
-                                <div class="tab-pane fade show active" id="pills-text" role="tabpanel"><form method="POST"><input type="hidden" name="form_type" value="knowledge_add"><div class="mb-3"><textarea class="form-control" name="new_knowledge" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div><button type="submit" class="btn btn-info w-100">Añadir Texto</button></form></div>
-                                <div class="tab-pane fade" id="pills-web" role="tabpanel"><form method="POST"><input type="hidden" name="form_type" value="knowledge_web"><div class="input-group"><input type="url" class="form-control" name="web_url" placeholder="https://ejemplo.com" required><button type="submit" class="btn btn-info">Leer Página Web</button></div></form></div>
-                                <div class="tab-pane fade" id="pills-youtube" role="tabpanel"><form method="POST"><input type="hidden" name="form_type" value="knowledge_youtube"><div class="input-group"><input type="url" class="form-control" name="youtube_url" placeholder="https://www.youtube.com/watch?v=..." required><button type="submit" class="btn btn-info">Transcribir Video</button></div></form></div>
-                                <div class="tab-pane fade" id="pills-pdf" role="tabpanel"><form method="POST" enctype="multipart/form-data"><input type="hidden" name="form_type" value="knowledge_pdf"><div class="input-group"><input type="file" class="form-control" name="pdf_file" accept=".pdf" required><button type="submit" class="btn btn-info">Subir PDF</button></div></form></div>
+                                <div class="tab-pane fade show active" id="pills-text" role="tabpanel"><div class="mb-3"><textarea class="form-control" name="new_knowledge" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div><button type="submit" name="action" value="knowledge_add" class="btn btn-info w-100">Añadir Texto</button></div>
+                                <div class="tab-pane fade" id="pills-web" role="tabpanel"><div class="input-group"><input type="url" class="form-control" name="web_url" placeholder="https://ejemplo.com"><button type="submit" name="action" value="knowledge_web" class="btn btn-info">Leer Página Web</button></div></div>
+                                <div class="tab-pane fade" id="pills-youtube" role="tabpanel"><div class="input-group"><input type="url" class="form-control" name="youtube_url" placeholder="https://www.youtube.com/watch?v=..."><button type="submit" name="action" value="knowledge_youtube" class="btn btn-info">Transcribir Video</button></div></div>
+                                <div class="tab-pane fade" id="pills-pdf" role="tabpanel"><div class="input-group"><input type="file" class="form-control" name="pdf_file" accept=".pdf"><button type="submit" name="action" value="knowledge_pdf" class="btn btn-info">Subir PDF</button></div></div>
                             </div>
                         </div>
                     </div>
@@ -128,7 +134,7 @@
                     </div>
                 </section>
 
-                <button type="submit" class="btn btn-success w-100 btn-lg">Guardar Toda la Configuración</button>
+                <button type="submit" name="action" value="save_all" class="btn btn-success w-100 btn-lg">Guardar Toda la Configuración</button>
             </form>
         </div>
         <!-- Columna Derecha: Vista Previa y Acciones -->
