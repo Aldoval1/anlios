@@ -2,42 +2,110 @@
 {% block title %}Anlios Bot{% endblock %}
 
 {% block body_content %}
-<div class="landing-wrapper">
-    <div class="landing-box">
-        <img src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Icon" class="landing-icon">
-        <h1 class="logo mb-2">Anlios Bot</h1>
-        <p class="lead mb-4" style="color: #ff8282;">Inicia sesión para configurar tu bot</p>
-        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">
-            Login con Discord
-        </a>
-    </div>
+<div id="landing-page">
+    <div class="landing-wrapper">
+        <div class="landing-box">
+            <img src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Icon" id="demo-trigger" class="landing-icon">
+            <p class="click-me-prompt">¡Haz clic en mí para una demo!</p>
+            <h1 class="logo mb-2">Anlios Bot</h1>
+            <p class="lead mb-4" style="color: #ff8282;">Inicia sesión para configurar tu bot</p>
+            <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">
+                Login con Discord
+            </a>
+        </div>
 
-    <div class="stats-container">
-        <div class="stat-item">
-            <div class="stat-value">{{ stats.servers }}</div>
-            <div class="stat-label">Servidores</div>
+        <div class="stats-container">
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.servers }}</div>
+                <div class="stat-label">Servidores</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.users }}</div>
+                <div class="stat-label">Usuarios</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.uptime }}</div>
+                <div class="stat-label">Tiempo en Línea</div>
+            </div>
         </div>
-        <div class="stat-item">
-            <div class="stat-value">{{ stats.users }}</div>
-            <div class="stat-label">Usuarios</div>
+
+        <footer class="page-footer">
+            <div class="footer-links">
+                <a href="#">Documentación</a>
+                <a href="#">Servidor de Soporte</a>
+                <a href="#">Términos y Servicios</a>
+                <a href="#">Estado del Servidor</a>
+                <a href="#">Sobre nosotros</a>
+            </div>
+            <div class="copyright">
+                &copy; 2024-2025 Anlios
+            </div>
+        </footer>
+    </div>
+</div>
+
+<!-- Contenedor de la Demo -->
+<div id="demo-container">
+    <button id="exit-demo-btn" class="btn btn-danger">&times; Volver</button>
+    <div class="demo-wrapper">
+        <!-- Columna Izquierda: Configuración -->
+        <div class="demo-controls">
+            <h2>Prueba la I.A.</h2>
+            <div class="card">
+                <div class="card-header">Personalidad de la I.A.</div>
+                <div class="card-body">
+                    <textarea id="demo-ai-prompt" class="form-control" rows="8">Eres Anlios, un asistente de IA amigable. Tu conocimiento se limita a la 'Base de Conocimientos'. Si no sabes la respuesta, dilo amablemente.
+
+--- BASE DE CONOCIMIENTOS ---
+{knowledge}</textarea>
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-header">Base de Conocimiento</div>
+                <div class="card-body">
+                    <!-- Pestañas para añadir conocimiento -->
+                    <ul class="nav nav-pills mb-3" id="pills-tab-demo" role="tablist">
+                        <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab-demo" data-bs-toggle="pill" data-bs-target="#pills-text-demo" type="button" role="tab">Texto</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link" id="pills-web-tab-demo" data-bs-toggle="pill" data-bs-target="#pills-web-demo" type="button" role="tab">Web</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link" id="pills-youtube-tab-demo" data-bs-toggle="pill" data-bs-target="#pills-youtube-demo" type="button" role="tab">YouTube</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link" id="pills-pdf-tab-demo" data-bs-toggle="pill" data-bs-target="#pills-pdf-demo" type="button" role="tab">PDF</button></li>
+                    </ul>
+                    <div class="tab-content" id="pills-tabContent-demo">
+                        <div class="tab-pane fade show active" id="pills-text-demo" role="tabpanel">
+                            <textarea id="demo-knowledge-base" class="form-control" rows="4" placeholder="Ej: Las reglas son no hacer spam."></textarea>
+                        </div>
+                        <div class="tab-pane fade" id="pills-web-demo" role="tabpanel">
+                            <form id="demo-web-form" class="input-group"><input type="url" class="form-control" name="web_url" placeholder="https://ejemplo.com" required><button type="submit" class="btn btn-info">Leer</button></form>
+                        </div>
+                        <div class="tab-pane fade" id="pills-youtube-demo" role="tabpanel">
+                            <form id="demo-youtube-form" class="input-group"><input type="url" class="form-control" name="youtube_url" placeholder="https://youtube.com/watch?v=..." required><button type="submit" class="btn btn-info">Transcribir</button></form>
+                        </div>
+                        <div class="tab-pane fade" id="pills-pdf-demo" role="tabpanel">
+                            <form id="demo-pdf-form" class="input-group"><input type="file" class="form-control" name="pdf_file" accept=".pdf" required><button type="submit" class="btn btn-info">Subir</button></form>
+                        </div>
+                    </div>
+                     <div id="knowledge-feedback" class="small text-muted mt-2"></div>
+                </div>
+            </div>
         </div>
-        <div class="stat-item">
-            <div class="stat-value">{{ stats.uptime }}</div>
-            <div class="stat-label">Tiempo en Línea</div>
+
+        <!-- Columna Derecha: Chat -->
+        <div class="demo-chat">
+            <div class="chat-display-wrapper">
+                <div id="chat-display">
+                    <div class="chat-message bot">
+                        <img src="{{ url_for('static', filename='images/hablando.gif') }}" alt="Bot hablando" class="bot-avatar">
+                        <div class="message-content">
+                            <p>¡Hola! Soy Anlios. En esta demo, puedes darme una personalidad y conocimientos a la izquierda. Luego, ¡puedes chatear conmigo aquí a la derecha para ver cómo respondo!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" class="form-control" placeholder="Escribe tu mensaje...">
+                <button id="send-chat-btn" class="btn btn-primary">Enviar</button>
+            </div>
         </div>
     </div>
-
-    <footer class="page-footer">
-        <div class="footer-links">
-            <a href="#">Documentación</a>
-            <a href="#">Servidor de Soporte</a>
-            <a href="#">Términos y Servicios</a>
-            <a href="#">Estado del Servidor</a>
-            <a href="#">Sobre nosotros</a>
-        </div>
-        <div class="copyright">
-            &copy; 2024-2025 Anlios
-        </div>
-    </footer>
 </div>
 {% endblock %}
