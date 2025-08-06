@@ -18,7 +18,7 @@
     <div class="row g-5">
         <!-- Columna Izquierda: Formularios de Configuración -->
         <div class="col-md-7">
-            <form method="POST">
+            <form method="POST" id="main-config-form">
                 <input type="hidden" name="form_type" value="config">
                 
                 <!-- SECCIÓN 1: Editor de Embeds -->
@@ -108,14 +108,22 @@
                     <hr class="border-danger">
                     <div class="card mt-4 shadow-sm">
                         <div class="card-body">
-                            <p class="text-muted small">Selecciona los roles que podrán gestionar y reclamar tickets. Los administradores del servidor siempre tendrán acceso.</p>
-                            <select name="admin_roles" class="form-select" multiple size="8">
+                            <p class="text-muted small">Haz doble clic en un rol para añadirlo o quitarlo de la lista de administradores de tickets.</p>
+                            
+                            <!-- Lista de Roles Disponibles -->
+                            <div id="role-list-container">
                                 {% for role in roles %}
-                                    <option value="{{ role.id }}" {% if role.id in ticket_config.admin_roles %}selected{% endif %}>
+                                    <div class="role-item" data-role-id="{{ role.id }}" data-role-name="{{ role.name }}">
                                         {{ role.name }}
-                                    </option>
+                                    </div>
                                 {% endfor %}
-                            </select>
+                            </div>
+
+                            <!-- Roles Seleccionados -->
+                            <p class="text-muted small mt-3">Roles con permiso:</p>
+                            <div id="selected-roles-container">
+                                <!-- Los roles seleccionados aparecerán aquí con JS -->
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -187,4 +195,76 @@
 {{ super() }}
 <script src="{{ url_for('static', filename='js/preview.js') }}"></script>
 <script src="{{ url_for('static', filename='js/validation.js') }}"></script>
+
+<!-- Bloques de datos JSON para evitar errores de sintaxis -->
+<script id="initial-roles-data" type="application/json">{{ ticket_config.admin_roles | tojson | safe }}</script>
+<script id="all-roles-data" type="application/json">{{ roles | tojson | safe }}</script>
+
+<script>
+// --- Lógica para el Gestor de Roles Interactivo ---
+document.addEventListener('DOMContentLoaded', () => {
+    const roleListContainer = document.getElementById('role-list-container');
+    const selectedRolesContainer = document.getElementById('selected-roles-container');
+    const mainForm = document.getElementById('main-config-form');
+    
+    // Leer y parsear los datos de los bloques de script
+    const initiallySelectedRoles = JSON.parse(document.getElementById('initial-roles-data').textContent || '[]');
+    const allRoles = JSON.parse(document.getElementById('all-roles-data').textContent || '[]');
+
+    function addRole(roleId, roleName) {
+        if (document.querySelector(`.selected-role-pill[data-role-id='${roleId}']`)) {
+            return;
+        }
+
+        const pill = document.createElement('div');
+        pill.className = 'selected-role-pill';
+        pill.dataset.roleId = roleId;
+        pill.innerHTML = `<span>${roleName}</span><button type="button" class="remove-role-btn">&times;</button>`;
+        selectedRolesContainer.appendChild(pill);
+
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'admin_roles';
+        hiddenInput.value = roleId;
+        hiddenInput.id = `role-input-${roleId}`;
+        mainForm.appendChild(hiddenInput);
+    }
+
+    function removeRole(roleId) {
+        const pill = document.querySelector(`.selected-role-pill[data-role-id='${roleId}']`);
+        const hiddenInput = document.getElementById(`role-input-${roleId}`);
+        if (pill) pill.remove();
+        if (hiddenInput) hiddenInput.remove();
+    }
+
+    if (roleListContainer) {
+        roleListContainer.addEventListener('dblclick', (e) => {
+            if (e.target && e.target.classList.contains('role-item')) {
+                const roleId = e.target.dataset.roleId;
+                const roleName = e.target.dataset.roleName;
+                addRole(roleId, roleName);
+            }
+        });
+    }
+
+    if (selectedRolesContainer) {
+        selectedRolesContainer.addEventListener('click', (e) => {
+            if (e.target && e.target.classList.contains('remove-role-btn')) {
+                const roleId = e.target.parentElement.dataset.roleId;
+                removeRole(roleId);
+            }
+        });
+    }
+
+    // Cargar los roles que ya estaban seleccionados
+    if (initiallySelectedRoles && allRoles) {
+        initiallySelectedRoles.forEach(roleId => {
+            const role = allRoles.find(r => String(r.id) === String(roleId));
+            if (role) {
+                addRole(role.id, role.name);
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
