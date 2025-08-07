@@ -70,7 +70,7 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
 #role-list-container { background-color: #1a0000; border: 2px solid #ff8282; height: 200px; overflow-y: auto; padding: 5px; }
 .role-item { padding: 8px 12px; cursor: pointer; font-family: 'Roboto', sans-serif; font-size: 0.9rem; border-radius: 3px; }
 .role-item:hover { background-color: #4d0000; }
-#selected-roles-container { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; min-height: 40px; border-top: 2px solid #4d0000; }
+#selected-roles-container { display: flex; flex-wrap: wrap; gap: 8px; }
 .selected-role-pill { display: flex; align-items: center; background-color: #ff4141; color: #1a0000; padding: 5px 10px; border-radius: 5px; font-family: 'Roboto', sans-serif; font-size: 0.8rem; font-weight: bold; }
 .remove-role-btn { background: none; border: none; color: #1a0000; margin-left: 8px; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 0; }
 .remove-role-btn:hover { color: #fff; }
@@ -110,3 +110,39 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
 .embed-image { max-width: 100%; margin-top: 16px; border-radius: 4px; }
 .embed-footer { display: flex; align-items: center; margin-top: 8px; font-size: 0.75rem; color: #c7c9cb; }
 .embed-footer-icon { width: 20px; height: 20px; border-radius: 50%; margin-right: 8px; }
+
+/* --- CHANGE: New styles for integrated toggle button --- */
+.nav-link-with-toggle {
+    display: flex;
+    align-items: center;
+    padding: 0 !important;
+    cursor: default !important;
+}
+.nav-link-with-toggle .module-toggle-form {
+    padding: 10px 0 10px 15px;
+}
+.nav-link-with-toggle .nav-link-text {
+    flex-grow: 1;
+    padding: 10px 15px 10px 10px;
+    text-decoration: none;
+    color: inherit; /* Inherit color from parent */
+    display: block;
+    position: relative; /* For the arrow positioning */
+}
+.nav-link-with-toggle.active .nav-link-text,
+.nav-link-with-toggle:hover .nav-link-text {
+    color: #1a0000;
+    text-shadow: none;
+}
+.nav-link-with-toggle .nav-link-text::after {
+    content: ' ▼';
+    font-size: 0.7em;
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: transform 0.2s;
+}
+.nav-link-with-toggle .nav-link-text[aria-expanded="false"]::after {
+    transform: translateY(-50%) rotate(-90deg);
+}
