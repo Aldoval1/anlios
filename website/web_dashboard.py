@@ -74,6 +74,13 @@ def save_data_to_redis(key: str, data):
     except Exception as e:
         app.logger.error(f"Error guardando datos en Redis para la clave {key}: {e}")
 
+def get_subscription_status(guild_id: int) -> dict:
+    subs = load_data_from_redis(REDIS_SUBSCRIPTIONS_KEY, {})
+    sub_data = subs.get(str(guild_id))
+    if sub_data and sub_data.get('expires_at', 0) > time.time():
+        return {"is_premium": True, "expires_at": sub_data['expires_at']}
+    return {"is_premium": False, "expires_at": None}
+
 def load_ticket_config(guild_id: int) -> dict:
     default_config = {'admin_roles': []}
     return load_data_from_redis(f"ticket_config:{guild_id}", default_config)
@@ -182,7 +189,6 @@ def select_page(guild_id, page):
                 config[guild_id_str]['modules']['ticket_ia'] = 'enabled' in request.form
                 save_module_config(config)
             else:
-                # --- Guardado Unificado ---
                 current_config = load_embed_config(int(guild_id_str))
                 for embed_type in ['panel', 'welcome']:
                     for key in current_config[embed_type]:
@@ -259,6 +265,9 @@ def select_page(guild_id, page):
         render_data['embed_config'] = load_embed_config(int(guild_id_str))
         render_data['knowledge_base'] = load_knowledge(int(guild_id_str))
         render_data['ticket_config'] = load_ticket_config(int(guild_id_str))
+    
+    elif page == 'membership':
+        render_data['subscription'] = get_subscription_status(int(guild_id_str))
         
     return render_template(template_to_render, **render_data)
 
