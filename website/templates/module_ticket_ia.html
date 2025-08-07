@@ -16,11 +16,9 @@
 
     {% if module_status %}
     <div class="row g-5">
-        <!-- Columna Izquierda: Formularios de Configuración -->
         <div class="col-md-7">
             <form method="POST" id="main-config-form" enctype="multipart/form-data">
                 
-                <!-- SECCIÓN 1: Editor de Embeds -->
                 <section id="embeds-section" class="mb-5">
                     <h2>Editor de Embeds</h2>
                     <hr class="border-danger">
@@ -32,7 +30,6 @@
                             </ul>
                         </div>
                         <div class="card-body tab-content" id="embedTabsContent">
-                            <!-- Editor del Panel de Tickets -->
                             <div class="tab-pane fade show active" id="panel-editor" role="tabpanel">
                                 <div class="mb-3"><label class="form-label small">Texto del Botón</label><input type="text" class="form-control" id="panel_button_label" name="panel_button_label" value="{{ embed_config.panel.button_label }}" oninput="updatePreview()"></div>
                                 <div class="mb-3"><label class="form-label small">Título</label><input type="text" class="form-control" id="panel_title" name="panel_title" value="{{ embed_config.panel.title }}" oninput="updatePreview()"></div>
@@ -45,7 +42,6 @@
                                 <div class="mb-3"><label class="form-label small">Icono del Pie de Página (URL)</label><input type="url" class="form-control" id="panel_footer_icon" name="panel_footer_icon" value="{{ embed_config.panel.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
                                 <div class="mb-3"><label class="form-label small">Color</label><input type="color" class="form-control form-control-color" id="panel_color" name="panel_color" value="{{ embed_config.panel.color }}" oninput="updatePreview()"></div>
                             </div>
-                            <!-- Editor del Embed de Bienvenida -->
                             <div class="tab-pane fade" id="welcome-editor" role="tabpanel">
                                 <p class="text-muted small">Puedes usar `{user}` para mencionar al usuario.</p>
                                 <div class="mb-3"><label class="form-label small">Título</label><input type="text" class="form-control" id="welcome_title" name="welcome_title" value="{{ embed_config.welcome.title }}" oninput="updatePreview()"></div>
@@ -62,8 +58,7 @@
                     </div>
                 </section>
 
-                <!-- SECCIÓN 2: Personalidad de la IA -->
-                <section id="personality-section" class="mb-5">
+                <section id="ai-section" class="mb-5">
                     <h2>Personalidad de la IA</h2>
                     <hr class="border-danger">
                     <div class="card mt-4 shadow-sm">
@@ -74,7 +69,6 @@
                     </div>
                 </section>
 
-                <!-- SECCIÓN 3: Base de Conocimiento -->
                 <section id="knowledge-section" class="mb-5">
                     <h2>Base de Conocimiento</h2>
                     <hr class="border-danger">
@@ -85,7 +79,7 @@
                                 {% for item in knowledge_base %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <span class="me-2 text-truncate">{{ item }}</span>
-                                    <button type="submit" name="action" value="knowledge_delete_{{ loop.index0 }}" class="btn btn-danger btn-sm py-0 px-2" title="Eliminar">&times;</button>
+                                    <button type="submit" name="action" value="knowledge_delete_{{ loop.index0 }}" class="btn btn-danger btn-sm py-0 px-2" title="Eliminar">×</button>
                                 </li>
                                 {% endfor %}
                                 {% if not knowledge_base %}
@@ -109,7 +103,6 @@
                     </div>
                 </section>
 
-                <!-- SECCIÓN 4: Configuración de Roles -->
                 <section id="configs-section" class="mb-5">
                     <h2>Configuración de Roles</h2>
                     <hr class="border-danger">
@@ -123,8 +116,10 @@
                             </div>
                             <p class="text-muted small mt-3">Roles con permiso:</p>
                             <div id="selected-roles-container"></div>
-                            <!-- Campo oculto para enviar los roles seleccionados -->
                             <input type="hidden" name="admin_roles_json" id="admin-roles-json">
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" name="action" value="save_roles" class="btn btn-info w-100">Guardar Configuración de Roles</button>
                         </div>
                     </div>
                 </section>
@@ -132,7 +127,6 @@
                 <button type="submit" name="action" value="save_all" class="btn btn-success w-100 btn-lg">Guardar Toda la Configuración</button>
             </form>
         </div>
-        <!-- Columna Derecha: Vista Previa y Acciones -->
         <div class="col-md-5">
             <div class="sticky-top" style="top: 2rem;">
                 <div class="card shadow-sm mb-4">
@@ -200,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pill = document.createElement('div');
                 pill.className = 'selected-role-pill';
                 pill.dataset.roleId = role.id;
-                pill.innerHTML = `<span>${role.name}</span><button type="button" class="remove-role-btn">&times;</button>`;
+                pill.innerHTML = `<span>${role.name}</span><button type="button" class="remove-role-btn">×</button>`;
                 selectedRolesContainer.appendChild(pill);
             }
         });
