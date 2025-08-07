@@ -190,7 +190,8 @@ def select_page(guild_id, page):
                 current_config['ai_prompt'] = request.form.get('ai_prompt')
                 save_embed_config(int(guild_id_str), current_config)
                 
-                admin_roles = request.form.getlist('admin_roles')
+                admin_roles_json = request.form.get('admin_roles_json', '[]')
+                admin_roles = json.loads(admin_roles_json)
                 ticket_config = load_ticket_config(int(guild_id_str))
                 ticket_config['admin_roles'] = [int(role_id) for role_id in admin_roles]
                 save_ticket_config(int(guild_id_str), ticket_config)
