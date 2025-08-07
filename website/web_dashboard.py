@@ -175,7 +175,7 @@ def dashboard_home():
 @app.route("/dashboard/<guild_id>/<page>", methods=['GET', 'POST'])
 def select_page(guild_id, page):
     if 'discord_token' not in session: return redirect(url_for('login'))
-    guild_id_str = str(guild_id)
+    guild_id_int = int(guild_id)
 
     if request.method == 'POST':
         save_status = 'success'
@@ -184,25 +184,38 @@ def select_page(guild_id, page):
 
             if action == 'toggle_module':
                 config = load_module_config()
-                if guild_id_str not in config: config[guild_id_str] = {}
-                if 'modules' not in config[guild_id_str]: config[guild_id_str]['modules'] = {}
-                config[guild_id_str]['modules']['ticket_ia'] = 'enabled' in request.form
+                if guild_id not in config: config[guild_id] = {}
+                if 'modules' not in config[guild_id]: config[guild_id]['modules'] = {}
+                config[guild_id]['modules']['ticket_ia'] = 'enabled' in request.form
                 save_module_config(config)
-            else:
-                current_config = load_embed_config(int(guild_id_str))
+
+            elif action == 'save_roles':
+                admin_roles_json = request.form.get('admin_roles_json', '[]')
+                admin_roles = json.loads(admin_roles_json)
+                ticket_config = load_ticket_config(guild_id_int)
+                ticket_config['admin_roles'] = [int(role_id) for role_id in admin_roles]
+                save_ticket_config(guild_id_int, ticket_config)
+
+            elif action == 'save_all':
+                # Guardar Embeds y Personalidad IA
+                current_config = load_embed_config(guild_id_int)
                 for embed_type in ['panel', 'welcome']:
                     for key in current_config[embed_type]:
                         current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}')
                 current_config['ai_prompt'] = request.form.get('ai_prompt')
-                save_embed_config(int(guild_id_str), current_config)
+                save_embed_config(guild_id_int, current_config)
                 
+                # Guardar Roles (también se guarda con el botón principal)
                 admin_roles_json = request.form.get('admin_roles_json', '[]')
                 admin_roles = json.loads(admin_roles_json)
-                ticket_config = load_ticket_config(int(guild_id_str))
+                ticket_config = load_ticket_config(guild_id_int)
                 ticket_config['admin_roles'] = [int(role_id) for role_id in admin_roles]
-                save_ticket_config(int(guild_id_str), ticket_config)
-
-                knowledge = load_knowledge(int(guild_id_str))
+                save_ticket_config(guild_id_int, ticket_config)
+            
+            # Lógica para manejar la base de conocimiento
+            knowledge_actions = ['knowledge_add', 'knowledge_web', 'knowledge_youtube', 'knowledge_pdf']
+            if action in knowledge_actions or (action and action.startswith('knowledge_delete_')):
+                knowledge = load_knowledge(guild_id_int)
                 if action == 'knowledge_add':
                     if text := request.form.get('new_knowledge'): knowledge.append(text)
                 elif action == 'knowledge_web':
@@ -221,18 +234,18 @@ def select_page(guild_id, page):
                         reader = PyPDF2.PdfReader(file.stream)
                         text = ''.join(page.extract_text() for page in reader.pages)
                         knowledge.append(f"Contenido del PDF {file.filename}:\n{text}")
-                elif action and action.startswith('knowledge_delete_'):
+                elif action.startswith('knowledge_delete_'):
                     index_to_delete = int(action.split('_')[-1])
                     if 0 <= index_to_delete < len(knowledge):
                         knowledge.pop(index_to_delete)
-                
-                save_knowledge(int(guild_id_str), knowledge)
+                save_knowledge(guild_id_int, knowledge)
 
         except Exception as e:
             app.logger.error(f"Error saving form: {e}")
             save_status = 'error'
-        return redirect(url_for('select_page', guild_id=guild_id_str, page=page, save=save_status))
+        return redirect(url_for('select_page', guild_id=guild_id, page=page, save=save_status))
 
+    # Lógica para el método GET
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
     user_guilds = guilds_response.json()
@@ -247,27 +260,27 @@ def select_page(guild_id, page):
     template_map = { "modules": "module_ticket_ia.html", "membership": "membership.html" }
     template_to_render = template_map.get(page, "under_construction.html")
     
-    render_data = { "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot, "client_id": CLIENT_ID, "active_guild_id": guild_id_str, "page": page }
+    render_data = { "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot, "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page }
     
     module_config = load_module_config()
-    render_data['module_status'] = module_config.get(guild_id_str, {}).get('modules', {}).get('ticket_ia', False)
+    render_data['module_status'] = module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False)
 
     if page == 'modules':
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
-        channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id_str}/channels', headers=bot_headers)
+        channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/channels', headers=bot_headers)
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
-        roles_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id_str}/roles', headers=bot_headers)
+        roles_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/roles', headers=bot_headers)
         if roles_response.status_code == 200:
             all_roles = roles_response.json()
             render_data['roles'] = [r for r in all_roles if r['name'] != '@everyone' and not r.get('tags', {}).get('bot_id')]
         else:
             render_data['roles'] = []
-        render_data['embed_config'] = load_embed_config(int(guild_id_str))
-        render_data['knowledge_base'] = load_knowledge(int(guild_id_str))
-        render_data['ticket_config'] = load_ticket_config(int(guild_id_str))
+        render_data['embed_config'] = load_embed_config(guild_id_int)
+        render_data['knowledge_base'] = load_knowledge(guild_id_int)
+        render_data['ticket_config'] = load_ticket_config(guild_id_int)
     
     elif page == 'membership':
-        render_data['subscription'] = get_subscription_status(int(guild_id_str))
+        render_data['subscription'] = get_subscription_status(guild_id_int)
         
     return render_template(template_to_render, **render_data)
 
