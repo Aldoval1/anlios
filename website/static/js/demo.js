@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
     trigger.addEventListener('click', () => {
         const rect = trigger.getBoundingClientRect();
         
-        // 1. Posicionar el bigote de la animación sobre el original
         animatedMustache.style.width = `${rect.width}px`;
         animatedMustache.style.height = `${rect.height}px`;
         animatedMustache.style.top = `${rect.top}px`;
@@ -35,45 +34,42 @@ document.addEventListener('DOMContentLoaded', () => {
         animatedMustache.style.transform = 'scale(1)';
         animatedMustache.style.display = 'block';
 
-        // 2. Mostrar la capa de superposición y ocultar la página de inicio
         overlay.classList.add('visible');
         landingPage.classList.remove('active');
 
-        // 3. Animar el bigote
         setTimeout(() => {
             const scale = window.innerWidth / rect.width * 1.5;
             animatedMustache.style.transform = `scale(${scale})`;
         }, 50);
 
-        // 4. Cuando la animación del bigote termina, mostrar la demo y desvanecer la capa negra
         setTimeout(() => {
             demoPage.classList.add('active');
-            overlay.style.opacity = '0'; // Empezar a desvanecer la capa
+            overlay.style.opacity = '0';
+            
+            // CHANGE: Show the new introductory toast
             if (!sessionStorage.getItem('demoWelcomed')) {
-                showWelcomeMessage();
+                showIntroductoryToast();
                 sessionStorage.setItem('demoWelcomed', 'true');
+            } else {
+                // If already welcomed, just show the initial message directly
+                showInitialChatMessage();
             }
-        }, 600); // Duración de la animación del bigote
 
-        // 5. Limpiar la capa de superposición después de que se desvanezca
+        }, 600);
+
         setTimeout(() => {
             overlay.classList.remove('visible');
-            overlay.style.opacity = '1'; // Resetear para la próxima vez
+            overlay.style.opacity = '1';
             animatedMustache.style.display = 'none';
-        }, 1100); // 600ms (espera) + 500ms (desvanecimiento)
+        }, 1100);
     });
 
     exitDemoBtn.addEventListener('click', () => {
-        // 1. Ocultar la demo
         demoPage.classList.remove('active');
-        
-        // 2. Limpiar todo
         resetDemo();
-        
-        // 3. Mostrar la página de inicio después de que la demo se desvanezca
         setTimeout(() => {
             landingPage.classList.add('active');
-        }, 500); // Coincide con la duración de la transición de la página
+        }, 500);
     });
 
     function resetDemo() {
@@ -86,12 +82,42 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfForm.reset();
         sessionStorage.removeItem('demoWelcomed');
     }
+    
+    // --- Lógica del Chat y Bienvenida de la Demo ---
 
-    // --- Lógica del Chat de la Demo ---
+    // CHANGE: New function for the animated welcome toast
+    function showIntroductoryToast() {
+        const toastContainer = document.getElementById('toast-container');
+        const toastGif = document.getElementById('toast-gif');
+        const toastMessage = document.getElementById('toast-message');
+        const toastButtons = document.getElementById('toast-buttons');
+        const progressBar = document.getElementById('toast-progress');
+        
+        const introDuration = 8000; // 8 seconds
 
-    function showWelcomeMessage() {
-        const welcomeText = "¡Hola! Soy Anlios. En esta demo, puedes darme una personalidad y conocimientos a la izquierda. Luego, ¡puedes chatear conmigo aquí a la derecha para ver cómo respondo!";
-        appendMessage(welcomeText, 'Anlios', '/static/images/hablando.gif');
+        toastGif.src = '/static/images/hablando.gif';
+        toastMessage.textContent = '¡Bienvenido a la demo! Aquí puedes probar mi IA. Define mi personalidad y conocimiento a la izquierda, y luego chatea conmigo a la derecha.';
+        toastButtons.style.display = 'none';
+        
+        toastContainer.classList.add('show');
+
+        progressBar.style.transition = 'none';
+        progressBar.style.width = '100%';
+        setTimeout(() => {
+            progressBar.style.transition = `width ${introDuration / 1000}s linear`;
+            progressBar.style.width = '0%';
+        }, 50);
+
+        setTimeout(() => {
+            toastContainer.classList.remove('show');
+            // Show the first chat message after the toast disappears
+            showInitialChatMessage();
+        }, introDuration);
+    }
+
+    function showInitialChatMessage() {
+        const welcomeText = "¡Hola! Soy Anlios. ¡Estoy listo para que me pruebes!";
+        appendMessage(welcomeText, 'Anlios Bot', '/static/images/favicon.png');
     }
 
     sendBtn.addEventListener('click', sendMessage);
@@ -103,10 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const messageText = chatInput.value.trim();
         if (!messageText) return;
 
-        appendMessage(messageText, 'Usuario', '/static/images/favicon.png');
+        appendMessage(messageText, 'Usuario', 'https://cdn.discordapp.com/embed/avatars/0.png'); // Generic user avatar
         chatInput.value = '';
         
-        const typingIndicator = appendMessage('Anlios está escribiendo...', 'Anlios', '/static/images/favicon.png', true);
+        const typingIndicator = appendMessage('Anlios está escribiendo...', 'Anlios Bot', '/static/images/favicon.png', true);
 
         try {
             const response = await fetch('/demo_chat', {
@@ -122,19 +148,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
             
-            typingIndicator.querySelector('.text').textContent = data.reply;
+            // Update typing indicator with the actual response
+            const textElement = typingIndicator.querySelector('.text');
+            if (textElement) {
+                textElement.textContent = data.reply;
+            }
             typingIndicator.classList.remove('typing');
 
         } catch (error) {
             console.error('Error fetching chat response:', error);
-            typingIndicator.querySelector('.text').textContent = 'Lo siento, hubo un error al conectar con mis circuitos.';
+            const textElement = typingIndicator.querySelector('.text');
+            if (textElement) {
+                textElement.textContent = 'Lo siento, hubo un error al conectar con mis circuitos.';
+            }
         }
     }
 
+    // CHANGE: Rewrote this function to correctly build the message HTML
     function appendMessage(text, username, avatarSrc, isTyping = false) {
         const messageDiv = document.createElement('div');
         messageDiv.className = 'discord-message';
-        if (isTyping) messageDiv.classList.add('typing');
+        if (isTyping) {
+            messageDiv.classList.add('typing');
+        }
 
         messageDiv.innerHTML = `
             <img src="${avatarSrc}" alt="${username} avatar" class="discord-message-avatar">
@@ -162,10 +198,11 @@ document.addEventListener('DOMContentLoaded', () => {
         knowledgeFeedback.style.color = '#ffb3b3';
 
         const formData = new FormData(form);
-        formData.append('source_type', sourceType);
+        // The source_type is now passed directly, no need to append
+        // formData.append('source_type', sourceType);
 
         try {
-            const response = await fetch('/demo_extract_knowledge', { method: 'POST', body: formData });
+            const response = await fetch(`/demo_extract_knowledge?source_type=${sourceType}`, { method: 'POST', body: formData });
             const data = await response.json();
 
             if (data.success) {
