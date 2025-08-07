@@ -8,10 +8,10 @@
         <p>Activa el interruptor en la barra lateral para empezar a configurar.</p>
     </div>
     {% else %}
-    <form method="POST" id="main-config-form" enctype="multipart/form-data">
-        <div class="row g-5">
-            <!-- Columna Izquierda: Formularios de Configuración -->
-            <div class="col-md-7">
+    <div class="row g-5">
+        <!-- Columna Izquierda: Formularios de Configuración -->
+        <div class="col-md-7">
+            <form method="POST" id="main-config-form" enctype="multipart/form-data">
                 <!-- SECCIÓN 1: Editor de Embeds -->
                 <section id="embeds-section" class="mb-5">
                     <h2>Editor de Embeds</h2>
@@ -116,36 +116,36 @@
                 </section>
 
                 <button type="submit" name="action" value="save_all" class="btn btn-success w-100 btn-lg">Guardar Toda la Configuración</button>
-            </div>
-            <!-- Columna Derecha: Vista Previa y Acciones -->
-            <div class="col-md-5">
-                <div class="sticky-top" style="top: 2rem;">
-                    <div class="card shadow-sm mb-4">
-                        <div class="card-header"><h5 class="mb-0">Publicar Panel de Tickets</h5></div>
-                        <div class="card-body">
-                            <p class="small text-muted">Elige un canal para enviar el panel.</p>
-                            <form action="{{ url_for('send_panel', guild_id=active_guild_id) }}" method="POST">
-                                <div class="input-group"><select class="form-select" name="channel_id" required><option value="" disabled selected>Selecciona un canal...</option>{% for channel in channels %}<option value="{{ channel.id }}">#{{ channel.name }}</option>{% endfor %}</select><button class="btn btn-primary" type="submit">Enviar</button></div>
-                            </form>
-                        </div>
+            </form>
+        </div>
+        <!-- Columna Derecha: Vista Previa y Acciones -->
+        <div class="col-md-5">
+            <div class="sticky-top" style="top: 2rem;">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header"><h5 class="mb-0">Publicar Panel de Tickets</h5></div>
+                    <div class="card-body">
+                        <p class="small text-muted">Elige un canal para enviar el panel.</p>
+                        <form action="{{ url_for('send_panel', guild_id=active_guild_id) }}" method="POST">
+                            <div class="input-group"><select class="form-select" name="channel_id" required><option value="" disabled selected>Selecciona un canal...</option>{% for channel in channels %}<option value="{{ channel.id }}">#{{ channel.name }}</option>{% endfor %}</select><button class="btn btn-primary" type="submit">Enviar</button></div>
+                        </form>
                     </div>
-                    <div class="card shadow-sm">
-                        <div class="card-header"><h5 class="mb-0">Vista Previa</h5></div>
-                        <div class="card-body" style="background-color: #36393f; padding: 20px;">
-                            <div class="discord-chat-message">
-                                <img src="{{ url_for('static', filename='images/favicon.png') }}" class="discord-avatar">
-                                <div>
-                                    <span class="discord-username">Anlios Bot</span>
-                                    <div id="panel-preview" class="discord-embed">
-                                        <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
-                                        <div class="embed-image-container"><img class="embed-image" src=""></div>
-                                        <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
-                                    </div>
-                                    <div id="welcome-preview" class="discord-embed" style="display:none;">
-                                         <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
-                                         <div class="embed-image-container"><img class="embed-image" src=""></div>
-                                         <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
-                                    </div>
+                </div>
+                <div class="card shadow-sm">
+                    <div class="card-header"><h5 class="mb-0">Vista Previa</h5></div>
+                    <div class="card-body" style="background-color: #36393f; padding: 20px;">
+                        <div class="discord-chat-message">
+                            <img src="{{ url_for('static', filename='images/favicon.png') }}" class="discord-avatar">
+                            <div>
+                                <span class="discord-username">Anlios Bot</span>
+                                <div id="panel-preview" class="discord-embed">
+                                    <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
+                                    <div class="embed-image-container"><img class="embed-image" src=""></div>
+                                    <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
+                                </div>
+                                <div id="welcome-preview" class="discord-embed" style="display:none;">
+                                     <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
+                                     <div class="embed-image-container"><img class="embed-image" src=""></div>
+                                     <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
                                 </div>
                             </div>
                         </div>
@@ -153,7 +153,7 @@
                 </div>
             </div>
         </div>
-    </form>
+    </div>
     {% endif %}
 {% endblock %}
 
