@@ -193,7 +193,8 @@ def select_page(guild_id, page):
                 admin_roles_json = request.form.get('admin_roles_json', '[]')
                 admin_roles = json.loads(admin_roles_json)
                 ticket_config = load_ticket_config(guild_id_int)
-                ticket_config['admin_roles'] = [int(role_id) for role_id in admin_roles]
+                # CHANGE: Save IDs as strings for consistency
+                ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
                 save_ticket_config(guild_id_int, ticket_config)
 
             elif action == 'save_all':
@@ -209,7 +210,8 @@ def select_page(guild_id, page):
                 admin_roles_json = request.form.get('admin_roles_json', '[]')
                 admin_roles = json.loads(admin_roles_json)
                 ticket_config = load_ticket_config(guild_id_int)
-                ticket_config['admin_roles'] = [int(role_id) for role_id in admin_roles]
+                # CHANGE: Save IDs as strings for consistency
+                ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
                 save_ticket_config(guild_id_int, ticket_config)
             
             # Lógica para manejar la base de conocimiento
