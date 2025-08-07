@@ -81,11 +81,6 @@ def get_subscription_status(guild_id: int) -> dict:
         return {"is_premium": True, "expires_at": sub_data['expires_at']}
     return {"is_premium": False, "expires_at": None}
 
-def load_ticket_config(guild_id: int) -> dict:
-    default_config = {'admin_roles': []}
-    return load_data_from_redis(f"ticket_config:{guild_id}", default_config)
-def save_ticket_config(guild_id: int, data: dict): save_data_to_redis(f"ticket_config:{guild_id}", data)
-
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
 
@@ -195,12 +190,6 @@ def select_page(guild_id, page):
                         current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}')
                 current_config['ai_prompt'] = request.form.get('ai_prompt')
                 save_embed_config(int(guild_id_str), current_config)
-                
-                admin_roles_json = request.form.get('admin_roles_json', '[]')
-                admin_roles = json.loads(admin_roles_json)
-                ticket_config = load_ticket_config(int(guild_id_str))
-                ticket_config['admin_roles'] = [int(role_id) for role_id in admin_roles]
-                save_ticket_config(int(guild_id_str), ticket_config)
 
                 knowledge = load_knowledge(int(guild_id_str))
                 if action == 'knowledge_add':
@@ -256,15 +245,8 @@ def select_page(guild_id, page):
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
         channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id_str}/channels', headers=bot_headers)
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
-        roles_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id_str}/roles', headers=bot_headers)
-        if roles_response.status_code == 200:
-            all_roles = roles_response.json()
-            render_data['roles'] = [r for r in all_roles if r['name'] != '@everyone' and not r.get('tags', {}).get('bot_id')]
-        else:
-            render_data['roles'] = []
         render_data['embed_config'] = load_embed_config(int(guild_id_str))
         render_data['knowledge_base'] = load_knowledge(int(guild_id_str))
-        render_data['ticket_config'] = load_ticket_config(int(guild_id_str))
     
     elif page == 'membership':
         render_data['subscription'] = get_subscription_status(int(guild_id_str))
