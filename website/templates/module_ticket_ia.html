@@ -2,16 +2,24 @@
 {% block title %}Módulo: Ticket I.A{% endblock %}
 
 {% block dashboard_content %}
-    {% if not module_status %}
-    <div class="text-center p-5" style="background-color: #330000; border: 2px solid #ff8282;">
-        <h3>Módulo Deshabilitado</h3>
-        <p>Activa el interruptor en la barra lateral para empezar a configurar.</p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Módulo: Ticket I.A</h1>
+        <form method="POST">
+            <input type="hidden" name="action" value="toggle_module">
+            <input type="hidden" name="module_name" value="ticket_ia">
+            <div class="form-check form-switch fs-5">
+                <input class="form-check-input" type="checkbox" role="switch" id="module-toggle" name="enabled" {% if module_status %}checked{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label" for="module-toggle">Habilitado</label>
+            </div>
+        </form>
     </div>
-    {% else %}
+
+    {% if module_status %}
     <div class="row g-5">
         <!-- Columna Izquierda: Formularios de Configuración -->
         <div class="col-md-7">
             <form method="POST" id="main-config-form" enctype="multipart/form-data">
+                
                 <!-- SECCIÓN 1: Editor de Embeds -->
                 <section id="embeds-section" class="mb-5">
                     <h2>Editor de Embeds</h2>
@@ -54,19 +62,23 @@
                     </div>
                 </section>
 
-                <!-- SECCIÓN 2: IA y Conocimiento -->
-                <section id="ai-section" class="mb-5">
-                    <h2>Personalidad y Conocimiento de la IA</h2>
+                <!-- SECCIÓN 2: Personalidad de la IA -->
+                <section id="personality-section" class="mb-5">
+                    <h2>Personalidad de la IA</h2>
                     <hr class="border-danger">
                     <div class="card mt-4 shadow-sm">
-                        <div class="card-header">Personalidad</div>
                         <div class="card-body">
-                            <p class="text-muted small">Define las reglas de la IA. Usa <code>{knowledge}</code> para insertar la base de conocimiento.</p>
+                            <p class="text-muted small">Define la personalidad y las reglas de la IA. Usa <code>{knowledge}</code> para indicarle dónde usar la información que le proporcionas.</p>
                             <textarea class="form-control" name="ai_prompt" rows="12">{{ embed_config.ai_prompt }}</textarea>
                         </div>
                     </div>
+                </section>
+
+                <!-- SECCIÓN 3: Base de Conocimiento -->
+                <section id="knowledge-section" class="mb-5">
+                    <h2>Base de Conocimiento</h2>
+                    <hr class="border-danger">
                     <div class="card mt-4 shadow-sm">
-                        <div class="card-header">Base de Conocimiento</div>
                         <div class="card-body">
                             <h6>Conocimiento Actual:</h6>
                             <ul class="list-group list-group-flush mb-3" style="max-height: 200px; overflow-y: auto;">
@@ -97,13 +109,13 @@
                     </div>
                 </section>
 
-                <!-- SECCIÓN 3: Configuración de Roles -->
+                <!-- SECCIÓN 4: Configuración de Roles -->
                 <section id="configs-section" class="mb-5">
                     <h2>Configuración de Roles</h2>
                     <hr class="border-danger">
                     <div class="card mt-4 shadow-sm">
                         <div class="card-body">
-                            <p class="text-muted small">Haz doble clic en un rol para añadirlo o quitarlo de la lista de administradores de tickets.</p>
+                            <p class="text-muted small">Haz doble clic en un rol para añadirlo a la lista de administradores de tickets.</p>
                             <div id="role-list-container">
                                 {% for role in roles %}
                                     <div class="role-item" data-role-id="{{ role.id }}" data-role-name="{{ role.name }}">{{ role.name }}</div>
@@ -111,6 +123,8 @@
                             </div>
                             <p class="text-muted small mt-3">Roles con permiso:</p>
                             <div id="selected-roles-container"></div>
+                            <!-- Campo oculto para enviar los roles seleccionados -->
+                            <input type="hidden" name="admin_roles_json" id="admin-roles-json">
                         </div>
                     </div>
                 </section>
@@ -167,36 +181,50 @@
 document.addEventListener('DOMContentLoaded', () => {
     const roleListContainer = document.getElementById('role-list-container');
     const selectedRolesContainer = document.getElementById('selected-roles-container');
-    const mainForm = document.getElementById('main-config-form');
+    const hiddenRolesInput = document.getElementById('admin-roles-json');
+    
     const initiallySelectedRoles = JSON.parse(document.getElementById('initial-roles-data').textContent || '[]');
     const allRoles = JSON.parse(document.getElementById('all-roles-data').textContent || '[]');
+    
+    let selectedRoleIds = new Set(initiallySelectedRoles.map(String));
 
-    function addRole(roleId, roleName) {
-        if (document.querySelector(`.selected-role-pill[data-role-id='${roleId}']`)) return;
-        const pill = document.createElement('div');
-        pill.className = 'selected-role-pill';
-        pill.dataset.roleId = roleId;
-        pill.innerHTML = `<span>${roleName}</span><button type="button" class="remove-role-btn">&times;</button>`;
-        selectedRolesContainer.appendChild(pill);
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'admin_roles';
-        hiddenInput.value = roleId;
-        hiddenInput.id = `role-input-${roleId}`;
-        mainForm.appendChild(hiddenInput);
+    function updateHiddenInput() {
+        hiddenRolesInput.value = JSON.stringify(Array.from(selectedRoleIds));
+    }
+
+    function renderPills() {
+        selectedRolesContainer.innerHTML = '';
+        selectedRoleIds.forEach(roleId => {
+            const role = allRoles.find(r => String(r.id) === roleId);
+            if (role) {
+                const pill = document.createElement('div');
+                pill.className = 'selected-role-pill';
+                pill.dataset.roleId = role.id;
+                pill.innerHTML = `<span>${role.name}</span><button type="button" class="remove-role-btn">&times;</button>`;
+                selectedRolesContainer.appendChild(pill);
+            }
+        });
+    }
+
+    function addRole(roleId) {
+        selectedRoleIds.add(roleId);
+        updateAndRender();
     }
 
     function removeRole(roleId) {
-        const pill = document.querySelector(`.selected-role-pill[data-role-id='${roleId}']`);
-        const hiddenInput = document.getElementById(`role-input-${roleId}`);
-        if (pill) pill.remove();
-        if (hiddenInput) hiddenInput.remove();
+        selectedRoleIds.delete(roleId);
+        updateAndRender();
+    }
+
+    function updateAndRender() {
+        renderPills();
+        updateHiddenInput();
     }
 
     if (roleListContainer) {
         roleListContainer.addEventListener('dblclick', e => {
             if (e.target && e.target.classList.contains('role-item')) {
-                addRole(e.target.dataset.roleId, e.target.dataset.roleName);
+                addRole(e.target.dataset.roleId);
             }
         });
     }
@@ -209,12 +237,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (initiallySelectedRoles && allRoles) {
-        initiallySelectedRoles.forEach(roleId => {
-            const role = allRoles.find(r => String(r.id) === String(roleId));
-            if (role) addRole(role.id, role.name);
-        });
-    }
+    // Carga inicial
+    updateAndRender();
 });
 </script>
 {% endblock %}
