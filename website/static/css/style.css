@@ -42,8 +42,6 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
 .sidebar .menu-category { font-size: 0.8rem; color: #ff8282; text-transform: uppercase; margin-top: 25px; margin-bottom: 10px; }
 .sidebar .nav-link { padding: 10px 15px; margin-bottom: 5px; border-radius: 5px; font-size: 0.9rem; }
 .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #ff4141; color: #1a0000; text-shadow: none; }
-.sidebar .nav-link-collapse::after { content: ' ▼'; font-size: 0.7em; margin-left: auto; transition: transform 0.2s; }
-.sidebar .nav-link-collapse[aria-expanded="false"]::after { transform: rotate(-90deg); }
 .sidebar .sub-menu { padding-left: 20px; background-color: rgba(0,0,0,0.2); border-radius: 5px; margin-top: -5px; margin-bottom: 5px; }
 .sidebar .sub-link { font-size: 0.8rem !important; color: #ffb3b3 !important; padding-top: 8px; padding-bottom: 8px; }
 .sidebar .sub-link:hover { color: #1a0000 !important; }
@@ -87,7 +85,70 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
 .sidebar-header h2 { font-size: 1.2rem; }
 .sidebar-content { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
 .sidebar-content .card, .sidebar-content .form-control { font-family: 'Roboto', sans-serif; font-size: 0.9rem; }
-.demo-main-content { flex-grow: 1; display: flex; flex-direction: column; background-color: #36393f; }
+
+/* CHANGE: Added and corrected styles for the demo chat interface */
+.demo-main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #36393f; /* Discord dark theme color */
+    height: 100vh;
+}
+.discord-channel-header {
+    font-family: 'Roboto', sans-serif;
+    padding: 10px 15px;
+    background-color: #36393f;
+    border-bottom: 1px solid rgba(0,0,0,0.2);
+    color: #fff;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+.discord-chat-area {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+.discord-message {
+    display: flex;
+    margin-bottom: 1rem;
+    font-family: 'Roboto', sans-serif;
+    color: #dcddde;
+}
+.discord-message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+.discord-message-content .username {
+    color: #ff8282;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+.discord-message-content .text {
+    white-space: pre-wrap;
+    line-height: 1.375;
+}
+.discord-input-bar {
+    padding: 20px;
+    background-color: #40444b;
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+#chat-input {
+    flex-grow: 1;
+    background-color: #2f3136;
+    border: none;
+    color: #dcddde;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: 'Roboto', sans-serif;
+}
+#chat-input::placeholder {
+    color: #72767d;
+}
 
 /* --- Estilos para el Modal de Invitación --- */
 .modal-content { background-color: #330000; border: 2px solid #ff4141; color: #fbebeb; }
@@ -111,12 +172,20 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
 .embed-footer { display: flex; align-items: center; margin-top: 8px; font-size: 0.75rem; color: #c7c9cb; }
 .embed-footer-icon { width: 20px; height: 20px; border-radius: 50%; margin-right: 8px; }
 
-/* --- CHANGE: New styles for integrated toggle button --- */
+/* --- Estilos para el botón de menú con toggle integrado --- */
 .nav-link-with-toggle {
     display: flex;
     align-items: center;
     padding: 0 !important;
     cursor: default !important;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+.nav-link-with-toggle:hover, .nav-link-with-toggle.active {
+    background-color: #ff4141;
+    color: #1a0000;
+    text-shadow: none;
 }
 .nav-link-with-toggle .module-toggle-form {
     padding: 10px 0 10px 15px;
@@ -128,11 +197,6 @@ body, h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .for
     color: inherit; /* Inherit color from parent */
     display: block;
     position: relative; /* For the arrow positioning */
-}
-.nav-link-with-toggle.active .nav-link-text,
-.nav-link-with-toggle:hover .nav-link-text {
-    color: #1a0000;
-    text-shadow: none;
 }
 .nav-link-with-toggle .nav-link-text::after {
     content: ' ▼';
