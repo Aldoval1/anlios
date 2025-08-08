@@ -2,7 +2,8 @@
 
 <!-- This block will inject all the theme stylesheets into the layout -->
 {% block theme_styles %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes-base.css') }}">
+    <!-- CHANGE: Replaced themes-base.css with the new dashboard-base.css -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-base.css') }}">
 
     <link id="design-anlios" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-anlios.css') }}" disabled>
     <link id="design-modern" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-modern.css') }}" disabled>
