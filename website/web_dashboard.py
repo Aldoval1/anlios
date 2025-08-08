@@ -48,6 +48,7 @@ AUTHORIZATION_BASE_URL, TOKEN_URL = f'{API_BASE_URL}/oauth2/authorize', f'{API_B
 SCOPES = ['identify', 'guilds']
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
+REDIS_TRAINING_QUEUE_KEY = "training_queue" # NUEVO
 REDIS_CODES_KEY = "premium_codes"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 
@@ -93,7 +94,7 @@ def load_embed_config(guild_id: int) -> dict:
     default_config = {
         'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'welcome': {'title': '¡Bienvenido, {user}!', 'description': 'Un asistente te atenderá pronto.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
-        'ai_prompt': "Eres Anlios, un amigable y servicial asistente de IA..."
+        'ai_prompt': "Eres Anlios, un amigable y servicial asistente de IA. Tu propósito es ayudar a los usuarios con su conocimiento base. Si no encuentras la respuesta en tu base de conocimientos, DEBES empezar tu respuesta única y exclusivamente con la etiqueta [NO_KNOWLEDGE] y nada más."
     }
     config = load_data_from_redis(f"embed_config:{guild_id}", {})
     for key, value in default_config.items():
@@ -177,7 +178,6 @@ def select_page(guild_id, page):
     if 'discord_token' not in session: return redirect(url_for('login'))
     guild_id_int = int(guild_id)
     
-    # Common data for all dashboard pages
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
     user_guilds = guilds_response.json()
@@ -261,11 +261,12 @@ def select_page(guild_id, page):
             save_status = 'error'
         return redirect(url_for('select_page', guild_id=guild_id, page=page, save=save_status))
 
-    # --- GET Request Logic ---
+    # --- Lógica de GET ---
     template_map = { 
         "modules": "module_ticket_ia.html", 
         "membership": "membership.html",
-        "profile": "profile.html"
+        "profile": "profile.html",
+        "training": "training.html" # NUEVO
     }
     template_to_render = template_map.get(page, "under_construction.html")
     
@@ -287,8 +288,55 @@ def select_page(guild_id, page):
     
     elif page == 'membership':
         render_data['subscription'] = get_subscription_status(guild_id_int)
+
+    # NUEVO: Lógica para la página de entrenamiento
+    elif page == 'training':
+        training_queue_key = f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}"
+        render_data['pending_questions'] = load_data_from_redis(training_queue_key, [])
         
     return render_template(template_to_render, **render_data)
+
+# --- NUEVA RUTA PARA MANEJAR LAS ACCIONES DE ENTRENAMIENTO ---
+@app.route("/dashboard/<guild_id>/training_action", methods=['POST'])
+def training_action(guild_id):
+    if 'discord_token' not in session: return redirect(url_for('login'))
+    guild_id_int = int(guild_id)
+    
+    action = request.form.get('action')
+    question_id = request.form.get('question_id')
+
+    training_queue_key = f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}"
+    pending_questions = load_data_from_redis(training_queue_key, [])
+    
+    question_to_process = next((q for q in pending_questions if q['id'] == question_id), None)
+    
+    if not question_to_process:
+        flash("La pregunta ya no existe o fue procesada.", "warning")
+        return redirect(url_for('select_page', guild_id=guild_id, page='training'))
+
+    if action == 'train':
+        answer = request.form.get('answer_text')
+        if not answer:
+            flash("La respuesta no puede estar vacía.", "danger")
+        else:
+            knowledge = load_knowledge(guild_id_int)
+            # Formateamos la pregunta y respuesta para añadirla al conocimiento
+            new_knowledge_entry = f"Pregunta: {question_to_process['question']}\nRespuesta: {answer}"
+            knowledge.append(new_knowledge_entry)
+            save_knowledge(guild_id_int, knowledge)
+            
+            # Eliminamos la pregunta de la cola
+            pending_questions = [q for q in pending_questions if q['id'] != question_id]
+            save_data_to_redis(training_queue_key, pending_questions)
+            flash("¡IA entrenada con éxito!", "success")
+
+    elif action == 'discard':
+        pending_questions = [q for q in pending_questions if q['id'] != question_id]
+        save_data_to_redis(training_queue_key, pending_questions)
+        flash("Pregunta descartada.", "info")
+
+    return redirect(url_for('select_page', guild_id=guild_id, page='training'))
+
 
 @app.route("/dashboard/<guild_id>/send_panel", methods=['POST'])
 def send_panel(guild_id):
@@ -320,7 +368,7 @@ def demo_extract_knowledge():
     text = ""
     try:
         if source_type == 'web':
-            url = request.form.get('url')
+            url = request.form.get('web_url')
             page_req = requests.get(url, timeout=10)
             page_req.raise_for_status()
             soup = BeautifulSoup(page_req.content, 'html.parser')
