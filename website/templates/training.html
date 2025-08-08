@@ -1,0 +1,54 @@
+{% extends "dashboard.html" %}
+{% block title %}Entrenamiento de IA{% endblock %}
+
+{% block dashboard_content %}
+    <h1>Entrenamiento de IA</h1>
+    <p class="text-muted">Aquí aparecen las preguntas que la IA no supo responder. Ayúdala a aprender proporcionando la respuesta correcta o descarta la pregunta si no es relevante.</p>
+    <hr class="border-danger">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if pending_questions %}
+        <div class="row g-4">
+            {% for question in pending_questions %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Pregunta de: <strong>{{ question.user }}</strong></span>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text fs-5 mb-3">"{{ question.question }}"</p>
+                        
+                        <form action="{{ url_for('training_action', guild_id=active_guild_id) }}" method="POST">
+                            <input type="hidden" name="question_id" value="{{ question.id }}">
+                            <div class="mb-3">
+                                <textarea name="answer_text" class="form-control" rows="3" placeholder="Escribe la respuesta correcta aquí..." required></textarea>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="submit" name="action" value="discard" class="btn btn-secondary">Descartar</button>
+                                <button type="submit" name="action" value="train" class="btn btn-success">Guardar y Entrenar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <img src="{{ url_for('static', filename='images/success.gif') }}" alt="Todo bien" class="prompt-gif">
+            <p class="prompt-text mt-3">¡No hay preguntas pendientes!</p>
+            <p class="text-muted">La IA tiene todo el conocimiento que necesita por ahora.</p>
+        </div>
+    {% endif %}
+
+{% endblock %}
