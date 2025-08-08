@@ -14,16 +14,17 @@ body {
     overflow: hidden; 
 }
 
-h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .form-control, .page-footer {
+h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .page-footer, .topbar .logo {
     font-family: var(--font-pixel, 'Press Start 2P', cursive);
 }
-.form-control, .form-select, .card, .modal-content { font-family: var(--font-sans, 'Roboto', sans-serif); }
+.form-control, .card, .modal-content, .user-info .username { 
+    font-family: var(--font-sans, 'Roboto', sans-serif); 
+}
 
 /* --- Estructura Principal del Dashboard --- */
 .dashboard-wrapper { display: flex; height: 100vh; }
 .content-wrapper { display: flex; flex-direction: column; flex-grow: 1; overflow: hidden; }
 .topbar { height: 70px; background-color: var(--bg-secondary, #330000); border-bottom: var(--border-main-width, 4px) solid var(--accent-main, #ff4141); display: flex; align-items: center; padding: 0 40px; flex-shrink: 0; }
-.topbar .logo { font-size: 1.5rem; color: var(--accent-main, #ff4141); text-shadow: 2px 2px #000; }
 .sidebar { width: 260px; background-color: var(--bg-secondary, #330000); padding: 20px; border-right: var(--border-main-width, 4px) solid var(--accent-main, #ff4141); box-shadow: var(--card-shadow, none); display: flex; flex-direction: column; flex-shrink: 0; }
 .sidebar .menu-category { font-size: 0.8rem; color: var(--accent-secondary, #ff8282); text-transform: uppercase; margin-top: 25px; margin-bottom: 10px; }
 .sidebar .nav-link { padding: 10px 15px; margin-bottom: 5px; border-radius: var(--border-radius, 5px); font-size: 0.9rem; }
@@ -50,7 +51,7 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
 .nav-pills .nav-link.active { background: var(--accent-gradient, var(--accent-main, #ff4141)); color: var(--btn-primary-text, #1a0000); border-color: var(--accent-main, #ff4141); }
 .text-muted { color: var(--text-muted, #ffb3b3) !important; }
 
-/* --- Estilos para el Gestor de Roles Interactivo --- */
+/* --- Estilos para el Gestor de Roles --- */
 #role-list-container { background-color: var(--bg-input, #1a0000); border: 2px solid var(--border-input, #ff8282); height: 200px; overflow-y: auto; padding: 5px; }
 .role-item { padding: 8px 12px; cursor: pointer; font-family: var(--font-sans, 'Roboto', sans-serif); font-size: 0.9rem; border-radius: 3px; }
 .role-item:hover { background-color: var(--bg-tertiary, #4d0000); }
@@ -70,22 +71,6 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
 .modal-body p { font-family: var(--font-sans, 'Roboto', sans-serif); }
 .modal-content .form-select { background-color: var(--bg-input, #1a0000); color: var(--text-main, #fbebeb); border-color: var(--border-input, #ff8282); }
 
-/* --- Estilos para la Vista Previa de Embeds --- */
-.discord-chat-message { display: flex; gap: 20px; font-family: var(--font-sans, 'Roboto', sans-serif); }
-.discord-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
-.discord-username { color: var(--accent-secondary, #ff8282); font-weight: 500; margin-bottom: 4px; font-family: var(--font-sans, 'Roboto', sans-serif); }
-.discord-embed { background-color: #2f3136; border-left: 4px solid #5865f2; border-radius: 4px; padding: .5rem 1rem; margin-top: 4px; max-width: 520px; }
-.embed-grid { display: grid; grid-template-columns: auto min-content; gap: 16px; }
-.embed-content { min-width: 0; }
-.embed-author { display: flex; align-items: center; margin-bottom: 8px; font-size: 0.875rem; font-weight: 500; color: #fff; }
-.embed-author-icon { width: 24px; height: 24px; border-radius: 50%; margin-right: 8px; }
-.embed-title { font-weight: 700; color: #fff; margin-bottom: 4px; }
-.embed-description { font-size: 0.875rem; line-height: 1.375; color: #dcddde; white-space: pre-wrap; }
-.embed-thumbnail { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
-.embed-image { max-width: 100%; margin-top: 16px; border-radius: 4px; }
-.embed-footer { display: flex; align-items: center; margin-top: 8px; font-size: 0.75rem; color: #c7c9cb; }
-.embed-footer-icon { width: 20px; height: 20px; border-radius: 50%; margin-right: 8px; }
-
 /* --- Estilos para el botón de menú con toggle integrado --- */
 .nav-link-with-toggle { display: flex; align-items: center; padding: 0 !important; cursor: default !important; border-radius: var(--border-radius, 5px); margin-bottom: 5px; font-size: 0.9rem; }
 .nav-link-with-toggle:hover, .nav-link-with-toggle.active { background: var(--accent-gradient, var(--accent-main, #ff4141)); color: var(--btn-primary-text, #1a0000); text-shadow: none; }
@@ -93,3 +78,22 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
 .nav-link-with-toggle .nav-link-text { flex-grow: 1; padding: 10px 15px 10px 10px; text-decoration: none; color: inherit; display: block; position: relative; }
 .nav-link-with-toggle .nav-link-text::after { content: ' ▼'; font-size: 0.7em; position: absolute; right: 15px; top: 50%; transform: translateY(-50%); transition: transform 0.2s; }
 .nav-link-with-toggle .nav-link-text[aria-expanded="false"]::after { transform: translateY(-50%) rotate(-90deg); }
+
+/* --- PROTECTED STYLES FOR DISCORD PREVIEW --- */
+.discord-chat-message, .discord-embed, .discord-embed * {
+    font-family: 'Roboto', sans-serif !important;
+}
+.discord-chat-message { display: flex; gap: 20px; }
+.discord-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
+.discord-username { color: #ff8282 !important; font-weight: 500; margin-bottom: 4px; }
+.discord-embed { background-color: #2f3136 !important; border-left: 4px solid #5865f2 !important; border-radius: 4px; padding: .5rem 1rem; margin-top: 4px; max-width: 520px; }
+.embed-grid { display: grid; grid-template-columns: auto min-content; gap: 16px; }
+.embed-content { min-width: 0; }
+.embed-author { display: flex; align-items: center; margin-bottom: 8px; font-size: 0.875rem; font-weight: 500; color: #fff !important; }
+.embed-author-icon { width: 24px; height: 24px; border-radius: 50%; margin-right: 8px; }
+.embed-title { font-weight: 700; color: #fff !important; margin-bottom: 4px; }
+.embed-description { font-size: 0.875rem; line-height: 1.375; color: #dcddde !important; white-space: pre-wrap; }
+.embed-thumbnail { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+.embed-image { max-width: 100%; margin-top: 16px; border-radius: 4px; }
+.embed-footer { display: flex; align-items: center; margin-top: 8px; font-size: 0.75rem; color: #c7c9cb !important; }
+.embed-footer-icon { width: 20px; height: 20px; border-radius: 50%; margin-right: 8px; }
