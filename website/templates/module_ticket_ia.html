@@ -18,7 +18,7 @@
     <div class="row g-5">
         <!-- Columna Izquierda: Formularios de Configuración -->
         <div class="col-md-7">
-            <form method="POST" id="main-config-form" enctype="multipart/form-data">
+            <form method="POST" id="main-config-form">
                 
                 <!-- SECCIÓN 1: Editor de Embeds -->
                 <section id="embeds-section" class="mb-5">
@@ -68,7 +68,7 @@
                     <hr class="border-danger">
                     <div class="card mt-4 shadow-sm">
                         <div class="card-body">
-                            <p class="text-muted small">Define la personalidad y las reglas de la IA. Usa <code>{knowledge}</code> para indicarle dónde usar la información que le proporcionas.</p>
+                            <p class="text-muted small">Define la personalidad y las reglas de la IA. Usa <code>{knowledge}</code> para indicarle dónde usar la información que le proporcionas. Si no conoce la respuesta, debe empezar su respuesta con <code>[NO_KNOWLEDGE]</code>.</p>
                             <textarea class="form-control" name="ai_prompt" rows="12">{{ embed_config.ai_prompt }}</textarea>
                         </div>
                     </div>
@@ -84,7 +84,7 @@
                             <ul class="list-group list-group-flush mb-3" style="max-height: 200px; overflow-y: auto;">
                                 {% for item in knowledge_base %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span class="me-2 text-truncate">{{ item }}</span>
+                                    <span class="me-2 text-truncate" style="white-space: pre-wrap;">{{ item }}</span>
                                     <button type="submit" name="action" value="knowledge_delete_{{ loop.index0 }}" class="btn btn-danger btn-sm py-0 px-2" title="Eliminar">×</button>
                                 </li>
                                 {% endfor %}
@@ -122,18 +122,13 @@
                                 {% endfor %}
                             </div>
                             <hr>
-                            <!-- CHANGE: Improved layout for selected roles -->
                             <div class="d-flex align-items-start mt-2">
                                 <span class="text-muted small me-3 pt-2" style="white-space: nowrap;">Roles con permiso:</span>
                                 <div id="selected-roles-container" class="w-100" style="min-height: 40px;">
-                                    <!-- Pills will be rendered here by JS -->
+                                    <!-- Pills se renderizan con JS -->
                                 </div>
                             </div>
-                            <!-- Campo oculto para enviar los roles seleccionados -->
                             <input type="hidden" name="admin_roles_json" id="admin-roles-json">
-                        </div>
-                        <div class="card-footer">
-                            <button type="submit" name="action" value="save_roles" class="btn btn-info w-100">Guardar Configuración de Roles</button>
                         </div>
                     </div>
                 </section>
@@ -184,6 +179,7 @@
 {{ super() }}
 <script src="{{ url_for('static', filename='js/preview.js') }}"></script>
 <script src="{{ url_for('static', filename='js/validation.js') }}"></script>
+<script src="{{ url_for('static', filename='js/unsaved-changes.js') }}"></script>
 <script id="initial-roles-data" type="application/json">{{ ticket_config.admin_roles | tojson | safe }}</script>
 <script id="all-roles-data" type="application/json">{{ roles | tojson | safe }}</script>
 <script>
@@ -201,31 +197,23 @@ document.addEventListener('DOMContentLoaded', () => {
         hiddenRolesInput.value = JSON.stringify(Array.from(selectedRoleIds));
     }
 
-    // CHANGE: This function now also hides/shows roles from the main list
     function renderPills() {
-        // Clear selected container
         selectedRolesContainer.innerHTML = '';
-        
-        // Get all available role items from the list
         const availableRoleItems = roleListContainer.querySelectorAll('.role-item');
 
-        // First, make all available roles visible by default
         availableRoleItems.forEach(item => {
             item.style.display = 'block';
         });
 
-        // Then, render pills for selected roles and hide them from the available list
         selectedRoleIds.forEach(roleId => {
             const role = allRoles.find(r => String(r.id) === roleId);
             if (role) {
-                // 1. Render the pill in the selected container
                 const pill = document.createElement('div');
                 pill.className = 'selected-role-pill';
                 pill.dataset.roleId = role.id;
                 pill.innerHTML = `<span>${role.name}</span><button type="button" class="remove-role-btn">×</button>`;
                 selectedRolesContainer.appendChild(pill);
 
-                // 2. Hide the corresponding role from the available list
                 const availableRoleItem = roleListContainer.querySelector(`.role-item[data-role-id='${roleId}']`);
                 if (availableRoleItem) {
                     availableRoleItem.style.display = 'none';
@@ -265,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initial load
     updateAndRender();
 });
 </script>
