@@ -176,6 +176,25 @@ def dashboard_home():
 def select_page(guild_id, page):
     if 'discord_token' not in session: return redirect(url_for('login'))
     guild_id_int = int(guild_id)
+    
+    # Common data for all dashboard pages
+    discord = make_user_session()
+    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
+    user_guilds = guilds_response.json()
+    bot_guild_ids_str = load_data_from_redis(REDIS_GUILDS_KEY, [])
+    bot_guild_ids = {str(gid) for gid in bot_guild_ids_str}
+    admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
+    guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
+    guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
+
+    render_data = {
+        "user": session['user'],
+        "guilds_with_bot": guilds_with_bot,
+        "guilds_without_bot": guilds_without_bot,
+        "client_id": CLIENT_ID,
+        "active_guild_id": guild_id,
+        "page": page
+    }
 
     if request.method == 'POST':
         save_status = 'success'
@@ -193,12 +212,10 @@ def select_page(guild_id, page):
                 admin_roles_json = request.form.get('admin_roles_json', '[]')
                 admin_roles = json.loads(admin_roles_json)
                 ticket_config = load_ticket_config(guild_id_int)
-                # CHANGE: Save IDs as strings for consistency
                 ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
                 save_ticket_config(guild_id_int, ticket_config)
 
             elif action == 'save_all':
-                # Guardar Embeds y Personalidad IA
                 current_config = load_embed_config(guild_id_int)
                 for embed_type in ['panel', 'welcome']:
                     for key in current_config[embed_type]:
@@ -206,15 +223,12 @@ def select_page(guild_id, page):
                 current_config['ai_prompt'] = request.form.get('ai_prompt')
                 save_embed_config(guild_id_int, current_config)
                 
-                # Guardar Roles (también se guarda con el botón principal)
                 admin_roles_json = request.form.get('admin_roles_json', '[]')
                 admin_roles = json.loads(admin_roles_json)
                 ticket_config = load_ticket_config(guild_id_int)
-                # CHANGE: Save IDs as strings for consistency
                 ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
                 save_ticket_config(guild_id_int, ticket_config)
             
-            # Lógica para manejar la base de conocimiento
             knowledge_actions = ['knowledge_add', 'knowledge_web', 'knowledge_youtube', 'knowledge_pdf']
             if action in knowledge_actions or (action and action.startswith('knowledge_delete_')):
                 knowledge = load_knowledge(guild_id_int)
@@ -247,27 +261,17 @@ def select_page(guild_id, page):
             save_status = 'error'
         return redirect(url_for('select_page', guild_id=guild_id, page=page, save=save_status))
 
-    # Lógica para el método GET
-    discord = make_user_session()
-    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
-    user_guilds = guilds_response.json()
-    
-    bot_guild_ids_str = load_data_from_redis(REDIS_GUILDS_KEY, [])
-    bot_guild_ids = {str(gid) for gid in bot_guild_ids_str}
-    
-    admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
-    guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
-    guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
-
-    template_map = { "modules": "module_ticket_ia.html", "membership": "membership.html" }
+    # --- GET Request Logic ---
+    template_map = { 
+        "modules": "module_ticket_ia.html", 
+        "membership": "membership.html",
+        "profile": "profile.html"
+    }
     template_to_render = template_map.get(page, "under_construction.html")
     
-    render_data = { "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot, "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page }
-    
-    module_config = load_module_config()
-    render_data['module_status'] = module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False)
-
     if page == 'modules':
+        module_config = load_module_config()
+        render_data['module_status'] = module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False)
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
         channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/channels', headers=bot_headers)
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
