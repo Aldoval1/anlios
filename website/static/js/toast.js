@@ -7,8 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelButton = document.getElementById('toast-cancel');
     const progressBar = document.getElementById('toast-progress');
 
-    let hasUnsavedChanges = false;
-    let activeForm = null;
     let toastTimeout;
 
     const baseImagePath = '/static/images/';
@@ -28,16 +26,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         toastContainer.classList.add('show');
 
-        // Animar la barra de progreso
         progressBar.style.transition = 'none';
         progressBar.style.width = '100%';
-        setTimeout(() => {
-            progressBar.style.transition = `width ${duration / 1000}s linear`;
-            progressBar.style.width = '0%';
-        }, 50);
-
         if (duration > 0) {
+            setTimeout(() => {
+                progressBar.style.transition = `width ${duration / 1000}s linear`;
+                progressBar.style.width = '0%';
+            }, 50);
             toastTimeout = setTimeout(hideToast, duration);
+        } else {
+             progressBar.style.width = '100%'; // No progress for sticky toasts
         }
     }
 
@@ -45,49 +43,34 @@ document.addEventListener('DOMContentLoaded', () => {
         toastContainer.classList.remove('show');
     }
 
-    // 1. Detectar cambios sin guardar
-    const allForms = document.querySelectorAll('form');
-    allForms.forEach(form => {
-        form.addEventListener('input', () => {
-            if (!hasUnsavedChanges) {
-                showToast('warning', 'Tienes cambios sin guardar.', true, 0); // No se oculta solo
-                hasUnsavedChanges = true;
-                activeForm = form; // Guardamos el formulario que tiene cambios
+    // Expose showToast globally for simple notifications
+    window.showToast = showToast;
+
+    // CHANGE: New function for theme preview toast
+    window.showThemeToast = function() {
+        showToast('warning', 'Has previsualizado un nuevo tema. ¿Quieres guardarlo?', true, 0);
+
+        // Clone buttons to remove old event listeners
+        const newConfirm = confirmButton.cloneNode(true);
+        confirmButton.parentNode.replaceChild(newConfirm, confirmButton);
+        newConfirm.textContent = "Guardar Tema";
+
+        const newCancel = cancelButton.cloneNode(true);
+        cancelButton.parentNode.replaceChild(newCancel, cancelButton);
+        newCancel.textContent = "Cancelar";
+
+        newConfirm.addEventListener('click', () => {
+            if (typeof window.savePreviewedTheme === 'function') {
+                window.savePreviewedTheme();
+                showToast('success', '¡Tema guardado con éxito!', false, 3000);
             }
         });
 
-        form.addEventListener('submit', () => {
-            showToast('loading', 'Guardando cambios...', false, 10000); // Larga duración por si tarda
-            hasUnsavedChanges = false;
-            activeForm = null;
-        });
-    });
-
-    // 2. Lógica de los botones del toast
-    confirmButton.addEventListener('click', () => {
-        if (activeForm) {
-            // Encuentra el botón de envío principal del formulario y haz clic en él
-            const submitButton = activeForm.querySelector('button[type="submit"]');
-            if (submitButton) {
-                submitButton.click();
+        newCancel.addEventListener('click', () => {
+            if (typeof window.revertToSavedTheme === 'function') {
+                window.revertToSavedTheme();
+                hideToast();
             }
-        }
-    });
-
-    cancelButton.addEventListener('click', () => {
-        if (activeForm) {
-            activeForm.reset(); // Resetea los campos del formulario
-            hasUnsavedChanges = false;
-            activeForm = null;
-            hideToast();
-        }
-    });
-
-    // 3. Detectar estado desde la URL
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('save') === 'success') {
-        showToast('success', '¡Cambios guardados con éxito!');
-    } else if (urlParams.get('save') === 'error') {
-        showToast('error', '¡Hubo un error al guardar!');
-    }
+        });
+    };
 });
