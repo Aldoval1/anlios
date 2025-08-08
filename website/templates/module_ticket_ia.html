@@ -81,29 +81,29 @@
                     <div class="card mt-4 shadow-sm">
                         <div class="card-body">
                             <h6>Conocimiento Actual:</h6>
-                            <ul class="list-group list-group-flush mb-3" style="max-height: 200px; overflow-y: auto;">
+                            <ul id="knowledge-list" class="list-group list-group-flush mb-3" style="max-height: 200px; overflow-y: auto;">
                                 {% for item in knowledge_base %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <span class="me-2 text-truncate" style="white-space: pre-wrap;">{{ item }}</span>
-                                    <button type="submit" name="action" value="knowledge_delete_{{ loop.index0 }}" class="btn btn-danger btn-sm py-0 px-2" title="Eliminar">×</button>
+                                    <!-- MODIFICADO: El botón de eliminar ahora es un botón normal que el JS manejará -->
+                                    <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="{{ loop.index0 }}" title="Eliminar">×</button>
                                 </li>
                                 {% endfor %}
                                 {% if not knowledge_base %}
-                                <li class="list-group-item text-muted">La base de conocimientos está vacía.</li>
+                                <li id="empty-knowledge-msg" class="list-group-item text-muted">La base de conocimientos está vacía.</li>
                                 {% endif %}
                             </ul>
                             <hr>
                             <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
                                 <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab" data-bs-toggle="pill" data-bs-target="#pills-text" type="button" role="tab">Añadir Texto</button></li>
-                                <li class="nav-item" role="presentation"><button class="nav-link" id="pills-web-tab" data-bs-toggle="pill" data-bs-target="#pills-web" type="button" role="tab">Leer Web</button></li>
-                                <li class="nav-item" role="presentation"><button class="nav-link" id="pills-youtube-tab" data-bs-toggle="pill" data-bs-target="#pills-youtube" type="button" role="tab">YouTube</button></li>
-                                <li class="nav-item" role="presentation"><button class="nav-link" id="pills-pdf-tab" data-bs-toggle="pill" data-bs-target="#pills-pdf" type="button" role="tab">Subir PDF</button></li>
+                                <!-- Otras pestañas (web, youtube, pdf) se pueden implementar de forma similar si se desea -->
                             </ul>
                             <div class="tab-content" id="pills-tabContent">
-                                <div class="tab-pane fade show active" id="pills-text" role="tabpanel"><div class="mb-3"><textarea class="form-control" name="new_knowledge" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div><button type="submit" name="action" value="knowledge_add" class="btn btn-info w-100">Añadir Texto</button></div>
-                                <div class="tab-pane fade" id="pills-web" role="tabpanel"><div class="input-group"><input type="url" class="form-control" name="web_url" placeholder="https://ejemplo.com"><button type="submit" name="action" value="knowledge_web" class="btn btn-info">Leer Página Web</button></div></div>
-                                <div class="tab-pane fade" id="pills-youtube" role="tabpanel"><div class="input-group"><input type="url" class="form-control" name="youtube_url" placeholder="https://www.youtube.com/watch?v=..."><button type="submit" name="action" value="knowledge_youtube" class="btn btn-info">Transcribir Video</button></div></div>
-                                <div class="tab-pane fade" id="pills-pdf" role="tabpanel"><div class="input-group"><input type="file" class="form-control" name="pdf_file" accept=".pdf"><button type="submit" name="action" value="knowledge_pdf" class="btn btn-info">Subir PDF</button></div></div>
+                                <div class="tab-pane fade show active" id="pills-text" role="tabpanel">
+                                    <div class="mb-3"><textarea class="form-control" id="new-knowledge-text" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div>
+                                    <!-- MODIFICADO: El botón de añadir ahora es un botón normal que el JS manejará -->
+                                    <button type="button" id="add-knowledge-btn" class="btn btn-info w-100">Añadir Texto</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -182,6 +182,93 @@
 <script src="{{ url_for('static', filename='js/unsaved-changes.js') }}"></script>
 <script id="initial-roles-data" type="application/json">{{ ticket_config.admin_roles | tojson | safe }}</script>
 <script id="all-roles-data" type="application/json">{{ roles | tojson | safe }}</script>
+<script>
+// Nuevo script para manejar el conocimiento de forma asíncrona
+document.addEventListener('DOMContentLoaded', () => {
+    const guildId = '{{ active_guild_id }}';
+    const addBtn = document.getElementById('add-knowledge-btn');
+    const knowledgeList = document.getElementById('knowledge-list');
+
+    // Añadir conocimiento
+    if (addBtn) {
+        addBtn.addEventListener('click', async () => {
+            const textArea = document.getElementById('new-knowledge-text');
+            const text = textArea.value.trim();
+            if (!text) return;
+
+            const response = await fetch(`/dashboard/${guildId}/knowledge/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Añadir dinámicamente el nuevo elemento a la lista
+                const newItem = document.createElement('li');
+                newItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                newItem.innerHTML = `
+                    <span class="me-2 text-truncate" style="white-space: pre-wrap;">${data.newItem.text}</span>
+                    <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="${data.newItem.index}" title="Eliminar">×</button>
+                `;
+                knowledgeList.appendChild(newItem);
+                
+                // Limpiar el textarea
+                textArea.value = '';
+
+                // Ocultar mensaje de lista vacía si estaba visible
+                const emptyMsg = document.getElementById('empty-knowledge-msg');
+                if (emptyMsg) emptyMsg.style.display = 'none';
+
+                // Mostrar notificación de éxito
+                if (typeof showToast === 'function') {
+                    showToast('success', 'Conocimiento añadido con éxito.', false, 3000);
+                }
+            } else {
+                if (typeof showToast === 'function') {
+                    showToast('error', `Error: ${data.error}`, false, 5000);
+                }
+            }
+        });
+    }
+
+    // Eliminar conocimiento
+    if (knowledgeList) {
+        knowledgeList.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('knowledge-delete-btn')) {
+                const button = e.target;
+                const index = button.dataset.index;
+
+                const response = await fetch(`/dashboard/${guildId}/knowledge/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ index: index })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Eliminar el elemento de la lista
+                    button.parentElement.remove();
+
+                     // Mostrar mensaje si la lista queda vacía
+                    if (knowledgeList.children.length === 0) {
+                         const emptyMsg = document.getElementById('empty-knowledge-msg');
+                         if (emptyMsg) emptyMsg.style.display = 'block';
+                    }
+
+                    if (typeof showToast === 'function') {
+                        showToast('info', 'Conocimiento eliminado.', false, 3000);
+                    }
+                } else {
+                     if (typeof showToast === 'function') {
+                        showToast('error', `Error: ${data.error}`, false, 5000);
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const roleListContainer = document.getElementById('role-list-container');
