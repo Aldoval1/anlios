@@ -2,15 +2,10 @@
 
 <!-- This block will inject all the theme stylesheets into the layout -->
 {% block theme_styles %}
-    <!-- CHANGE: Replaced themes-base.css with the new dashboard-base.css -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-base.css') }}">
 
     <link id="design-anlios" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-anlios.css') }}" disabled>
-    <link id="design-modern" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-modern.css') }}" disabled>
-    <link id="design-terminal" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-terminal.css') }}" disabled>
-    <link id="design-blueprint" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-blueprint.css') }}" disabled>
     <link id="design-discord" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-discord.css') }}" disabled>
-    <link id="design-neumorphism" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-neumorphism.css') }}" disabled>
     <link id="design-nordic" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-nordic.css') }}" disabled>
 
     <link id="color-furia-roja" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-furia-roja.css') }}" disabled>
@@ -149,6 +144,7 @@
 
         function applyTheme(design, color) {
             body.classList.add('theme-transition');
+            body.dataset.design = design; // Set data-attribute for specific CSS rules
 
             designSheets.forEach(sheet => sheet.disabled = (sheet.id !== `design-${design}`));
             colorSheets.forEach(sheet => sheet.disabled = (sheet.id !== `color-${color}`));
