@@ -1,0 +1,73 @@
+/* --- Styles for the Theme Selector UI on profile.html --- */
+
+.theme-card {
+    border: 3px solid var(--border-input);
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    background-color: var(--bg-secondary);
+}
+
+.theme-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.theme-card.active {
+    border-color: var(--accent-main);
+    transform: scale(1.05);
+}
+
+.theme-preview {
+    height: 100px;
+    margin-bottom: 1rem;
+    border: 2px solid var(--border-input);
+}
+
+.theme-name {
+    text-align: center;
+    font-family: var(--font-pixel);
+    font-size: 0.9rem;
+    color: var(--text-main);
+}
+
+.color-swatch {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: all 0.2s ease-in-out;
+}
+
+.color-swatch:hover {
+    transform: scale(1.1);
+}
+
+.color-swatch.active {
+    border-color: var(--accent-main);
+}
+
+/* --- Preview Styles --- */
+.theme-preview.anlios { background: #1a0000; border-color: #ff4141; }
+.theme-preview.modern { background: #f4f6f8; border-color: #dee2e6; border-radius: 8px; }
+.theme-preview.terminal { background: #000; border-color: #00ff41; }
+.theme-preview.blueprint { background: #0a2f4a; border: 2px dashed #4fc3f7; }
+.theme-preview.discord { background: #36393f; border-color: #2f3136; border-radius: 12px; }
+.theme-preview.neumorphism { background: #e0e0e0; border-color: #f0f0f0; border-radius: 15px; box-shadow: inset 5px 5px 10px #bebebe, inset -5px -5px 10px #ffffff; }
+.theme-preview.nordic { background-image: url('https://www.transparenttextures.com/patterns/leather.png'), linear-gradient(to bottom, #4c4c4c, #333333); border: 2px solid #c0c0c0; }
+
+/* --- Swatch Colors --- */
+.color-swatch[data-color="furia-roja"] { background: linear-gradient(45deg, #ff4141, #8B0000); }
+.color-swatch[data-color="oceano-neon"] { background: linear-gradient(45deg, #00c6ff, #5813d3); }
+.color-swatch[data-color="atardecer"] { background: linear-gradient(45deg, #ff8c00, #f06292); }
+.color-swatch[data-color="bosque-encantado"] { background: linear-gradient(45deg, #228b22, #006400); }
+.color-swatch[data-color="menta-glacial"] { background: linear-gradient(45deg, #7fffd4, #a2f2e8); }
+.color-swatch[data-color="cerezo-en-flor"] { background: linear-gradient(45deg, #ffb6c1, #dda0dd); }
+.color-swatch[data-color="grafito-y-oro"] { background: linear-gradient(45deg, #ffd700, #434343); }
+.color-swatch[data-color="tierra-y-cielo"] { background: linear-gradient(45deg, #87ceeb, #8b4513); }
+
+/* --- Body transition --- */
+body.theme-transition * {
+    transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease !important;
+}
