@@ -1,9 +1,7 @@
 /* --- Fuentes y Tema General --- */
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Consolas&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Lato&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Cinzel&display=swap');
 
 /* --- Base Structure --- */
@@ -14,10 +12,10 @@ body {
     overflow: hidden; 
 }
 
-h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .page-footer, .topbar .logo {
+h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .page-footer, .topbar .logo, .nav-link-with-toggle .nav-link-text {
     font-family: var(--font-pixel, 'Press Start 2P', cursive);
 }
-.form-control, .card, .modal-content, .user-info .username { 
+.form-control, .card, .modal-content, .user-info .username, .sub-link { 
     font-family: var(--font-sans, 'Roboto', sans-serif); 
 }
 
@@ -31,7 +29,7 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
 .sidebar .nav-link:hover, .sidebar .nav-link.active { background: var(--accent-gradient, var(--accent-main, #ff4141)); color: var(--btn-primary-text, #1a0000); text-shadow: none; }
 .sidebar .sub-menu { padding-left: 20px; background-color: rgba(0,0,0,0.2); border-radius: var(--border-radius, 5px); margin-top: -5px; margin-bottom: 5px; }
 .sidebar .sub-link { font-size: 0.8rem !important; color: var(--text-muted, #ffb3b3) !important; padding-top: 8px; padding-bottom: 8px; }
-.sidebar .sub-link:hover { color: var(--btn-primary-text, #1a0000) !important; }
+.sidebar .sub-link:hover { background-color: var(--accent-main); color: var(--btn-primary-text, #1a0000) !important; }
 .sidebar .user-info { margin-top: auto; padding-top: 20px; border-top: var(--border-secondary-width, 2px) solid var(--accent-main, #ff4141); display: flex; align-items: center; }
 .sidebar .user-info img { width: 40px; height: 40px; border-radius: 50%; border: var(--border-secondary-width, 2px) solid var(--accent-main, #ff4141); margin-right: 10px; }
 
