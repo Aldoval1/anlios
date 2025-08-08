@@ -1,5 +1,30 @@
 {% extends "layout.html" %}
 
+<!-- This block will inject all the theme stylesheets into the layout -->
+{% block theme_styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes-base.css') }}">
+
+    <link id="design-anlios" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-anlios.css') }}" disabled>
+    <link id="design-modern" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-modern.css') }}" disabled>
+    <link id="design-terminal" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-terminal.css') }}" disabled>
+    <link id="design-blueprint" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-blueprint.css') }}" disabled>
+    <link id="design-discord" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-discord.css') }}" disabled>
+    <link id="design-neumorphism" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-neumorphism.css') }}" disabled>
+    <link id="design-nordic" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-nordic.css') }}" disabled>
+
+    <link id="color-furia-roja" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-furia-roja.css') }}" disabled>
+    <link id="color-oceano-neon" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-oceano-neon.css') }}" disabled>
+    <link id="color-atardecer" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-atardecer.css') }}" disabled>
+    <link id="color-bosque-encantado" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-bosque-encantado.css') }}" disabled>
+    <link id="color-menta-glacial" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-menta-glacial.css') }}" disabled>
+    <link id="color-cerezo-en-flor" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-cerezo-en-flor.css') }}" disabled>
+    <link id="color-grafito-y-oro" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-grafito-y-oro.css') }}" disabled>
+    <link id="color-tierra-y-cielo" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-tierra-y-cielo.css') }}" disabled>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
+{% endblock %}
+
+
 {% block body_content %}
 <div class="dashboard-wrapper">
     <!-- Menú Lateral -->
@@ -22,12 +47,12 @@
         <div class="menu-category">Cuenta</div>
         <nav class="nav flex-column">
             <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='membership') }}">Membresía</a>
+            <a class="nav-link {% if page == 'profile' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='profile') }}">Perfil</a>
         </nav>
 
-        <!-- Menú de Módulos con Desplegable -->
+        <!-- Menú de Módulos -->
         <div class="menu-category">Módulos</div>
         <nav class="nav flex-column">
-            <!-- CHANGE: Restructured this block to integrate the toggle switch -->
             <div class="nav-link nav-link-with-toggle {% if page == 'modules' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
                     <input type="hidden" name="action" value="toggle_module">
@@ -108,8 +133,91 @@
 </div>
 {% endblock %}
 
+<!-- This block will inject the theme-switching script into the layout -->
+{% block theme_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const designSheets = document.querySelectorAll('link[id^="design-"]');
+        const colorSheets = document.querySelectorAll('link[id^="color-"]');
+        const designSelector = document.getElementById('design-selector');
+        const colorSelector = document.getElementById('color-selector');
+        const body = document.body;
+
+        let previewedDesign = null;
+        let previewedColor = null;
+
+        function applyTheme(design, color) {
+            body.classList.add('theme-transition');
+
+            designSheets.forEach(sheet => sheet.disabled = (sheet.id !== `design-${design}`));
+            colorSheets.forEach(sheet => sheet.disabled = (sheet.id !== `color-${color}`));
+
+            setTimeout(() => body.classList.remove('theme-transition'), 500);
+        }
+
+        function saveTheme(design, color) {
+            localStorage.setItem('userTheme', JSON.stringify({ design, color }));
+        }
+
+        function loadTheme() {
+            const savedTheme = JSON.parse(localStorage.getItem('userTheme')) || { design: 'anlios', color: 'furia-roja' };
+            previewedDesign = savedTheme.design;
+            previewedColor = savedTheme.color;
+            applyTheme(savedTheme.design, savedTheme.color);
+            updateSelectors();
+        }
+        
+        function updateSelectors() {
+            if(designSelector) {
+                designSelector.querySelectorAll('.theme-card').forEach(card => {
+                    card.classList.toggle('active', card.dataset.design === previewedDesign);
+                });
+            }
+            if(colorSelector) {
+                colorSelector.querySelectorAll('.color-swatch').forEach(swatch => {
+                    swatch.classList.toggle('active', swatch.dataset.color === previewedColor);
+                });
+            }
+        }
+
+        // Event Listeners for theme selection (on profile page)
+        if (designSelector && colorSelector) {
+            designSelector.addEventListener('click', e => {
+                const card = e.target.closest('.theme-card');
+                if (card) {
+                    previewedDesign = card.dataset.design;
+                    applyTheme(previewedDesign, previewedColor);
+                    updateSelectors();
+                    window.showThemeToast();
+                }
+            });
+
+            colorSelector.addEventListener('click', e => {
+                const swatch = e.target.closest('.color-swatch');
+                if (swatch) {
+                    previewedColor = swatch.dataset.color;
+                    applyTheme(previewedDesign, previewedColor);
+                    updateSelectors();
+                    window.showThemeToast();
+                }
+            });
+            
+            window.savePreviewedTheme = () => {
+                saveTheme(previewedDesign, previewedColor);
+            };
+            
+            window.revertToSavedTheme = () => {
+                loadTheme();
+            };
+        }
+
+        // Initial theme load on all pages
+        loadTheme();
+    });
+</script>
+{% endblock %}
+
 {% block scripts %}
-{{ super() }}
 <script>
 function inviteBot() {
     const serverId = document.getElementById('server-invite-select').value;
