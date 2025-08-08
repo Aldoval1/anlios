@@ -1,5 +1,7 @@
 :root {
     --bg-gradient: linear-gradient(to bottom right, #330000, #1a0000);
+    --bg-secondary: #260000;
+    --bg-tertiary: #4d0000; /* Añadido */
     --accent-gradient: linear-gradient(to right, #ff4141, #ff8282);
     --text-main: #fbebeb;
     --text-muted: #ffb3b3;

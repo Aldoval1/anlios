@@ -1,6 +1,8 @@
 /* --- css/colors/color-tierra-y-cielo.css --- */
 :root {
     --bg-gradient: linear-gradient(to bottom, #87ceeb, #d2b48c);
+    --bg-secondary: #bba87b;
+    --bg-tertiary: #a89669; /* Añadido */
     --accent-gradient: linear-gradient(to right, #228b22, #3cb371);
     --text-main: #000000;
     --text-muted: #2f4f4f;
