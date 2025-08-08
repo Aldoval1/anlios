@@ -1,11 +1,12 @@
 /* --- Styles for the Theme Selector UI on profile.html --- */
 
 .theme-card {
-    border: 3px solid var(--border-input);
+    border: 3px solid var(--border-input, #ff8282);
     padding: 1rem;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-secondary, #330000);
+    border-radius: var(--border-radius, 0);
 }
 
 .theme-card:hover {
@@ -14,21 +15,22 @@
 }
 
 .theme-card.active {
-    border-color: var(--accent-main);
+    border-color: var(--accent-main, #ff4141);
     transform: scale(1.05);
 }
 
 .theme-preview {
     height: 100px;
     margin-bottom: 1rem;
-    border: 2px solid var(--border-input);
+    border: 2px solid var(--border-input, #ff8282);
+    border-radius: var(--border-radius, 0);
 }
 
 .theme-name {
     text-align: center;
-    font-family: var(--font-pixel);
+    font-family: var(--font-pixel, 'Press Start 2P', cursive);
     font-size: 0.9rem;
-    color: var(--text-main);
+    color: var(--text-main, #fbebeb);
 }
 
 .color-swatch {
@@ -45,16 +47,12 @@
 }
 
 .color-swatch.active {
-    border-color: var(--accent-main);
+    border-color: var(--accent-main, #ff4141);
 }
 
 /* --- Preview Styles --- */
 .theme-preview.anlios { background: #1a0000; border-color: #ff4141; }
-.theme-preview.modern { background: #f4f6f8; border-color: #dee2e6; border-radius: 8px; }
-.theme-preview.terminal { background: #000; border-color: #00ff41; }
-.theme-preview.blueprint { background: #0a2f4a; border: 2px dashed #4fc3f7; }
 .theme-preview.discord { background: #36393f; border-color: #2f3136; border-radius: 12px; }
-.theme-preview.neumorphism { background: #e0e0e0; border-color: #f0f0f0; border-radius: 15px; box-shadow: inset 5px 5px 10px #bebebe, inset -5px -5px 10px #ffffff; }
 .theme-preview.nordic { background-image: url('https://www.transparenttextures.com/patterns/leather.png'), linear-gradient(to bottom, #4c4c4c, #333333); border: 2px solid #c0c0c0; }
 
 /* --- Swatch Colors --- */
@@ -69,5 +67,5 @@
 
 /* --- Body transition --- */
 body.theme-transition * {
-    transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease !important;
+    transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, background 0.5s ease !important;
 }
