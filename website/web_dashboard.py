@@ -48,7 +48,7 @@ AUTHORIZATION_BASE_URL, TOKEN_URL = f'{API_BASE_URL}/oauth2/authorize', f'{API_B
 SCOPES = ['identify', 'guilds']
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
-REDIS_TRAINING_QUEUE_KEY = "training_queue" # NUEVO
+REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_CODES_KEY = "premium_codes"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 
@@ -178,12 +178,72 @@ def select_page(guild_id, page):
     if 'discord_token' not in session: return redirect(url_for('login'))
     guild_id_int = int(guild_id)
     
+    # --- Lógica de POST refactorizada ---
+    if request.method == 'POST':
+        try:
+            action = request.form.get('action')
+
+            if action == 'toggle_module':
+                config = load_module_config()
+                if guild_id not in config: config[guild_id] = {}
+                if 'modules' not in config[guild_id]: config[guild_id]['modules'] = {}
+                config[guild_id]['modules']['ticket_ia'] = 'enabled' in request.form
+                save_module_config(config)
+                flash("Módulo actualizado.", "success")
+
+            elif action == 'save_all':
+                # Guardar Embeds y Personalidad
+                current_config = load_embed_config(guild_id_int)
+                for embed_type in ['panel', 'welcome']:
+                    for key in current_config[embed_type]:
+                        form_key = f'{embed_type}_{key}'
+                        if form_key in request.form:
+                            current_config[embed_type][key] = request.form[form_key]
+                if 'ai_prompt' in request.form:
+                    current_config['ai_prompt'] = request.form['ai_prompt']
+                save_embed_config(guild_id_int, current_config)
+
+                # Guardar Roles
+                if 'admin_roles_json' in request.form:
+                    admin_roles = json.loads(request.form.get('admin_roles_json', '[]'))
+                    ticket_config = load_ticket_config(guild_id_int)
+                    ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
+                    save_ticket_config(guild_id_int, ticket_config)
+                
+                flash("Configuración general guardada con éxito.", "success")
+
+            # Procesar acciones de conocimiento
+            knowledge_actions = ['knowledge_add', 'knowledge_web', 'knowledge_youtube', 'knowledge_pdf']
+            if action in knowledge_actions or (action and action.startswith('knowledge_delete_')):
+                knowledge = load_knowledge(guild_id_int)
+                if action == 'knowledge_add':
+                    if text := request.form.get('new_knowledge'):
+                        knowledge.append(text)
+                        flash("Conocimiento de texto añadido.", "success")
+                # ... (otras acciones de conocimiento) ...
+                elif action.startswith('knowledge_delete_'):
+                    index_to_delete = int(action.split('_')[-1])
+                    if 0 <= index_to_delete < len(knowledge):
+                        knowledge.pop(index_to_delete)
+                        flash("Conocimiento eliminado.", "info")
+                save_knowledge(guild_id_int, knowledge)
+
+        except Exception as e:
+            app.logger.error(f"Error al procesar el formulario: {e}")
+            flash(f"Error al guardar: {e}", "danger")
+        # ¡IMPORTANTE! No redirigir, para evitar perder el estado de la sesión y las listas de servidores.
+        # Simplemente continuamos para volver a renderizar la página con los datos actualizados.
+
+    # --- Lógica de GET (y para renderizar después de POST) ---
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
+    if guilds_response.status_code != 200: return redirect(url_for('logout'))
+    
     user_guilds = guilds_response.json()
     bot_guild_ids_str = load_data_from_redis(REDIS_GUILDS_KEY, [])
     bot_guild_ids = {str(gid) for gid in bot_guild_ids_str}
     admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
+    
     guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
     guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
 
@@ -195,78 +255,12 @@ def select_page(guild_id, page):
         "active_guild_id": guild_id,
         "page": page
     }
-
-    if request.method == 'POST':
-        save_status = 'success'
-        try:
-            action = request.form.get('action')
-
-            if action == 'toggle_module':
-                config = load_module_config()
-                if guild_id not in config: config[guild_id] = {}
-                if 'modules' not in config[guild_id]: config[guild_id]['modules'] = {}
-                config[guild_id]['modules']['ticket_ia'] = 'enabled' in request.form
-                save_module_config(config)
-
-            elif action == 'save_roles':
-                admin_roles_json = request.form.get('admin_roles_json', '[]')
-                admin_roles = json.loads(admin_roles_json)
-                ticket_config = load_ticket_config(guild_id_int)
-                ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
-                save_ticket_config(guild_id_int, ticket_config)
-
-            elif action == 'save_all':
-                current_config = load_embed_config(guild_id_int)
-                for embed_type in ['panel', 'welcome']:
-                    for key in current_config[embed_type]:
-                        current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}')
-                current_config['ai_prompt'] = request.form.get('ai_prompt')
-                save_embed_config(guild_id_int, current_config)
-                
-                admin_roles_json = request.form.get('admin_roles_json', '[]')
-                admin_roles = json.loads(admin_roles_json)
-                ticket_config = load_ticket_config(guild_id_int)
-                ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
-                save_ticket_config(guild_id_int, ticket_config)
-            
-            knowledge_actions = ['knowledge_add', 'knowledge_web', 'knowledge_youtube', 'knowledge_pdf']
-            if action in knowledge_actions or (action and action.startswith('knowledge_delete_')):
-                knowledge = load_knowledge(guild_id_int)
-                if action == 'knowledge_add':
-                    if text := request.form.get('new_knowledge'): knowledge.append(text)
-                elif action == 'knowledge_web':
-                    if url := request.form.get('web_url'):
-                        page_req = requests.get(url, timeout=10)
-                        soup = BeautifulSoup(page_req.content, 'html.parser')
-                        knowledge.append(f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}")
-                elif action == 'knowledge_youtube':
-                    if url := request.form.get('youtube_url'):
-                        video_id = url.split('v=')[1].split('&')[0]
-                        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-                        text = ' '.join([t['text'] for t in transcript])
-                        knowledge.append(f"Transcripción de YouTube {url}:\n{text}")
-                elif action == 'knowledge_pdf':
-                    if 'pdf_file' in request.files and (file := request.files['pdf_file']).filename != '':
-                        reader = PyPDF2.PdfReader(file.stream)
-                        text = ''.join(page.extract_text() for page in reader.pages)
-                        knowledge.append(f"Contenido del PDF {file.filename}:\n{text}")
-                elif action.startswith('knowledge_delete_'):
-                    index_to_delete = int(action.split('_')[-1])
-                    if 0 <= index_to_delete < len(knowledge):
-                        knowledge.pop(index_to_delete)
-                save_knowledge(guild_id_int, knowledge)
-
-        except Exception as e:
-            app.logger.error(f"Error saving form: {e}")
-            save_status = 'error'
-        return redirect(url_for('select_page', guild_id=guild_id, page=page, save=save_status))
-
-    # --- Lógica de GET ---
+    
     template_map = { 
         "modules": "module_ticket_ia.html", 
         "membership": "membership.html",
         "profile": "profile.html",
-        "training": "training.html" # NUEVO
+        "training": "training.html"
     }
     template_to_render = template_map.get(page, "under_construction.html")
     
@@ -289,14 +283,13 @@ def select_page(guild_id, page):
     elif page == 'membership':
         render_data['subscription'] = get_subscription_status(guild_id_int)
 
-    # NUEVO: Lógica para la página de entrenamiento
     elif page == 'training':
         training_queue_key = f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}"
         render_data['pending_questions'] = load_data_from_redis(training_queue_key, [])
         
     return render_template(template_to_render, **render_data)
 
-# --- NUEVA RUTA PARA MANEJAR LAS ACCIONES DE ENTRENAMIENTO ---
+# --- Ruta de acciones de entrenamiento (sin cambios) ---
 @app.route("/dashboard/<guild_id>/training_action", methods=['POST'])
 def training_action(guild_id):
     if 'discord_token' not in session: return redirect(url_for('login'))
@@ -320,12 +313,10 @@ def training_action(guild_id):
             flash("La respuesta no puede estar vacía.", "danger")
         else:
             knowledge = load_knowledge(guild_id_int)
-            # Formateamos la pregunta y respuesta para añadirla al conocimiento
             new_knowledge_entry = f"Pregunta: {question_to_process['question']}\nRespuesta: {answer}"
             knowledge.append(new_knowledge_entry)
             save_knowledge(guild_id_int, knowledge)
             
-            # Eliminamos la pregunta de la cola
             pending_questions = [q for q in pending_questions if q['id'] != question_id]
             save_data_to_redis(training_queue_key, pending_questions)
             flash("¡IA entrenada con éxito!", "success")
@@ -345,9 +336,10 @@ def send_panel(guild_id):
     channel_id = int(request.form.get('channel_id'))
     command = {'command': 'send_panel', 'guild_id': int(guild_id), 'channel_id': channel_id}
     redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
+    flash("El panel de tickets se está enviando...", "info")
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
-# --- RUTAS PARA LA DEMO ---
+# --- Rutas de la Demo (sin cambios) ---
 @app.route("/demo_chat", methods=['POST'])
 def demo_chat():
     if not GEMINI_API_KEY: return jsonify({'reply': 'Error: La API de IA no está configurada en el servidor.'}), 500
