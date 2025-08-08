@@ -1,14 +1,29 @@
 /* --- css/designs/design-nordic.css --- */
 :root {
+    /* Tipografía: Serif elegante para un look de fantasía */
     --font-pixel: 'Cinzel', serif;
     --font-sans: 'Cinzel', serif;
+
+    /* Bordes: Ligeramente redondeados */
     --border-radius: 2px;
     --border-main-width: 0px;
     --border-secondary-width: 0px;
+
+    /* Sombras: Desactivadas para no competir con la imagen del borde */
     --card-shadow: none;
+    
+    /* Textura de Fondo: Textura sutil de cuero */
+    --bg-texture: url('https://www.transparenttextures.com/patterns/leather.png');
 }
+
+/* Estilos adicionales para el tema Nórdico */
+body[data-design="nordic"] {
+    background-image: var(--bg-texture), var(--bg-gradient);
+}
+
 body[data-design="nordic"] .card {
     border-image: url("https://i.imgur.com/VIJ4N2M.png") 10 stretch;
     border-width: 10px;
     border-style: solid;
+    background-clip: padding-box;
 }

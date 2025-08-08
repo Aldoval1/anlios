@@ -1,9 +1,17 @@
 /* --- css/designs/design-anlios.css --- */
 :root {
+    /* Tipografía: Pixelada para títulos, sans-serif para texto */
     --font-pixel: 'Press Start 2P', cursive;
     --font-sans: 'Roboto', sans-serif;
+
+    /* Bordes: Nítidos y cuadrados */
     --border-radius: 0;
     --border-main-width: 4px;
     --border-secondary-width: 2px;
+
+    /* Sombras: Desactivadas para un look plano */
     --card-shadow: none;
+    
+    /* Textura de Fondo: Ninguna */
+    --bg-texture: none;
 }
