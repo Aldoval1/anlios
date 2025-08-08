@@ -1,0 +1,45 @@
+{% extends "dashboard.html" %}
+{% block title %}Perfil y Temas{% endblock %}
+
+{% block dashboard_content %}
+    <h1>Personalización del Perfil</h1>
+    <p class="text-muted">Elige cómo quieres que se vea tu panel de control. Tu selección se guardará en este navegador.</p>
+    <hr class="border-danger">
+
+    <!-- Sección de Diseños -->
+    <section class="mb-5">
+        <h2>Paso 1: Elige un Diseño</h2>
+        <div class="row g-4" id="design-selector">
+            <!-- Anlios -->
+            <div class="col-md-4"><div class="theme-card" data-design="anlios"><div class="theme-preview anlios"></div><div class="theme-name">Anlios (Clásico)</div></div></div>
+            <!-- Moderno -->
+            <div class="col-md-4"><div class="theme-card" data-design="modern"><div class="theme-preview modern"></div><div class="theme-name">Moderno</div></div></div>
+            <!-- Terminal -->
+            <div class="col-md-4"><div class="theme-card" data-design="terminal"><div class="theme-preview terminal"></div><div class="theme-name">Terminal</div></div></div>
+            <!-- Blueprint -->
+            <div class="col-md-4"><div class="theme-card" data-design="blueprint"><div class="theme-preview blueprint"></div><div class="theme-name">Blueprint</div></div></div>
+            <!-- Discord -->
+            <div class="col-md-4"><div class="theme-card" data-design="discord"><div class="theme-preview discord"></div><div class="theme-name">Estilo Discord</div></div></div>
+            <!-- Neumorfismo -->
+            <div class="col-md-4"><div class="theme-card" data-design="neumorphism"><div class="theme-preview neumorphism"></div><div class="theme-name">Neumorfismo</div></div></div>
+            <!-- Nórdico -->
+            <div class="col-md-4"><div class="theme-card" data-design="nordic"><div class="theme-preview nordic"></div><div class="theme-name">Estilo Nórdico</div></div></div>
+        </div>
+    </section>
+
+    <!-- Sección de Colores -->
+    <section>
+        <h2>Paso 2: Elige una Paleta de Colores</h2>
+        <div class="d-flex flex-wrap gap-3" id="color-selector">
+            <div class="color-swatch" data-color="furia-roja" title="Furia Roja"></div>
+            <div class="color-swatch" data-color="oceano-neon" title="Océano Neón"></div>
+            <div class="color-swatch" data-color="atardecer" title="Atardecer"></div>
+            <div class="color-swatch" data-color="bosque-encantado" title="Bosque Encantado"></div>
+            <div class="color-swatch" data-color="menta-glacial" title="Menta Glacial"></div>
+            <div class="color-swatch" data-color="cerezo-en-flor" title="Cerezo en Flor"></div>
+            <div class="color-swatch" data-color="grafito-y-oro" title="Grafito y Oro"></div>
+            <div class="color-swatch" data-color="tierra-y-cielo" title="Tierra y Cielo"></div>
+        </div>
+    </section>
+
+{% endblock %}
