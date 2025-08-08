@@ -7,13 +7,14 @@ from dotenv import load_dotenv
 import asyncio
 import redis
 import time
+import uuid # Importado para IDs únicos
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
 intents = discord.Intents.default()
 intents.guilds = True
 intents.message_content = True
-intents.members = True # Requerido para buscar miembros y asignar/quitar roles
+intents.members = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- CONFIGURACIÓN DE REDIS ---
@@ -32,11 +33,13 @@ else:
 
 # --- Nombres de Claves de Redis y Constantes ---
 CLAIMED_TAG = "[RECLAMADO]"
+NO_KNOWLEDGE_TAG = "[NO_KNOWLEDGE]" # NUEVO: Etiqueta para respuestas desconocidas
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
+REDIS_TRAINING_QUEUE_KEY = "training_queue" # NUEVO: Cola para preguntas de entrenamiento
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 REDIS_CODES_KEY = "premium_codes"
-PREMIUM_ROLE_ID = 1401935354575065158 # ID del rol premium
+PREMIUM_ROLE_ID = 1401935354575065158
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
 def load_data_from_redis(key: str, default_value):
@@ -62,12 +65,23 @@ def load_ticket_config(guild_id: int) -> dict:
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
 def load_embed_config(guild_id: int) -> dict:
+    # NUEVO: Se añade la instrucción de la etiqueta [NO_KNOWLEDGE] al prompt por defecto
     default_config = {
         'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'welcome': {'title': '¡Bienvenido, {user}!', 'description': 'Un asistente te atenderá pronto.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
-        'ai_prompt': "Eres Anlios, un amigable y servicial asistente de IA..."
+        'ai_prompt': "Eres Anlios, un amigable y servicial asistente de IA. Tu propósito es ayudar a los usuarios con su conocimiento base. Si no encuentras la respuesta en tu base de conocimientos, DEBES empezar tu respuesta única y exclusivamente con la etiqueta [NO_KNOWLEDGE] y nada más."
     }
-    return load_data_from_redis(f"embed_config:{guild_id}", default_config)
+    config = load_data_from_redis(f"embed_config:{guild_id}", {})
+    # Lógica para fusionar con los valores por defecto sin sobreescribir los existentes
+    for key, value in default_config.items():
+        if key not in config:
+            config[key] = value
+        elif isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                if sub_key not in config[key]:
+                    config[key][sub_key] = sub_value
+    return config
+
 def load_module_config() -> dict: return load_data_from_redis("module_config", {})
 
 def update_guilds_in_redis():
@@ -139,7 +153,7 @@ class TicketCreateView(discord.ui.View):
         }
         ticket_config = load_ticket_config(interaction.guild.id)
         for role_id in ticket_config.get('admin_roles', []):
-            role = interaction.guild.get_role(role_id)
+            role = interaction.guild.get_role(int(role_id))
             if role: overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
         ticket_channel = await interaction.guild.create_text_channel(name=ticket_channel_name, category=category, overwrites=overwrites, topic=f"Ticket de {interaction.user.id}")
         welcome_config = load_embed_config(interaction.guild.id).get('welcome', {})
@@ -249,12 +263,35 @@ async def on_message(message: discord.Message):
             if msg.embeds and msg.author == bot.user: continue
             speaker = "Usuario" if msg.author != bot.user else "Anlios"
             history_log = f"{speaker}: {msg.content}\n" + history_log
+        
         system_prompt = config.get('ai_prompt').replace('{knowledge}', knowledge_text)
         final_prompt = f"{system_prompt}\n\n--- CONVERSACIÓN RECIENTE ---\n{history_log}--- FIN ---\n\nResponde al último mensaje del usuario."
+        
         try:
             model = genai.GenerativeModel('gemini-1.5-flash')
             response = await model.generate_content_async(final_prompt)
-            await message.reply(response.text)
+            response_text = response.text
+
+            # --- NUEVA LÓGICA DE ENTRENAMIENTO ---
+            if response_text.strip().startswith(NO_KNOWLEDGE_TAG):
+                # La IA no sabe la respuesta, la enviamos a la cola de entrenamiento
+                training_queue_key = f"{REDIS_TRAINING_QUEUE_KEY}:{message.guild.id}"
+                pending_questions = load_data_from_redis(training_queue_key, [])
+                
+                new_question = {
+                    "id": str(uuid.uuid4()),
+                    "question": message.content,
+                    "user": message.author.name
+                }
+                pending_questions.append(new_question)
+                save_data_to_redis(training_queue_key, pending_questions)
+                
+                # Notificamos al usuario que la pregunta ha sido enviada a un humano
+                await message.reply("🤔 No estoy seguro de la respuesta. He enviado tu pregunta a un administrador para que me ayude a aprender. Podemos pasar a otro tema mientras tanto.")
+            else:
+                # La IA sabe la respuesta, la enviamos como de costumbre
+                await message.reply(response_text)
+
         except Exception as e:
             print(f"Error en Gemini: {e}")
             await message.reply("🤖 Ocurrió un error al contactar con la IA.")
