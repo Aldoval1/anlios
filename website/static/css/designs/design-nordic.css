@@ -4,12 +4,12 @@
     --font-pixel: 'Cinzel', serif;
     --font-sans: 'Cinzel', serif;
 
-    /* Bordes: Ligeramente redondeados */
+    /* Bordes: Ligeramente redondeados y con un grosor visible */
     --border-radius: 2px;
     --border-main-width: 0px;
-    --border-secondary-width: 0px;
+    --border-secondary-width: 4px; /* Aumentado para que el borde sea visible */
 
-    /* Sombras: Desactivadas para no competir con la imagen del borde */
+    /* Sombras: Desactivadas */
     --card-shadow: none;
     
     /* Textura de Fondo: Textura sutil de cuero */
@@ -21,9 +21,8 @@ body[data-design="nordic"] {
     background-image: var(--bg-texture), var(--bg-gradient);
 }
 
+/* Se reemplaza el borde de imagen por un borde doble más limpio */
 body[data-design="nordic"] .card {
-    border-image: url("https://i.imgur.com/VIJ4N2M.png") 10 stretch;
-    border-width: 10px;
-    border-style: solid;
-    background-clip: padding-box;
+    border-style: double;
+    /* El color y el grosor se heredan de las variables --accent-main y --border-secondary-width */
 }
