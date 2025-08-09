@@ -9,6 +9,7 @@ import redis
 import time
 import uuid
 from datetime import datetime
+import io
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
@@ -89,8 +90,8 @@ def load_embed_config(guild_id: int) -> dict:
     return config
 def load_module_config() -> dict: return load_data_from_redis("module_config", {})
 
-# --- NUEVA FUNCIÓN PARA ENVIAR LOGS ---
-async def send_ticket_log(guild: discord.Guild, title: str, description: str, color: discord.Color, author: discord.Member):
+# --- MODIFICADO: FUNCIÓN PARA ENVIAR LOGS AHORA ACEPTA ARCHIVOS ---
+async def send_ticket_log(guild: discord.Guild, title: str, description: str, color: discord.Color, author: discord.Member, file: discord.File = None):
     config = load_ticket_config(guild.id)
     if not config.get('log_enabled') or not config.get('log_channel_id'):
         return
@@ -104,7 +105,7 @@ async def send_ticket_log(guild: discord.Guild, title: str, description: str, co
     embed.set_author(name=str(author), icon_url=author.display_avatar.url)
     embed.set_footer(text=f"ID de Usuario: {author.id}")
     
-    await log_channel.send(embed=embed)
+    await log_channel.send(embed=embed, file=file)
 
 def update_guilds_in_redis():
     if not redis_client: return
@@ -141,7 +142,6 @@ class TicketActionsView(discord.ui.View):
         if not await self.check_permissions(interaction):
             return await interaction.response.send_message("❌ No tienes permisos para reclamar este ticket.", ephemeral=True)
         
-        # CORREGIDO: Manejo de canales y hilos
         channel_name = interaction.channel.name
         if CLAIMED_TAG not in channel_name:
             new_name = f"{channel_name} {CLAIMED_TAG}"
@@ -158,11 +158,33 @@ class TicketActionsView(discord.ui.View):
         if not await self.check_permissions(interaction):
             return await interaction.response.send_message("❌ No tienes permisos para cerrar este ticket.", ephemeral=True)
         
-        await interaction.response.send_message("✅ **Ticket cerrado.** Este canal se eliminará en 5 segundos.")
+        await interaction.response.send_message("✅ **Ticket cerrado.** Generando transcripción... Este canal se eliminará en 5 segundos.")
         
-        # --- MODIFICADO: Enviar log al cerrar ---
+        # --- NUEVO: Lógica para generar y guardar la transcripción del chat ---
+        transcript_content = ""
+        # Itera sobre el historial del canal en orden cronológico
+        async for message in interaction.channel.history(limit=None, oldest_first=True):
+            timestamp = message.created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+            transcript_content += f"[{timestamp}] {message.author.name}: {message.content}\n"
+            for attachment in message.attachments:
+                transcript_content += f"  [Archivo Adjunto: {attachment.url}]\n"
+
+        transcript_file = None
+        if transcript_content:
+            # Crea un archivo de texto en memoria
+            buffer = io.StringIO(transcript_content)
+            transcript_file = discord.File(buffer, filename=f"transcript-{interaction.channel.name}.txt")
+
+        # --- MODIFICADO: Enviar log al cerrar con el archivo de transcripción ---
         log_description = f"Ticket `{interaction.channel.name}` cerrado por {interaction.user.mention}."
-        await send_ticket_log(interaction.guild, "Ticket Cerrado", log_description, discord.Color.red(), interaction.user)
+        await send_ticket_log(
+            interaction.guild, 
+            "Ticket Cerrado", 
+            log_description, 
+            discord.Color.red(), 
+            interaction.user, 
+            file=transcript_file
+        )
         
         await asyncio.sleep(5)
         await interaction.channel.delete(reason=f"Ticket cerrado por {interaction.user}")
@@ -199,7 +221,6 @@ class TicketCreateView(discord.ui.View):
         await ticket_channel.send(embed=welcome_embed, view=TicketActionsView())
         await interaction.followup.send(f"✅ ¡Ticket creado! Ve a {ticket_channel.mention} para continuar.", ephemeral=True)
         
-        # --- MODIFICADO: Enviar log al crear ---
         log_description = f"Ticket `{ticket_channel.name}` creado por {interaction.user.mention}."
         await send_ticket_log(interaction.guild, "Ticket Creado", log_description, discord.Color.green(), interaction.user)
 
@@ -257,8 +278,6 @@ async def on_message(message: discord.Message):
     module_config = load_module_config()
     if not module_config.get(str(message.guild.id), {}).get('modules', {}).get('ticket_ia', False): return
     
-    # --- CORREGIDO: Manejo de error para hilos (Threads) ---
-    # Los hilos no tienen 'topic', así que verificamos el nombre del canal/hilo
     if CLAIMED_TAG in message.channel.name:
         return
 
