@@ -178,7 +178,6 @@ def select_page(guild_id, page):
     if 'discord_token' not in session: return redirect(url_for('login'))
     guild_id_int = int(guild_id)
     
-    # --- Lógica de POST refactorizada ---
     if request.method == 'POST':
         try:
             action = request.form.get('action')
@@ -192,7 +191,6 @@ def select_page(guild_id, page):
                 flash("Módulo actualizado.", "success")
 
             elif action == 'save_all':
-                # Guardar Embeds y Personalidad
                 current_config = load_embed_config(guild_id_int)
                 for embed_type in ['panel', 'welcome']:
                     for key in current_config[embed_type]:
@@ -203,7 +201,6 @@ def select_page(guild_id, page):
                     current_config['ai_prompt'] = request.form['ai_prompt']
                 save_embed_config(guild_id_int, current_config)
 
-                # Guardar Roles
                 if 'admin_roles_json' in request.form:
                     admin_roles = json.loads(request.form.get('admin_roles_json', '[]'))
                     ticket_config = load_ticket_config(guild_id_int)
@@ -212,29 +209,10 @@ def select_page(guild_id, page):
                 
                 flash("Configuración general guardada con éxito.", "success")
 
-            # Procesar acciones de conocimiento
-            knowledge_actions = ['knowledge_add', 'knowledge_web', 'knowledge_youtube', 'knowledge_pdf']
-            if action in knowledge_actions or (action and action.startswith('knowledge_delete_')):
-                knowledge = load_knowledge(guild_id_int)
-                if action == 'knowledge_add':
-                    if text := request.form.get('new_knowledge'):
-                        knowledge.append(text)
-                        flash("Conocimiento de texto añadido.", "success")
-                # ... (otras acciones de conocimiento) ...
-                elif action.startswith('knowledge_delete_'):
-                    index_to_delete = int(action.split('_')[-1])
-                    if 0 <= index_to_delete < len(knowledge):
-                        knowledge.pop(index_to_delete)
-                        flash("Conocimiento eliminado.", "info")
-                save_knowledge(guild_id_int, knowledge)
-
         except Exception as e:
             app.logger.error(f"Error al procesar el formulario: {e}")
             flash(f"Error al guardar: {e}", "danger")
-        # ¡IMPORTANTE! No redirigir, para evitar perder el estado de la sesión y las listas de servidores.
-        # Simplemente continuamos para volver a renderizar la página con los datos actualizados.
 
-    # --- Lógica de GET (y para renderizar después de POST) ---
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
     if guilds_response.status_code != 200: return redirect(url_for('logout'))
@@ -289,7 +267,45 @@ def select_page(guild_id, page):
         
     return render_template(template_to_render, **render_data)
 
-# --- Ruta de acciones de entrenamiento (sin cambios) ---
+# --- NUEVAS RUTAS PARA CONOCIMIENTO ASÍNCRONO ---
+@app.route("/dashboard/<guild_id>/knowledge/add", methods=['POST'])
+def add_knowledge_ajax(guild_id):
+    if 'discord_token' not in session: return jsonify({'success': False, 'error': 'Not logged in'}), 401
+    try:
+        data = request.json
+        text = data.get('text')
+        if not text:
+            return jsonify({'success': False, 'error': 'Text cannot be empty'}), 400
+        
+        knowledge = load_knowledge(int(guild_id))
+        knowledge.append(text)
+        save_knowledge(int(guild_id), knowledge)
+        
+        new_item = {'text': text, 'index': len(knowledge) - 1}
+        return jsonify({'success': True, 'newItem': new_item})
+    except Exception as e:
+        app.logger.error(f"Error adding knowledge: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route("/dashboard/<guild_id>/knowledge/delete", methods=['POST'])
+def delete_knowledge_ajax(guild_id):
+    if 'discord_token' not in session: return jsonify({'success': False, 'error': 'Not logged in'}), 401
+    try:
+        data = request.json
+        index = int(data.get('index'))
+        
+        knowledge = load_knowledge(int(guild_id))
+        if 0 <= index < len(knowledge):
+            knowledge.pop(index)
+            save_knowledge(int(guild_id), knowledge)
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Invalid index'}), 400
+    except Exception as e:
+        app.logger.error(f"Error deleting knowledge: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --- RUTA PARA ACCIONES DE ENTRENAMIENTO ---
 @app.route("/dashboard/<guild_id>/training_action", methods=['POST'])
 def training_action(guild_id):
     if 'discord_token' not in session: return redirect(url_for('login'))
@@ -339,7 +355,7 @@ def send_panel(guild_id):
     flash("El panel de tickets se está enviando...", "info")
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
-# --- Rutas de la Demo (sin cambios) ---
+# --- RUTAS PARA LA DEMO ---
 @app.route("/demo_chat", methods=['POST'])
 def demo_chat():
     if not GEMINI_API_KEY: return jsonify({'reply': 'Error: La API de IA no está configurada en el servidor.'}), 500
