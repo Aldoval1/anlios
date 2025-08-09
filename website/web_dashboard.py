@@ -83,8 +83,18 @@ def get_subscription_status(guild_id: int) -> dict:
     return {"is_premium": False, "expires_at": None}
 
 def load_ticket_config(guild_id: int) -> dict:
-    default_config = {'admin_roles': []}
-    return load_data_from_redis(f"ticket_config:{guild_id}", default_config)
+    # MODIFICADO: Añadida configuración de logs por defecto
+    default_config = {
+        'admin_roles': [],
+        'log_enabled': False,
+        'log_channel_id': None
+    }
+    config = load_data_from_redis(f"ticket_config:{guild_id}", default_config)
+    # Asegurar que las claves de log existan si se carga una configuración antigua
+    config.setdefault('log_enabled', False)
+    config.setdefault('log_channel_id', None)
+    return config
+
 def save_ticket_config(guild_id: int, data: dict): save_data_to_redis(f"ticket_config:{guild_id}", data)
 
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
@@ -191,23 +201,37 @@ def select_page(guild_id, page):
                 flash("Módulo actualizado.", "success")
 
             elif action == 'save_all':
-                current_config = load_embed_config(guild_id_int)
-                for embed_type in ['panel', 'welcome']:
-                    for key in current_config[embed_type]:
-                        form_key = f'{embed_type}_{key}'
-                        if form_key in request.form:
-                            current_config[embed_type][key] = request.form[form_key]
-                if 'ai_prompt' in request.form:
-                    current_config['ai_prompt'] = request.form['ai_prompt']
-                save_embed_config(guild_id_int, current_config)
+                # --- MODIFICADO: Lógica de guardado y validación de logs ---
+                ticket_config = load_ticket_config(guild_id_int)
 
-                if 'admin_roles_json' in request.form:
-                    admin_roles = json.loads(request.form.get('admin_roles_json', '[]'))
-                    ticket_config = load_ticket_config(guild_id_int)
-                    ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
+                # Validar configuración de logs
+                log_enabled = 'log_enabled' in request.form
+                log_channel_id = request.form.get('log_channel_id')
+
+                if log_enabled and not log_channel_id:
+                    flash("log_error", "Debes seleccionar un canal para los logs si la opción está activada.")
+                else:
+                    # Guardar embeds y personalidad
+                    current_config = load_embed_config(guild_id_int)
+                    for embed_type in ['panel', 'welcome']:
+                        for key in current_config[embed_type]:
+                            form_key = f'{embed_type}_{key}'
+                            if form_key in request.form:
+                                current_config[embed_type][key] = request.form[form_key]
+                    if 'ai_prompt' in request.form:
+                        current_config['ai_prompt'] = request.form['ai_prompt']
+                    save_embed_config(guild_id_int, current_config)
+
+                    # Guardar roles y config de logs
+                    if 'admin_roles_json' in request.form:
+                        admin_roles = json.loads(request.form.get('admin_roles_json', '[]'))
+                        ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
+                    
+                    ticket_config['log_enabled'] = log_enabled
+                    ticket_config['log_channel_id'] = log_channel_id
                     save_ticket_config(guild_id_int, ticket_config)
-                
-                flash("Configuración general guardada con éxito.", "success")
+                    
+                    flash("Configuración general guardada con éxito.", "success")
 
         except Exception as e:
             app.logger.error(f"Error al procesar el formulario: {e}")
@@ -267,7 +291,7 @@ def select_page(guild_id, page):
         
     return render_template(template_to_render, **render_data)
 
-# --- NUEVAS RUTAS PARA CONOCIMIENTO ASÍNCRONO ---
+# --- RUTAS PARA CONOCIMIENTO ASÍNCRONO ---
 @app.route("/dashboard/<guild_id>/knowledge/add", methods=['POST'])
 def add_knowledge_ajax(guild_id):
     if 'discord_token' not in session: return jsonify({'success': False, 'error': 'Not logged in'}), 401
