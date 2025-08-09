@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 import asyncio
 import redis
 import time
-import uuid # Importado para IDs únicos
+import uuid
+from datetime import datetime
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
@@ -33,10 +34,10 @@ else:
 
 # --- Nombres de Claves de Redis y Constantes ---
 CLAIMED_TAG = "[RECLAMADO]"
-NO_KNOWLEDGE_TAG = "[NO_KNOWLEDGE]" # NUEVO: Etiqueta para respuestas desconocidas
+NO_KNOWLEDGE_TAG = "[NO_KNOWLEDGE]"
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
-REDIS_TRAINING_QUEUE_KEY = "training_queue" # NUEVO: Cola para preguntas de entrenamiento
+REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 REDIS_CODES_KEY = "premium_codes"
 PREMIUM_ROLE_ID = 1401935354575065158
@@ -59,20 +60,25 @@ def save_data_to_redis(key: str, data):
         print(f"Error guardando datos en Redis para la clave {key}: {e}")
 
 def load_ticket_config(guild_id: int) -> dict:
-    default_config = {'admin_roles': []}
-    return load_data_from_redis(f"ticket_config:{guild_id}", default_config)
+    default_config = {
+        'admin_roles': [],
+        'log_enabled': False,
+        'log_channel_id': None
+    }
+    config = load_data_from_redis(f"ticket_config:{guild_id}", default_config)
+    config.setdefault('log_enabled', False)
+    config.setdefault('log_channel_id', None)
+    return config
 
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
 def load_embed_config(guild_id: int) -> dict:
-    # NUEVO: Se añade la instrucción de la etiqueta [NO_KNOWLEDGE] al prompt por defecto
     default_config = {
         'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'welcome': {'title': '¡Bienvenido, {user}!', 'description': 'Un asistente te atenderá pronto.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'ai_prompt': "Eres Anlios, un amigable y servicial asistente de IA. Tu propósito es ayudar a los usuarios con su conocimiento base. Si no encuentras la respuesta en tu base de conocimientos, DEBES empezar tu respuesta única y exclusivamente con la etiqueta [NO_KNOWLEDGE] y nada más."
     }
     config = load_data_from_redis(f"embed_config:{guild_id}", {})
-    # Lógica para fusionar con los valores por defecto sin sobreescribir los existentes
     for key, value in default_config.items():
         if key not in config:
             config[key] = value
@@ -81,8 +87,24 @@ def load_embed_config(guild_id: int) -> dict:
                 if sub_key not in config[key]:
                     config[key][sub_key] = sub_value
     return config
-
 def load_module_config() -> dict: return load_data_from_redis("module_config", {})
+
+# --- NUEVA FUNCIÓN PARA ENVIAR LOGS ---
+async def send_ticket_log(guild: discord.Guild, title: str, description: str, color: discord.Color, author: discord.Member):
+    config = load_ticket_config(guild.id)
+    if not config.get('log_enabled') or not config.get('log_channel_id'):
+        return
+
+    log_channel = guild.get_channel(int(config['log_channel_id']))
+    if not log_channel:
+        print(f"Error de Log: Canal {config['log_channel_id']} no encontrado en el servidor {guild.name}.")
+        return
+
+    embed = discord.Embed(title=title, description=description, color=color, timestamp=datetime.utcnow())
+    embed.set_author(name=str(author), icon_url=author.display_avatar.url)
+    embed.set_footer(text=f"ID de Usuario: {author.id}")
+    
+    await log_channel.send(embed=embed)
 
 def update_guilds_in_redis():
     if not redis_client: return
@@ -111,23 +133,37 @@ class TicketActionsView(discord.ui.View):
         if interaction.user.guild_permissions.manage_channels: return True
         ticket_config = load_ticket_config(interaction.guild.id)
         admin_role_ids = set(ticket_config.get('admin_roles', []))
-        user_role_ids = {role.id for role in interaction.user.roles}
+        user_role_ids = {str(role.id) for role in interaction.user.roles}
         return not admin_role_ids.isdisjoint(user_role_ids)
 
     @discord.ui.button(label="Reclamar Ticket", style=discord.ButtonStyle.primary, custom_id="ticket_actions:claim")
     async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.check_permissions(interaction):
             return await interaction.response.send_message("❌ No tienes permisos para reclamar este ticket.", ephemeral=True)
-        button.disabled = True
-        await interaction.response.edit_message(view=self)
-        await interaction.channel.edit(topic=f"{interaction.channel.topic} {CLAIMED_TAG}")
-        await interaction.channel.send(f"✅ Ticket reclamado por **{interaction.user.display_name}**. El asistente de IA ha sido desactivado.")
+        
+        # CORREGIDO: Manejo de canales y hilos
+        channel_name = interaction.channel.name
+        if CLAIMED_TAG not in channel_name:
+            new_name = f"{channel_name} {CLAIMED_TAG}"
+            await interaction.channel.edit(name=new_name)
+            button.disabled = True
+            await interaction.response.edit_message(view=self)
+            await interaction.channel.send(f"✅ Ticket reclamado por **{interaction.user.display_name}**. El asistente de IA ha sido desactivado.")
+        else:
+            await interaction.response.send_message("Este ticket ya ha sido reclamado.", ephemeral=True)
+
 
     @discord.ui.button(label="Cerrar Ticket", style=discord.ButtonStyle.danger, custom_id="ticket_actions:close")
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.check_permissions(interaction):
             return await interaction.response.send_message("❌ No tienes permisos para cerrar este ticket.", ephemeral=True)
+        
         await interaction.response.send_message("✅ **Ticket cerrado.** Este canal se eliminará en 5 segundos.")
+        
+        # --- MODIFICADO: Enviar log al cerrar ---
+        log_description = f"Ticket `{interaction.channel.name}` cerrado por {interaction.user.mention}."
+        await send_ticket_log(interaction.guild, "Ticket Cerrado", log_description, discord.Color.red(), interaction.user)
+        
         await asyncio.sleep(5)
         await interaction.channel.delete(reason=f"Ticket cerrado por {interaction.user}")
 
@@ -155,11 +191,18 @@ class TicketCreateView(discord.ui.View):
         for role_id in ticket_config.get('admin_roles', []):
             role = interaction.guild.get_role(int(role_id))
             if role: overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
-        ticket_channel = await interaction.guild.create_text_channel(name=ticket_channel_name, category=category, overwrites=overwrites, topic=f"Ticket de {interaction.user.id}")
+        
+        ticket_channel = await interaction.guild.create_text_channel(name=ticket_channel_name, category=category, overwrites=overwrites)
+        
         welcome_config = load_embed_config(interaction.guild.id).get('welcome', {})
         welcome_embed = build_embed_from_config(welcome_config, user=interaction.user)
         await ticket_channel.send(embed=welcome_embed, view=TicketActionsView())
         await interaction.followup.send(f"✅ ¡Ticket creado! Ve a {ticket_channel.mention} para continuar.", ephemeral=True)
+        
+        # --- MODIFICADO: Enviar log al crear ---
+        log_description = f"Ticket `{ticket_channel.name}` creado por {interaction.user.mention}."
+        await send_ticket_log(interaction.guild, "Ticket Creado", log_description, discord.Color.green(), interaction.user)
+
 
 # --- TAREAS EN SEGUNDO PLANO ---
 @tasks.loop(seconds=5.0)
@@ -180,46 +223,8 @@ async def check_command_queue():
                 panel_embed = build_embed_from_config(panel_config)
                 view = TicketCreateView(button_label=panel_config.get('button_label', 'Crear Ticket'))
                 await channel.send(embed=panel_embed, view=view)
-        
-        elif command == 'assign_premium_role':
-            guild_id, user_id = command_data.get('guild_id'), command_data.get('user_id')
-            guild = bot.get_guild(guild_id)
-            if not guild: return
-            try:
-                member = await guild.fetch_member(user_id)
-                role = guild.get_role(PREMIUM_ROLE_ID)
-                if member and role: await member.add_roles(role, reason="Código premium canjeado")
-            except Exception as e: print(f"[TAREA] ERROR al asignar rol: {e}")
-
-        elif command == 'remove_premium_role':
-            guild_id, user_id = command_data.get('guild_id'), command_data.get('user_id')
-            guild = bot.get_guild(guild_id)
-            if not guild: return
-            try:
-                member = await guild.fetch_member(user_id)
-                role = guild.get_role(PREMIUM_ROLE_ID)
-                if member and role and role in member.roles:
-                    await member.remove_roles(role, reason="Suscripción premium expirada")
-            except discord.NotFound: pass
-            except Exception as e: print(f"[TAREA] ERROR al quitar rol: {e}")
 
     except Exception as e: print(f"[TAREA] ERROR: {e}")
-
-@tasks.loop(hours=1)
-async def check_expired_subscriptions():
-    await bot.wait_until_ready()
-    if not redis_client: return
-    print("[TAREA DE SUSCRIPCIÓN] Verificando suscripciones expiradas...")
-    all_subscriptions = load_data_from_redis(REDIS_SUBSCRIPTIONS_KEY, {})
-    current_time = time.time()
-    for guild_id_str, sub_data in list(all_subscriptions.items()):
-        if sub_data.get('expires_at', 0) < current_time:
-            print(f"Suscripción expirada para el servidor {guild_id_str}.")
-            command = {'command': 'remove_premium_role', 'user_id': sub_data.get('user_id'), 'guild_id': int(guild_id_str)}
-            redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
-            del all_subscriptions[guild_id_str]
-    save_data_to_redis(REDIS_SUBSCRIPTIONS_KEY, all_subscriptions)
-    print("[TAREA DE SUSCRIPCIÓN] Verificación completada.")
 
 # --- EVENTOS DEL BOT ---
 @bot.event
@@ -233,7 +238,6 @@ async def on_ready():
         bot.add_view(TicketCreateView(button_label=button_label))
     update_guilds_in_redis()
     check_command_queue.start()
-    check_expired_subscriptions.start()
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
@@ -249,9 +253,15 @@ async def on_guild_remove(guild: discord.Guild):
 async def on_message(message: discord.Message):
     await bot.process_commands(message)
     if message.author.bot or not message.channel.name.startswith('ticket-'): return
+    
     module_config = load_module_config()
     if not module_config.get(str(message.guild.id), {}).get('modules', {}).get('ticket_ia', False): return
-    if message.channel.topic and CLAIMED_TAG in message.channel.topic: return
+    
+    # --- CORREGIDO: Manejo de error para hilos (Threads) ---
+    # Los hilos no tienen 'topic', así que verificamos el nombre del canal/hilo
+    if CLAIMED_TAG in message.channel.name:
+        return
+
     if not GEMINI_API_KEY: return
     
     async with message.channel.typing():
@@ -272,9 +282,7 @@ async def on_message(message: discord.Message):
             response = await model.generate_content_async(final_prompt)
             response_text = response.text
 
-            # --- NUEVA LÓGICA DE ENTRENAMIENTO ---
             if response_text.strip().startswith(NO_KNOWLEDGE_TAG):
-                # La IA no sabe la respuesta, la enviamos a la cola de entrenamiento
                 training_queue_key = f"{REDIS_TRAINING_QUEUE_KEY}:{message.guild.id}"
                 pending_questions = load_data_from_redis(training_queue_key, [])
                 
@@ -286,10 +294,8 @@ async def on_message(message: discord.Message):
                 pending_questions.append(new_question)
                 save_data_to_redis(training_queue_key, pending_questions)
                 
-                # Notificamos al usuario que la pregunta ha sido enviada a un humano
-                await message.reply("🤔 No estoy seguro de la respuesta. He enviado tu pregunta a un administrador para que me ayude a aprender. Podemos pasar a otro tema mientras tanto.")
+                await message.reply("🤔 No estoy seguro de la respuesta. He enviado tu pregunta a un administrador para que me ayude a aprender.")
             else:
-                # La IA sabe la respuesta, la enviamos como de costumbre
                 await message.reply(response_text)
 
         except Exception as e:
