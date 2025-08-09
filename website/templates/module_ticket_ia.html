@@ -85,7 +85,6 @@
                                 {% for item in knowledge_base %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <span class="me-2 text-truncate" style="white-space: pre-wrap;">{{ item }}</span>
-                                    <!-- MODIFICADO: El botón de eliminar ahora es un botón normal que el JS manejará -->
                                     <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="{{ loop.index0 }}" title="Eliminar">×</button>
                                 </li>
                                 {% endfor %}
@@ -96,12 +95,10 @@
                             <hr>
                             <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
                                 <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab" data-bs-toggle="pill" data-bs-target="#pills-text" type="button" role="tab">Añadir Texto</button></li>
-                                <!-- Otras pestañas (web, youtube, pdf) se pueden implementar de forma similar si se desea -->
                             </ul>
                             <div class="tab-content" id="pills-tabContent">
                                 <div class="tab-pane fade show active" id="pills-text" role="tabpanel">
                                     <div class="mb-3"><textarea class="form-control" id="new-knowledge-text" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div>
-                                    <!-- MODIFICADO: El botón de añadir ahora es un botón normal que el JS manejará -->
                                     <button type="button" id="add-knowledge-btn" class="btn btn-info w-100">Añadir Texto</button>
                                 </div>
                             </div>
@@ -109,11 +106,13 @@
                     </div>
                 </section>
 
-                <!-- SECCIÓN 4: Configuración de Roles -->
+                <!-- SECCIÓN 4: Configuración General -->
                 <section id="configs-section" class="mb-5">
-                    <h2>Configuración de Roles</h2>
+                    <h2>Configuración General</h2>
                     <hr class="border-danger">
+                    <!-- Configuración de Roles -->
                     <div class="card mt-4 shadow-sm">
+                        <div class="card-header"><h5>Roles de Administradores</h5></div>
                         <div class="card-body">
                             <p class="text-muted small">Haz doble clic en un rol para añadirlo a la lista de administradores de tickets.</p>
                             <div id="role-list-container">
@@ -124,11 +123,28 @@
                             <hr>
                             <div class="d-flex align-items-start mt-2">
                                 <span class="text-muted small me-3 pt-2" style="white-space: nowrap;">Roles con permiso:</span>
-                                <div id="selected-roles-container" class="w-100" style="min-height: 40px;">
-                                    <!-- Pills se renderizan con JS -->
-                                </div>
+                                <div id="selected-roles-container" class="w-100" style="min-height: 40px;"></div>
                             </div>
                             <input type="hidden" name="admin_roles_json" id="admin-roles-json">
+                        </div>
+                    </div>
+                    <!-- NUEVA SECCIÓN: Configuración de Logs -->
+                    <div class="card mt-4 shadow-sm">
+                        <div class="card-header"><h5>Logs de Tickets</h5></div>
+                        <div class="card-body">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="log-enabled-switch" name="log_enabled" {% if ticket_config.log_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="log-enabled-switch">Activar logs de tickets</label>
+                            </div>
+                            <div id="log-channel-selector-wrapper">
+                                <label for="log-channel-select" class="form-label small">Canal para enviar los logs</label>
+                                <select class="form-select" name="log_channel_id" id="log-channel-select">
+                                    <option value="" {% if not ticket_config.log_channel_id %}selected{% endif %} disabled>Selecciona un canal...</option>
+                                    {% for channel in channels %}
+                                    <option value="{{ channel.id }}" {% if ticket_config.log_channel_id == channel.id|string %}selected{% endif %}>#{{ channel.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -182,14 +198,63 @@
 <script src="{{ url_for('static', filename='js/unsaved-changes.js') }}"></script>
 <script id="initial-roles-data" type="application/json">{{ ticket_config.admin_roles | tojson | safe }}</script>
 <script id="all-roles-data" type="application/json">{{ roles | tojson | safe }}</script>
+
+<!-- MODIFICADO: Bloque de datos para los mensajes -->
+<script id="flashed-messages" type="application/json">
+    {{ get_flashed_messages(with_categories=true) | tojson | safe }}
+</script>
+
 <script>
-// Nuevo script para manejar el conocimiento de forma asíncrona
+// --- SCRIPT PARA MOSTRAR/OCULTAR EL SELECTOR DE CANAL DE LOGS Y MANEJAR NOTIFICACIONES ---
+document.addEventListener('DOMContentLoaded', () => {
+    const logSwitch = document.getElementById('log-enabled-switch');
+    const channelSelector = document.getElementById('log-channel-selector-wrapper');
+
+    function toggleChannelSelector() {
+        if (logSwitch.checked) {
+            channelSelector.style.display = 'block';
+        } else {
+            channelSelector.style.display = 'none';
+        }
+    }
+
+    if (logSwitch && channelSelector) {
+        logSwitch.addEventListener('change', toggleChannelSelector);
+        // Set initial state on page load
+        toggleChannelSelector();
+    }
+
+    // --- LÓGICA PARA MOSTRAR TODOS LOS TOASTS DE FORMA SEGURA ---
+    const messagesData = document.getElementById('flashed-messages');
+    if (messagesData) {
+        try {
+            const messages = JSON.parse(messagesData.textContent);
+            if (typeof showToast === 'function' && Array.isArray(messages)) {
+                messages.forEach(([category, message]) => {
+                    let toastType = 'info'; // default
+                    if (category === 'log_error' || category === 'danger') {
+                        toastType = 'error';
+                    } else if (category === 'success') {
+                        toastType = 'success';
+                    } else if (category === 'warning') {
+                        toastType = 'warning';
+                    }
+                    showToast(toastType, message, false, 5000);
+                });
+            }
+        } catch (e) {
+            console.error("Could not parse flashed messages:", e);
+        }
+    }
+});
+</script>
+<script>
+// Script para manejar el conocimiento de forma asíncrona
 document.addEventListener('DOMContentLoaded', () => {
     const guildId = '{{ active_guild_id }}';
     const addBtn = document.getElementById('add-knowledge-btn');
     const knowledgeList = document.getElementById('knowledge-list');
 
-    // Añadir conocimiento
     if (addBtn) {
         addBtn.addEventListener('click', async () => {
             const textArea = document.getElementById('new-knowledge-text');
@@ -204,7 +269,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.success) {
-                // Añadir dinámicamente el nuevo elemento a la lista
                 const newItem = document.createElement('li');
                 newItem.className = 'list-group-item d-flex justify-content-between align-items-center';
                 newItem.innerHTML = `
@@ -212,15 +276,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="${data.newItem.index}" title="Eliminar">×</button>
                 `;
                 knowledgeList.appendChild(newItem);
-                
-                // Limpiar el textarea
                 textArea.value = '';
-
-                // Ocultar mensaje de lista vacía si estaba visible
                 const emptyMsg = document.getElementById('empty-knowledge-msg');
                 if (emptyMsg) emptyMsg.style.display = 'none';
-
-                // Mostrar notificación de éxito
                 if (typeof showToast === 'function') {
                     showToast('success', 'Conocimiento añadido con éxito.', false, 3000);
                 }
@@ -232,7 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Eliminar conocimiento
     if (knowledgeList) {
         knowledgeList.addEventListener('click', async (e) => {
             if (e.target.classList.contains('knowledge-delete-btn')) {
@@ -247,15 +304,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
 
                 if (data.success) {
-                    // Eliminar el elemento de la lista
                     button.parentElement.remove();
-
-                     // Mostrar mensaje si la lista queda vacía
-                    if (knowledgeList.children.length === 0) {
+                    if (knowledgeList.children.length === 1 && document.getElementById('empty-knowledge-msg')) {
                          const emptyMsg = document.getElementById('empty-knowledge-msg');
                          if (emptyMsg) emptyMsg.style.display = 'block';
+                    } else if (knowledgeList.children.length === 0) {
+                        const emptyMsg = document.createElement('li');
+                        emptyMsg.id = 'empty-knowledge-msg';
+                        emptyMsg.className = 'list-group-item text-muted';
+                        emptyMsg.textContent = 'La base de conocimientos está vacía.';
+                        knowledgeList.appendChild(emptyMsg);
                     }
-
                     if (typeof showToast === 'function') {
                         showToast('info', 'Conocimiento eliminado.', false, 3000);
                     }
