@@ -3,6 +3,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Lato&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Cinzel&display=swap');
+/* AÑADIDO: Nueva fuente Barlow Condensed */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;700&display=swap');
+
 
 /* --- Base Structure --- */
 html { scroll-behavior: smooth; }
@@ -12,11 +15,12 @@ body {
     overflow-x: hidden; /* Prevenir scroll horizontal */
 }
 
+/* MODIFICADO: Se aplica la nueva fuente a los elementos principales */
 h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .page-footer, .topbar .logo, .nav-link-with-toggle .nav-link-text {
-    font-family: var(--font-pixel, 'Press Start 2P', cursive);
+    font-family: 'Barlow Condensed', var(--font-pixel, 'Press Start 2P', cursive);
 }
 .form-control, .card, .modal-content, .user-info .username, .sub-link { 
-    font-family: var(--font-sans, 'Roboto', sans-serif); 
+    font-family: 'Barlow Condensed', var(--font-sans, 'Roboto', sans-serif); 
 }
 
 /* --- Estructura Principal del Dashboard --- */
@@ -53,12 +57,7 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     padding: 10px 15px; 
     margin-bottom: 5px; 
     border-radius: var(--border-radius, 5px); 
-    font-size: 0.9rem; 
-}
-.sidebar .nav-link:hover, .sidebar .nav-link.active { 
-    background: var(--accent-gradient); 
-    color: var(--btn-primary-text, #1a0000); 
-    text-shadow: none; 
+    font-size: 1.1rem; /* Aumentado para mejor legibilidad */
 }
 .sidebar .sub-menu { 
     padding-left: 20px; 
@@ -68,7 +67,7 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     margin-bottom: 5px; 
 }
 .sidebar .sub-link { 
-    font-size: 0.8rem !important; 
+    font-size: 1rem !important; /* Aumentado para mejor legibilidad */
     color: var(--text-muted) !important; 
     padding-top: 8px; 
     padding-bottom: 8px; 
@@ -144,8 +143,8 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     color: var(--text-muted); 
     border: 2px solid transparent; 
     border-radius: var(--border-radius, 0); 
-    font-size: 0.7rem; 
-    padding: 5px 10px;
+    font-size: 0.9rem; /* Aumentado */
+    padding: 8px 12px; /* Aumentado */
 }
 .nav-pills .nav-link.active { 
     background: var(--accent-gradient);
@@ -165,8 +164,8 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
 .role-item { 
     padding: 8px 12px; 
     cursor: pointer; 
-    font-family: var(--font-sans, 'Roboto', sans-serif); 
-    font-size: 0.9rem; 
+    font-family: 'Barlow Condensed', var(--font-sans, 'Roboto', sans-serif); 
+    font-size: 1rem; 
     border-radius: 3px; 
 }
 .role-item:hover { 
@@ -184,8 +183,8 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     color: var(--btn-primary-text, var(--text-main)); 
     padding: 5px 10px; 
     border-radius: 5px; 
-    font-family: var(--font-sans, 'Roboto', sans-serif); 
-    font-size: 0.8rem; 
+    font-family: 'Barlow Condensed', var(--font-sans, 'Roboto', sans-serif); 
+    font-size: 0.9rem; 
     font-weight: bold; 
 }
 .remove-role-btn { 
@@ -230,7 +229,7 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     border-color: var(--accent-main); 
 }
 .modal-body p { 
-    font-family: var(--font-sans, 'Roboto', sans-serif); 
+    font-family: 'Barlow Condensed', var(--font-sans, 'Roboto', sans-serif); 
 }
 .modal-content .form-select { 
     background-color: var(--bg-input, var(--bg-secondary)); 
@@ -246,7 +245,7 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     cursor: default !important; 
     border-radius: var(--border-radius, 5px); 
     margin-bottom: 5px; 
-    font-size: 0.9rem; 
+    font-size: 1.1rem; 
 }
 .nav-link-with-toggle:hover, .nav-link-with-toggle.active { 
     background: var(--accent-gradient); 
@@ -282,20 +281,18 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
 .mobile-overlay { display: none; } /* Oculto en escritorio */
 
 @media (max-width: 992px) {
-    /* CORREGIDO: Permitir el scroll en el body */
     body {
         overflow: auto;
     }
     .dashboard-wrapper {
         display: block;
-        /* CORREGIDO: Permitir que la altura se ajuste al contenido */
         height: auto;
         min-height: 100vh;
     }
     .sidebar {
         position: fixed;
         top: 0;
-        left: -280px; /* Ancho + 20px de padding */
+        left: -280px;
         height: 100%;
         z-index: 1001;
         overflow-y: auto;
@@ -305,12 +302,10 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     }
     .content-wrapper {
         width: 100%;
-        /* CORREGIDO: Eliminar el overflow hidden que impedía el scroll */
         overflow: visible;
     }
     .main-content {
         padding: 20px;
-        /* CORREGIDO: Eliminar el scroll interno para que toda la página haga scroll */
         overflow-y: visible;
     }
     .page-footer .footer-links {
@@ -346,7 +341,6 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     .mobile-overlay.is-visible {
         display: block;
     }
-    /* Apilar columnas en la página de módulos */
     .row.g-5 {
         display: flex;
         flex-direction: column;
@@ -358,7 +352,6 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     font-family: 'Roboto', sans-serif !important;
 }
 .discord-chat-message { display: flex; gap: 20px; }
-/* CORREGIDO: Regla específica para el avatar para evitar que se agrande */
 .discord-avatar { 
     width: 40px !important; 
     height: 40px !important; 
@@ -377,3 +370,25 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
 .embed-image { max-width: 100%; margin-top: 16px; border-radius: 4px; }
 .embed-footer { display: flex; align-items: center; margin-top: 8px; font-size: 0.75rem; color: #c7c9cb !important; }
 .embed-footer-icon { width: 20px; height: 20px; border-radius: 50%; margin-right: 8px; }
+
+/* --- AÑADIDO: ESTILOS ESPECÍFICOS DEL TEMA NÓRDICO --- */
+body[data-design="nordic"] .sidebar,
+body[data-design="nordic"] .topbar,
+body[data-design="nordic"] .card,
+body[data-design="nordic"] .page-footer {
+    background-color: rgba(10, 10, 10, 0.7);
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+}
+
+body[data-design="nordic"] .sidebar .nav-link {
+    background: transparent;
+    transition: all 0.2s ease-in-out;
+}
+
+body[data-design="nordic"] .sidebar .nav-link:hover,
+body[data-design="nordic"] .sidebar .nav-link.active {
+    background: transparent;
+    color: var(--text-main);
+    text-shadow: 0 0 8px var(--accent-main), 0 0 15px var(--text-main);
+}
