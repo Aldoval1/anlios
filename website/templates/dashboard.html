@@ -1,10 +1,13 @@
 {% extends "layout.html" %}
 
+<!-- This block will inject all the theme stylesheets into the layout -->
 {% block theme_styles %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-base.css') }}">
+
     <link id="design-anlios" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-anlios.css') }}" disabled>
     <link id="design-discord" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-discord.css') }}" disabled>
     <link id="design-nordic" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-nordic.css') }}" disabled>
+
     <link id="color-furia-roja" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-furia-roja.css') }}" disabled>
     <link id="color-oceano-neon" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-oceano-neon.css') }}" disabled>
     <link id="color-atardecer" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-atardecer.css') }}" disabled>
@@ -13,14 +16,19 @@
     <link id="color-cerezo-en-flor" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-cerezo-en-flor.css') }}" disabled>
     <link id="color-grafito-y-oro" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-grafito-y-oro.css') }}" disabled>
     <link id="color-tierra-y-cielo" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-tierra-y-cielo.css') }}" disabled>
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
 {% endblock %}
 
 
 {% block body_content %}
+<!-- AÑADIDO: Capa de superposición para el menú móvil -->
 <div class="mobile-overlay"></div>
+
 <div class="dashboard-wrapper">
+    <!-- Menú Lateral -->
     <aside class="sidebar">
+        <!-- Selector de Servidor -->
         <div class="mb-4 d-flex align-items-center">
             <select class="form-select" onchange="if (this.value) window.location.href=this.value;">
                 <option selected disabled>Seleccionar Servidor...</option>
@@ -34,22 +42,17 @@
         </div>
 
         {% if active_guild_id %}
+        <!-- Menú de Cuenta -->
         <div class="menu-category">Cuenta</div>
         <nav class="nav flex-column">
-            <!-- MODIFICADO: Añadidos iconos y nueva estructura -->
-            <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='membership') }}">
-                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></span>
-                <span class="nav-text">Membresía</span>
-            </a>
-            <a class="nav-link {% if page == 'profile' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='profile') }}">
-                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
-                <span class="nav-text">Perfil</span>
-            </a>
+            <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='membership') }}">Membresía</a>
+            <a class="nav-link {% if page == 'profile' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='profile') }}">Perfil</a>
         </nav>
 
+        <!-- Menú de Módulos -->
         <div class="menu-category">Módulos</div>
         <nav class="nav flex-column">
-            <div class="nav-link nav-link-with-toggle {% if page == 'modules' or page == 'training' %}active{% endif %}">
+            <div class="nav-link nav-link-with-toggle {% if page == 'modules' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
                     <input type="hidden" name="action" value="toggle_module">
                     <div class="form-check form-switch">
@@ -71,6 +74,7 @@
         </nav>
         {% endif %}
 
+        <!-- Info de Usuario y Logout -->
         <div class="user-info">
             <img src="{{ user.avatar_url }}" alt="Avatar">
             <span class="username">{{ user.username }}</span>
@@ -79,7 +83,9 @@
     </aside>
 
     <div class="content-wrapper">
+        <!-- Barra Superior -->
         <header class="topbar">
+            <!-- AÑADIDO: Botón de menú hamburguesa para móviles -->
             <button class="mobile-menu-button">
                 <span></span>
                 <span></span>
@@ -88,10 +94,12 @@
             <div class="logo">Anlios</div>
         </header>
 
+        <!-- Contenido Principal -->
         <main class="main-content">
             {% block dashboard_content %}{% endblock %}
         </main>
 
+        <!-- Pie de Página -->
         <footer class="page-footer">
             <div class="footer-links">
                 <a href="#">Documentación</a>
@@ -131,6 +139,7 @@
 </div>
 {% endblock %}
 
+<!-- This block will inject the theme-switching script into the layout -->
 {% block theme_scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -145,7 +154,7 @@
 
         function applyTheme(design, color) {
             body.classList.add('theme-transition');
-            body.dataset.design = design;
+            body.dataset.design = design; // Set data-attribute for specific CSS rules
 
             designSheets.forEach(sheet => sheet.disabled = (sheet.id !== `design-${design}`));
             colorSheets.forEach(sheet => sheet.disabled = (sheet.id !== `color-${color}`));
@@ -178,6 +187,7 @@
             }
         }
 
+        // Event Listeners for theme selection (on profile page)
         if (designSelector && colorSelector) {
             designSelector.addEventListener('click', e => {
                 const card = e.target.closest('.theme-card');
@@ -208,6 +218,7 @@
             };
         }
 
+        // Initial theme load on all pages
         loadTheme();
     });
 </script>
@@ -218,7 +229,7 @@
 function inviteBot() {
     const serverId = document.getElementById('server-invite-select').value;
     if (serverId && serverId !== "Elige un servidor...") {
-        const permissions = 8;
+        const permissions = 8; // Administrador
         const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id={{ client_id }}&guild_id=${serverId}&permissions=${permissions}&scope=bot%20applications.commands`;
         window.open(inviteUrl, '_blank');
     } else {
@@ -226,6 +237,7 @@ function inviteBot() {
     }
 }
 </script>
+<!-- AÑADIDO: Script para la navegación móvil -->
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const menuButton = document.querySelector('.mobile-menu-button');
