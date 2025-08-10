@@ -22,6 +22,9 @@
 
 
 {% block body_content %}
+<!-- AÑADIDO: Capa de superposición para el menú móvil -->
+<div class="mobile-overlay"></div>
+
 <div class="dashboard-wrapper">
     <!-- Menú Lateral -->
     <aside class="sidebar">
@@ -64,8 +67,8 @@
                 <div class="sub-menu">
                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#embeds-section">Editor de Embeds</a>
                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#ai-section">IA y Conocimiento</a>
+                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='training') }}">Entrenamiento</a>
                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#configs-section">Configuración</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='training') }}">Entrenamiento</a>
                 </div>
             </div>
         </nav>
@@ -82,6 +85,12 @@
     <div class="content-wrapper">
         <!-- Barra Superior -->
         <header class="topbar">
+            <!-- AÑADIDO: Botón de menú hamburguesa para móviles -->
+            <button class="mobile-menu-button">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
             <div class="logo">Anlios</div>
         </header>
 
@@ -227,5 +236,23 @@ function inviteBot() {
         alert("Por favor, elige un servidor de la lista.");
     }
 }
+</script>
+<!-- AÑADIDO: Script para la navegación móvil -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const menuButton = document.querySelector('.mobile-menu-button');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.mobile-overlay');
+
+    if (menuButton && sidebar && overlay) {
+        const toggleMenu = () => {
+            sidebar.classList.toggle('is-open');
+            overlay.classList.toggle('is-visible');
+        };
+
+        menuButton.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', toggleMenu);
+    }
+});
 </script>
 {% endblock %}
