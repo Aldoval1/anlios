@@ -33,11 +33,11 @@ if GEMINI_API_KEY:
 else:
     print("⚠️ ADVERTENCIA: No se encontró la clave de API de Gemini.")
 
-# --- Nombres de Claves de Redis y Constantes ---
-CLAIMED_TAG = "[RECLAMADO]"
+# --- Nombres de Claves de Redis y Constantes (CORREGIDO) ---
+CLAIMED_TAG = "-reclamado" # Etiqueta simplificada
 NO_KNOWLEDGE_TAG = "[NO_KNOWLEDGE]"
 REDIS_GUILDS_KEY = "bot_guilds_list"
-REDIS_GUILD_NAMES_KEY = "guild_names_map" # NUEVA CLAVE
+REDIS_GUILD_NAMES_KEY = "guild_names_map"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
@@ -91,7 +91,7 @@ def load_embed_config(guild_id: int) -> dict:
     return config
 def load_module_config() -> dict: return load_data_from_redis("module_config", {})
 
-# --- MODIFICADO: FUNCIÓN PARA ENVIAR LOGS AHORA ACEPTA ARCHIVOS ---
+# --- FUNCIÓN PARA ENVIAR LOGS ---
 async def send_ticket_log(guild: discord.Guild, title: str, description: str, color: discord.Color, author: discord.Member, file: discord.File = None):
     config = load_ticket_config(guild.id)
     if not config.get('log_enabled') or not config.get('log_channel_id'):
@@ -113,11 +113,9 @@ def update_guilds_in_redis():
     print("Actualizando la lista y nombres de servidores en Redis...")
     guilds = bot.guilds
     guild_ids = [guild.id for guild in guilds]
-    guild_names = {str(guild.id): guild.name for guild in guilds} # Crear el mapa
-
+    guild_names = {str(guild.id): guild.name for guild in guilds}
     save_data_to_redis(REDIS_GUILDS_KEY, guild_ids)
-    save_data_to_redis(REDIS_GUILD_NAMES_KEY, guild_names) # Guardar el mapa en Redis
-
+    save_data_to_redis(REDIS_GUILD_NAMES_KEY, guild_names)
     print(f"El bot está ahora en {len(guild_ids)} servidores. Lista y nombres actualizados en Redis.")
 
 def build_embed_from_config(config: dict, user: discord.Member = None) -> discord.Embed:
@@ -150,14 +148,14 @@ class TicketActionsView(discord.ui.View):
         
         channel_name = interaction.channel.name
         if CLAIMED_TAG not in channel_name:
-            new_name = f"{channel_name} {CLAIMED_TAG}"
+            # --- CORREGIDO: Forma de renombrar el canal ---
+            new_name = f"{channel_name}{CLAIMED_TAG}"
             await interaction.channel.edit(name=new_name)
             button.disabled = True
             await interaction.response.edit_message(view=self)
             await interaction.channel.send(f"✅ Ticket reclamado por **{interaction.user.display_name}**. El asistente de IA ha sido desactivado.")
         else:
             await interaction.response.send_message("Este ticket ya ha sido reclamado.", ephemeral=True)
-
 
     @discord.ui.button(label="Cerrar Ticket", style=discord.ButtonStyle.danger, custom_id="ticket_actions:close")
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -166,9 +164,7 @@ class TicketActionsView(discord.ui.View):
         
         await interaction.response.send_message("✅ **Ticket cerrado.** Generando transcripción... Este canal se eliminará en 5 segundos.")
         
-        # --- NUEVO: Lógica para generar y guardar la transcripción del chat ---
         transcript_content = ""
-        # Itera sobre el historial del canal en orden cronológico
         async for message in interaction.channel.history(limit=None, oldest_first=True):
             timestamp = message.created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
             transcript_content += f"[{timestamp}] {message.author.name}: {message.content}\n"
@@ -177,11 +173,9 @@ class TicketActionsView(discord.ui.View):
 
         transcript_file = None
         if transcript_content:
-            # Crea un archivo de texto en memoria
             buffer = io.StringIO(transcript_content)
             transcript_file = discord.File(buffer, filename=f"transcript-{interaction.channel.name}.txt")
 
-        # --- MODIFICADO: Enviar log al cerrar con el archivo de transcripción ---
         log_description = f"Ticket `{interaction.channel.name}` cerrado por {interaction.user.mention}."
         await send_ticket_log(
             interaction.guild, 
@@ -229,7 +223,6 @@ class TicketCreateView(discord.ui.View):
         
         log_description = f"Ticket `{ticket_channel.name}` creado por {interaction.user.mention}."
         await send_ticket_log(interaction.guild, "Ticket Creado", log_description, discord.Color.green(), interaction.user)
-
 
 # --- TAREAS EN SEGUNDO PLANO ---
 @tasks.loop(seconds=5.0)
@@ -284,6 +277,7 @@ async def on_message(message: discord.Message):
     module_config = load_module_config()
     if not module_config.get(str(message.guild.id), {}).get('modules', {}).get('ticket_ia', False): return
     
+    # --- CORREGIDO: La comprobación ahora funciona correctamente ---
     if CLAIMED_TAG in message.channel.name:
         return
 
