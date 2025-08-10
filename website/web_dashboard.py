@@ -83,14 +83,12 @@ def get_subscription_status(guild_id: int) -> dict:
     return {"is_premium": False, "expires_at": None}
 
 def load_ticket_config(guild_id: int) -> dict:
-    # MODIFICADO: Añadida configuración de logs por defecto
     default_config = {
         'admin_roles': [],
         'log_enabled': False,
         'log_channel_id': None
     }
     config = load_data_from_redis(f"ticket_config:{guild_id}", default_config)
-    # Asegurar que las claves de log existan si se carga una configuración antigua
     config.setdefault('log_enabled', False)
     config.setdefault('log_channel_id', None)
     return config
@@ -201,17 +199,13 @@ def select_page(guild_id, page):
                 flash("Módulo actualizado.", "success")
 
             elif action == 'save_all':
-                # --- MODIFICADO: Lógica de guardado y validación de logs ---
                 ticket_config = load_ticket_config(guild_id_int)
-
-                # Validar configuración de logs
                 log_enabled = 'log_enabled' in request.form
                 log_channel_id = request.form.get('log_channel_id')
 
                 if log_enabled and not log_channel_id:
                     flash("log_error", "Debes seleccionar un canal para los logs si la opción está activada.")
                 else:
-                    # Guardar embeds y personalidad
                     current_config = load_embed_config(guild_id_int)
                     for embed_type in ['panel', 'welcome']:
                         for key in current_config[embed_type]:
@@ -222,7 +216,6 @@ def select_page(guild_id, page):
                         current_config['ai_prompt'] = request.form['ai_prompt']
                     save_embed_config(guild_id_int, current_config)
 
-                    # Guardar roles y config de logs
                     if 'admin_roles_json' in request.form:
                         admin_roles = json.loads(request.form.get('admin_roles_json', '[]'))
                         ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
@@ -249,13 +242,18 @@ def select_page(guild_id, page):
     guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
     guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
 
+    # --- CORREGIDO: Cargar el estado del módulo en todas las páginas ---
+    module_config = load_module_config()
+    module_status = module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False)
+
     render_data = {
         "user": session['user'],
         "guilds_with_bot": guilds_with_bot,
         "guilds_without_bot": guilds_without_bot,
         "client_id": CLIENT_ID,
         "active_guild_id": guild_id,
-        "page": page
+        "page": page,
+        "module_status": module_status # Pasar el estado a todas las plantillas
     }
     
     template_map = { 
@@ -266,30 +264,32 @@ def select_page(guild_id, page):
     }
     template_to_render = template_map.get(page, "under_construction.html")
     
-    if page == 'modules':
-        module_config = load_module_config()
-        render_data['module_status'] = module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False)
+    # Cargar datos específicos de la página solo cuando sea necesario
+    if page in ['modules', 'training']:
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
         channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/channels', headers=bot_headers)
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
-        roles_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/roles', headers=bot_headers)
-        if roles_response.status_code == 200:
-            all_roles = roles_response.json()
-            render_data['roles'] = [r for r in all_roles if r['name'] != '@everyone' and not r.get('tags', {}).get('bot_id')]
-        else:
-            render_data['roles'] = []
-        render_data['embed_config'] = load_embed_config(guild_id_int)
-        render_data['knowledge_base'] = load_knowledge(guild_id_int)
-        render_data['ticket_config'] = load_ticket_config(guild_id_int)
+        
+        if page == 'modules':
+            roles_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/roles', headers=bot_headers)
+            if roles_response.status_code == 200:
+                all_roles = roles_response.json()
+                render_data['roles'] = [r for r in all_roles if r['name'] != '@everyone' and not r.get('tags', {}).get('bot_id')]
+            else:
+                render_data['roles'] = []
+            render_data['embed_config'] = load_embed_config(guild_id_int)
+            render_data['knowledge_base'] = load_knowledge(guild_id_int)
+            render_data['ticket_config'] = load_ticket_config(guild_id_int)
+        
+        elif page == 'training':
+            training_queue_key = f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}"
+            render_data['pending_questions'] = load_data_from_redis(training_queue_key, [])
     
     elif page == 'membership':
         render_data['subscription'] = get_subscription_status(guild_id_int)
-
-    elif page == 'training':
-        training_queue_key = f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}"
-        render_data['pending_questions'] = load_data_from_redis(training_queue_key, [])
         
     return render_template(template_to_render, **render_data)
+
 
 # --- RUTAS PARA CONOCIMIENTO ASÍNCRONO ---
 @app.route("/dashboard/<guild_id>/knowledge/add", methods=['POST'])
