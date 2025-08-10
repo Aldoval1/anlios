@@ -282,8 +282,15 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
 .mobile-overlay { display: none; } /* Oculto en escritorio */
 
 @media (max-width: 992px) {
+    /* CORREGIDO: Permitir el scroll en el body */
+    body {
+        overflow: auto;
+    }
     .dashboard-wrapper {
         display: block;
+        /* CORREGIDO: Permitir que la altura se ajuste al contenido */
+        height: auto;
+        min-height: 100vh;
     }
     .sidebar {
         position: fixed;
@@ -298,12 +305,13 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     }
     .content-wrapper {
         width: 100%;
-    }
-    .topbar {
-        padding: 0 20px;
+        /* CORREGIDO: Eliminar el overflow hidden que impedía el scroll */
+        overflow: visible;
     }
     .main-content {
         padding: 20px;
+        /* CORREGIDO: Eliminar el scroll interno para que toda la página haga scroll */
+        overflow-y: visible;
     }
     .page-footer .footer-links {
         display: flex;
@@ -344,3 +352,28 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
         flex-direction: column;
     }
 }
+
+/* --- PROTECTED STYLES FOR DISCORD PREVIEW --- */
+.discord-chat-message, .discord-embed, .discord-embed * {
+    font-family: 'Roboto', sans-serif !important;
+}
+.discord-chat-message { display: flex; gap: 20px; }
+/* CORREGIDO: Regla específica para el avatar para evitar que se agrande */
+.discord-avatar { 
+    width: 40px !important; 
+    height: 40px !important; 
+    border-radius: 50%; 
+    flex-shrink: 0; 
+}
+.discord-username { color: #ff8282 !important; font-weight: 500; margin-bottom: 4px; }
+.discord-embed { background-color: #2f3136 !important; border-left: 4px solid #5865f2 !important; border-radius: 4px; padding: .5rem 1rem; margin-top: 4px; max-width: 520px; }
+.embed-grid { display: grid; grid-template-columns: auto min-content; gap: 16px; }
+.embed-content { min-width: 0; }
+.embed-author { display: flex; align-items: center; margin-bottom: 8px; font-size: 0.875rem; font-weight: 500; color: #fff !important; }
+.embed-author-icon { width: 24px; height: 24px; border-radius: 50%; margin-right: 8px; }
+.embed-title { font-weight: 700; color: #fff !important; margin-bottom: 4px; }
+.embed-description { font-size: 0.875rem; line-height: 1.375; color: #dcddde !important; white-space: pre-wrap; }
+.embed-thumbnail { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+.embed-image { max-width: 100%; margin-top: 16px; border-radius: 4px; }
+.embed-footer { display: flex; align-items: center; margin-top: 8px; font-size: 0.75rem; color: #c7c9cb !important; }
+.embed-footer-icon { width: 20px; height: 20px; border-radius: 50%; margin-right: 8px; }
