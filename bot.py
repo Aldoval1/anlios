@@ -37,6 +37,7 @@ else:
 CLAIMED_TAG = "[RECLAMADO]"
 NO_KNOWLEDGE_TAG = "[NO_KNOWLEDGE]"
 REDIS_GUILDS_KEY = "bot_guilds_list"
+REDIS_GUILD_NAMES_KEY = "guild_names_map" # NUEVA CLAVE
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
@@ -109,10 +110,15 @@ async def send_ticket_log(guild: discord.Guild, title: str, description: str, co
 
 def update_guilds_in_redis():
     if not redis_client: return
-    print("Actualizando la lista de servidores en Redis...")
-    guild_ids = [guild.id for guild in bot.guilds]
+    print("Actualizando la lista y nombres de servidores en Redis...")
+    guilds = bot.guilds
+    guild_ids = [guild.id for guild in guilds]
+    guild_names = {str(guild.id): guild.name for guild in guilds} # Crear el mapa
+
     save_data_to_redis(REDIS_GUILDS_KEY, guild_ids)
-    print(f"El bot está ahora en {len(guild_ids)} servidores. Lista actualizada en Redis.")
+    save_data_to_redis(REDIS_GUILD_NAMES_KEY, guild_names) # Guardar el mapa en Redis
+
+    print(f"El bot está ahora en {len(guild_ids)} servidores. Lista y nombres actualizados en Redis.")
 
 def build_embed_from_config(config: dict, user: discord.Member = None) -> discord.Embed:
     color_str = config.get('color', '#000000').lstrip('#')
