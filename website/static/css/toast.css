@@ -1,13 +1,23 @@
+/* --- Variables de Tema para el Toast (se sobrescriben por el tema activo) --- */
+:root {
+    --toast-bg: #330000;
+    --toast-border: #ff4141;
+    --toast-progress-bg: #1a0000;
+    --toast-progress-fill: #ff4141;
+    --toast-font-family: 'Press Start 2P', cursive;
+}
+
 #toast-container {
     position: fixed;
     bottom: 20px;
-    right: 20px; /* Movido a la derecha */
+    right: 20px;
     z-index: 2000;
     width: 350px;
     opacity: 0;
-    transform: translateX(120%); /* Animación desde la derecha */
+    transform: translateX(120%);
     transition: opacity 0.5s, transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
     visibility: hidden;
+    font-family: var(--toast-font-family); /* Usar la fuente del tema */
 }
 
 #toast-container.show {
@@ -19,12 +29,11 @@
 #toast-gif {
     width: 100%;
     display: block;
-    /* Se elimina el borde del GIF */
 }
 
 .toast-card {
-    background-color: #330000;
-    border: 2px solid #ff4141; /* Borde completo solo en la tarjeta */
+    background-color: var(--toast-bg); /* Usar variable de tema */
+    border: 2px solid var(--toast-border); /* Usar variable de tema */
     padding: 15px;
 }
 
@@ -36,6 +45,7 @@
     font-size: 0.9rem;
     margin-bottom: 10px;
     text-align: center;
+    color: var(--text-main); /* Usar el color de texto principal del tema */
 }
 
 #toast-buttons {
@@ -47,13 +57,13 @@
 .toast-progress-bar {
     width: 100%;
     height: 8px;
-    background-color: #1a0000;
-    border: 1px solid #ff8282;
+    background-color: var(--toast-progress-bg); /* Usar variable de tema */
+    border: 1px solid var(--toast-border); /* Usar variable de tema */
 }
 
 #toast-progress {
     height: 100%;
     width: 100%;
-    background-color: #ff4141;
+    background-color: var(--toast-progress-fill); /* Usar variable de tema */
     transition: width 5s linear;
 }
