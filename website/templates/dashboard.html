@@ -125,7 +125,7 @@
         <p>Selecciona un servidor donde tengas permisos de administrador para añadir a Anlios.</p>
         <select class="form-select" id="server-invite-select">
             <option selected disabled>Elige un servidor...</option>
-            {% for guild in guilds_without_bot %}
+            {% for guild in guilds_with_bot %}
             <option value="{{ guild.id }}">{{ guild.name }}</option>
             {% endfor %}
         </select>
@@ -159,7 +159,7 @@
             designSheets.forEach(sheet => sheet.disabled = (sheet.id !== `design-${design}`));
             colorSheets.forEach(sheet => sheet.disabled = (sheet.id !== `color-${color}`));
 
-            // --- CORREGIDO: Aplicar la fuente del tema al body y al toast ---
+            // --- CORREGIDO: Aplicar la fuente y los colores del tema al body y al toast ---
             setTimeout(() => {
                 const computedStyle = getComputedStyle(body);
                 const pixelFont = computedStyle.getPropertyValue('--font-pixel').trim();
@@ -172,9 +172,13 @@
                     el.style.fontFamily = pixelFont;
                 });
                 
-                // Aplicar la fuente al toast
+                // Aplicar la fuente y los colores al toast
                 if (toastContainer) {
                     toastContainer.style.setProperty('--toast-font-family', pixelFont);
+                    toastContainer.style.setProperty('--toast-bg', computedStyle.getPropertyValue('--bg-tertiary').trim());
+                    toastContainer.style.setProperty('--toast-border', computedStyle.getPropertyValue('--accent-main').trim());
+                    toastContainer.style.setProperty('--toast-progress-bg', computedStyle.getPropertyValue('--bg-secondary').trim());
+                    toastContainer.style.setProperty('--toast-progress-fill', computedStyle.getPropertyValue('--accent-main').trim());
                 }
 
                 body.classList.remove('theme-transition');
