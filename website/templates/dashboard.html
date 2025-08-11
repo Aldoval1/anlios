@@ -154,12 +154,31 @@
 
         function applyTheme(design, color) {
             body.classList.add('theme-transition');
-            body.dataset.design = design; // Set data-attribute for specific CSS rules
+            body.dataset.design = design;
 
             designSheets.forEach(sheet => sheet.disabled = (sheet.id !== `design-${design}`));
             colorSheets.forEach(sheet => sheet.disabled = (sheet.id !== `color-${color}`));
 
-            setTimeout(() => body.classList.remove('theme-transition'), 500);
+            // --- CORREGIDO: Aplicar la fuente del tema al body y al toast ---
+            setTimeout(() => {
+                const computedStyle = getComputedStyle(body);
+                const pixelFont = computedStyle.getPropertyValue('--font-pixel').trim();
+                const sansFont = computedStyle.getPropertyValue('--font-sans').trim();
+                const toastContainer = document.getElementById('toast-container');
+                
+                // Aplicar la fuente correcta al cuerpo del documento
+                body.style.fontFamily = sansFont; 
+                document.querySelectorAll('h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .page-footer, .topbar .logo, .nav-link-with-toggle .nav-link-text').forEach(el => {
+                    el.style.fontFamily = pixelFont;
+                });
+                
+                // Aplicar la fuente al toast
+                if (toastContainer) {
+                    toastContainer.style.setProperty('--toast-font-family', pixelFont);
+                }
+
+                body.classList.remove('theme-transition');
+            }, 50); // Pequeño retraso para asegurar que las hojas de estilo se carguen
         }
 
         function saveTheme(design, color) {
