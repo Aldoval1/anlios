@@ -185,7 +185,6 @@ def dashboard_home():
     except TokenExpiredError:
         return redirect(url_for('logout'))
 
-# --- NUEVA RUTA: Página de Perfil (sin guild_id) ---
 @app.route("/dashboard/profile")
 def profile_page():
     if 'discord_token' not in session: return redirect(url_for('login'))
@@ -287,7 +286,7 @@ def select_page(guild_id, page):
         "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page, "module_status": module_status
     }
     
-    template_map = {"modules": "module_ticket_ia.html", "membership": "membership.html", "training": "training.html"}
+    template_map = {"modules": "module_ticket_ia.html", "membership": "membership.html", "profile": "profile.html", "training": "training.html"}
     template_to_render = template_map.get(page, "under_construction.html")
     
     if page in ['modules', 'training']:
