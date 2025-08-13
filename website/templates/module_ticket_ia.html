@@ -18,7 +18,7 @@
     <div class="row g-5">
         <!-- Columna Izquierda: Formularios de Configuración -->
         <div class="col-md-7">
-            <form method="POST" id="main-config-form">
+            <form method="POST" id="main-config-form"  enctype="multipart/form-data">
                 
                 <!-- SECCIÓN 1: Editor de Embeds -->
                 <section id="embeds-section" class="mb-5">
@@ -93,13 +93,30 @@
                                 {% endif %}
                             </ul>
                             <hr>
+                            <!-- CORREGIDO: Pestañas re-añadidas -->
                             <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
                                 <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab" data-bs-toggle="pill" data-bs-target="#pills-text" type="button" role="tab">Añadir Texto</button></li>
+                                <li class="nav-item" role="presentation"><button class="nav-link" id="pills-web-tab" data-bs-toggle="pill" data-bs-target="#pills-web" type="button" role="tab">Leer Web</button></li>
+                                <li class="nav-item" role="presentation"><button class="nav-link" id="pills-youtube-tab" data-bs-toggle="pill" data-bs-target="#pills-youtube" type="button" role="tab">YouTube</button></li>
+                                <li class="nav-item" role="presentation"><button class="nav-link" id="pills-pdf-tab" data-bs-toggle="pill" data-bs-target="#pills-pdf" type="button" role="tab">Subir PDF</button></li>
                             </ul>
                             <div class="tab-content" id="pills-tabContent">
                                 <div class="tab-pane fade show active" id="pills-text" role="tabpanel">
                                     <div class="mb-3"><textarea class="form-control" id="new-knowledge-text" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div>
                                     <button type="button" id="add-knowledge-btn" class="btn btn-info w-100">Añadir Texto</button>
+                                </div>
+                                <!-- CORREGIDO: Formularios re-añadidos -->
+                                <div class="tab-pane fade" id="pills-web" role="tabpanel">
+                                    <button type="submit" name="action" value="knowledge_web" class="btn btn-info w-100">Leer Página Web</button>
+                                </div>
+                                <div class="tab-pane fade" id="pills-youtube" role="tabpanel">
+                                    <button type="submit" name="action" value="knowledge_youtube" class="btn btn-info w-100">Transcribir Video</button>
+                                </div>
+                                <div class="tab-pane fade" id="pills-pdf" role="tabpanel">
+                                    <div class="input-group">
+                                        <input type="file" class="form-control" name="pdf_file" accept=".pdf">
+                                        <button type="submit" name="action" value="knowledge_pdf" class="btn btn-info">Subir PDF</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
