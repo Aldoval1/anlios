@@ -16,6 +16,10 @@
     
     /* Textura de Fondo: Ninguna */
     --bg-texture: none;
+
+    /* AÑADIDO: Cursores temáticos */
+    --cursor-main: default;
+    --cursor-pointer: pointer;
 }
 
 /* Estilos adicionales para el tema Discord */

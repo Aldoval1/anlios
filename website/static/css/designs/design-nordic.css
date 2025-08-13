@@ -14,6 +14,10 @@
     
     /* Textura de Fondo: Eliminada */
     --bg-texture: none;
+
+    /* AÑADIDO: Cursores temáticos */
+    --cursor-main: default;
+    --cursor-pointer: cell;
 }
 
 /* --- Estilos adicionales para el tema Nórdico inspirado en Skyrim --- */
