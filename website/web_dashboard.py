@@ -269,7 +269,6 @@ def select_page(guild_id, page):
                     if action == 'knowledge_web':
                         url = request.form.get('web_url')
                         if not url: raise ValueError("La URL no puede estar vacía.")
-                        # --- CORREGIDO: Añadir headers y aumentar el timeout ---
                         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
                         page_req = requests.get(url, timeout=30, headers=headers)
                         page_req.raise_for_status()
@@ -280,15 +279,19 @@ def select_page(guild_id, page):
                         if not url: raise ValueError("La URL no puede estar vacía.")
                         if 'v=' not in url: raise ValueError("URL de YouTube no válida.")
                         video_id = url.split('v=')[1].split('&')[0]
-                        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-                        text = f"Transcripción de YouTube {url}:\n{' '.join([t['text'] for t in transcript])}"
+                        try:
+                            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+                            text = f"Transcripción de YouTube {url}:\n{' '.join([t['text'] for t in transcript])}"
+                        except (NoTranscriptFound, TranscriptsDisabled):
+                            raise ValueError("No se pudieron obtener los subtítulos para este video. Pueden estar desactivados o no ser compatibles.")
                     elif action == 'knowledge_pdf':
                         if 'pdf_file' not in request.files: raise ValueError("No se encontró el archivo PDF.")
                         file = request.files['pdf_file']
                         if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
                         reader = PyPDF2.PdfReader(file.stream)
                         pdf_text = ''.join(page.extract_text() for page in reader.pages)
-                        text = f"Extracto del PDF '{file.filename}':\n{pdf_text[:1000]}..."
+                        # --- CORREGIDO: Guardar el texto completo para la IA ---
+                        text = f"Contenido del PDF '{file.filename}':\n{pdf_text}"
                     
                     if text:
                         knowledge = load_knowledge(guild_id_int)
