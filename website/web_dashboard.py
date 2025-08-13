@@ -269,7 +269,9 @@ def select_page(guild_id, page):
                     if action == 'knowledge_web':
                         url = request.form.get('web_url')
                         if not url: raise ValueError("La URL no puede estar vacía.")
-                        page_req = requests.get(url, timeout=10)
+                        # --- CORREGIDO: Añadir headers y aumentar el timeout ---
+                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+                        page_req = requests.get(url, timeout=30, headers=headers)
                         page_req.raise_for_status()
                         soup = BeautifulSoup(page_req.content, 'html.parser')
                         text = f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}"
@@ -286,7 +288,6 @@ def select_page(guild_id, page):
                         if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
                         reader = PyPDF2.PdfReader(file.stream)
                         pdf_text = ''.join(page.extract_text() for page in reader.pages)
-                        # --- CORREGIDO: Truncar el texto del PDF para la visualización ---
                         text = f"Extracto del PDF '{file.filename}':\n{pdf_text[:1000]}..."
                     
                     if text:
