@@ -96,7 +96,11 @@
                 <span></span>
                 <span></span>
             </button>
-            <div class="logo">Anlios</div>
+            <!-- CORREGIDO: Logo con bigote -->
+            <div class="logo-container">
+                <img id="topbar-mustache" src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Mustache">
+                <div class="logo">Anlios</div>
+            </div>
         </header>
 
         <!-- Contenido Principal -->
