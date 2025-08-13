@@ -263,18 +263,19 @@ def select_page(guild_id, page):
                     
                     flash("Configuración guardada con éxito.", "success")
             
-            # --- CORREGIDO: Lógica para procesar conocimiento desde Web, YouTube y PDF ---
             elif action in ['knowledge_web', 'knowledge_youtube', 'knowledge_pdf']:
                 try:
                     text = ""
                     if action == 'knowledge_web':
                         url = request.form.get('web_url')
+                        if not url: raise ValueError("La URL no puede estar vacía.")
                         page_req = requests.get(url, timeout=10)
                         page_req.raise_for_status()
                         soup = BeautifulSoup(page_req.content, 'html.parser')
                         text = f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}"
                     elif action == 'knowledge_youtube':
                         url = request.form.get('youtube_url')
+                        if not url: raise ValueError("La URL no puede estar vacía.")
                         if 'v=' not in url: raise ValueError("URL de YouTube no válida.")
                         video_id = url.split('v=')[1].split('&')[0]
                         transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
@@ -285,7 +286,8 @@ def select_page(guild_id, page):
                         if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
                         reader = PyPDF2.PdfReader(file.stream)
                         pdf_text = ''.join(page.extract_text() for page in reader.pages)
-                        text = f"Contenido del PDF {file.filename}:\n{pdf_text}"
+                        # --- CORREGIDO: Truncar el texto del PDF para la visualización ---
+                        text = f"Extracto del PDF '{file.filename}':\n{pdf_text[:1000]}..."
                     
                     if text:
                         knowledge = load_knowledge(guild_id_int)
