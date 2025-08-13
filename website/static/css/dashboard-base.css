@@ -12,6 +12,7 @@ body {
     background: var(--bg-gradient); 
     color: var(--text-main); 
     overflow-x: hidden; /* Prevenir scroll horizontal */
+    cursor: var(--cursor-main, default); /* AÑADIDO: Cursor principal del tema */
 }
 
 /* CORREGIDO: Se usan solo las variables para que los temas definan la fuente */
@@ -21,6 +22,12 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
 .form-control, .card, .modal-content, .user-info .username, .sub-link { 
     font-family: var(--font-sans, 'Roboto', sans-serif); 
 }
+
+/* AÑADIDO: Cursor para elementos interactivos */
+a, button, .btn, .theme-card, .color-swatch, .form-select, input[type="button"], input[type="submit"], .role-item, .remove-role-btn, .nav-link, .sub-link {
+    cursor: var(--cursor-pointer, pointer) !important; /* Usar !important para asegurar la anulación */
+}
+
 
 /* --- Animación de Flote --- */
 @keyframes float-animation {
