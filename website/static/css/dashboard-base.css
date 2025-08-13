@@ -22,6 +22,12 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     font-family: var(--font-sans, 'Roboto', sans-serif); 
 }
 
+/* --- Animación de Flote --- */
+@keyframes float-animation {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+}
+
 /* --- Estructura Principal del Dashboard --- */
 .dashboard-wrapper { display: flex; height: 100vh; }
 .content-wrapper { display: flex; flex-direction: column; flex-grow: 1; overflow: hidden; }
@@ -34,6 +40,18 @@ h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-sele
     padding: 0 40px; 
     flex-shrink: 0; 
 }
+/* CORREGIDO: Estilos para el contenedor del logo y el bigote */
+.logo-container {
+    display: flex;
+    align-items: center;
+}
+#topbar-mustache {
+    width: 40px;
+    height: auto;
+    margin-right: 15px;
+    animation: float-animation 4s ease-in-out infinite;
+}
+
 .sidebar { 
     width: 260px; 
     background-color: var(--bg-secondary);
