@@ -19,6 +19,16 @@ intents.message_content = True
 intents.members = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# --- INICIO DE LA MODIFICACIÓN: Cargar traducciones del bot ---
+bot_translations = {}
+try:
+    with open('bot_translations.json', 'r', encoding='utf-8') as f:
+        bot_translations = json.load(f)
+except Exception as e:
+    print(f"ERROR: No se pudo cargar el archivo de traducciones del bot: {e}")
+# --- FIN DE LA MODIFICACIÓN ---
+
+
 # --- CONFIGURACIÓN DE REDIS ---
 try:
     redis_client = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
@@ -33,8 +43,8 @@ if GEMINI_API_KEY:
 else:
     print("⚠️ ADVERTENCIA: No se encontró la clave de API de Gemini.")
 
-# --- Nombres de Claves de Redis y Constantes (CORREGIDO) ---
-CLAIMED_TAG = "-reclamado" # Etiqueta simplificada
+# --- Nombres de Claves de Redis y Constantes ---
+CLAIMED_TAG = "-reclamado"
 NO_KNOWLEDGE_TAG = "[NO_KNOWLEDGE]"
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_GUILD_NAMES_KEY = "guild_names_map"
@@ -65,12 +75,27 @@ def load_ticket_config(guild_id: int) -> dict:
     default_config = {
         'admin_roles': [],
         'log_enabled': False,
-        'log_channel_id': None
+        'log_channel_id': None,
+        'language': 'es'
     }
     config = load_data_from_redis(f"ticket_config:{guild_id}", default_config)
     config.setdefault('log_enabled', False)
     config.setdefault('log_channel_id', None)
+    config.setdefault('language', 'es')
     return config
+
+# --- INICIO DE LA MODIFICACIÓN: Función de traducción del bot ---
+def _(guild_id: int, key: str, **kwargs):
+    """Obtiene una cadena de texto traducida para un servidor específico."""
+    config = load_ticket_config(guild_id)
+    lang = config.get('language', 'es')
+    
+    text = bot_translations.get(lang, {}).get(key, key)
+    
+    if kwargs:
+        return text.format(**kwargs)
+    return text
+# --- FIN DE LA MODIFICACIÓN ---
 
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
@@ -132,8 +157,13 @@ def build_embed_from_config(config: dict, user: discord.Member = None) -> discor
 
 # --- VISTAS DE BOTONES ---
 class TicketActionsView(discord.ui.View):
-    def __init__(self): super().__init__(timeout=None)
-    
+    def __init__(self, guild_id: int): 
+        super().__init__(timeout=None)
+        self.guild_id = guild_id
+        # Actualizar etiquetas de los botones con el idioma correcto
+        self.claim_button.label = _(guild_id, "Reclamar Ticket")
+        self.close_button.label = _(guild_id, "Cerrar Ticket")
+
     async def check_permissions(self, interaction: discord.Interaction) -> bool:
         if interaction.user.guild_permissions.manage_channels: return True
         ticket_config = load_ticket_config(interaction.guild.id)
@@ -142,27 +172,26 @@ class TicketActionsView(discord.ui.View):
         return not admin_role_ids.isdisjoint(user_role_ids)
 
     @discord.ui.button(label="Reclamar Ticket", style=discord.ButtonStyle.primary, custom_id="ticket_actions:claim")
-    async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def claim_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.check_permissions(interaction):
-            return await interaction.response.send_message("❌ No tienes permisos para reclamar este ticket.", ephemeral=True)
+            return await interaction.response.send_message(_(interaction.guild.id, "NO_PERMISSION"), ephemeral=True)
         
         channel_name = interaction.channel.name
         if CLAIMED_TAG not in channel_name:
-            # --- CORREGIDO: Forma de renombrar el canal ---
             new_name = f"{channel_name}{CLAIMED_TAG}"
             await interaction.channel.edit(name=new_name)
             button.disabled = True
             await interaction.response.edit_message(view=self)
-            await interaction.channel.send(f"✅ Ticket reclamado por **{interaction.user.display_name}**. El asistente de IA ha sido desactivado.")
+            await interaction.channel.send(_(interaction.guild.id, "TICKET_CLAIMED", user_display_name=interaction.user.display_name))
         else:
-            await interaction.response.send_message("Este ticket ya ha sido reclamado.", ephemeral=True)
+            await interaction.response.send_message(_(interaction.guild.id, "TICKET_ALREADY_CLAIMED"), ephemeral=True)
 
     @discord.ui.button(label="Cerrar Ticket", style=discord.ButtonStyle.danger, custom_id="ticket_actions:close")
-    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.check_permissions(interaction):
-            return await interaction.response.send_message("❌ No tienes permisos para cerrar este ticket.", ephemeral=True)
+            return await interaction.response.send_message(_(interaction.guild.id, "NO_PERMISSION"), ephemeral=True)
         
-        await interaction.response.send_message("✅ **Ticket cerrado.** Generando transcripción... Este canal se eliminará en 5 segundos.")
+        await interaction.response.send_message(_(interaction.guild.id, "TICKET_CLOSED_TRANSCRIPT"))
         
         transcript_content = ""
         async for message in interaction.channel.history(limit=None, oldest_first=True):
@@ -176,10 +205,10 @@ class TicketActionsView(discord.ui.View):
             buffer = io.StringIO(transcript_content)
             transcript_file = discord.File(buffer, filename=f"transcript-{interaction.channel.name}.txt")
 
-        log_description = f"Ticket `{interaction.channel.name}` cerrado por {interaction.user.mention}."
+        log_description = _(interaction.guild.id, "LOG_TICKET_CLOSED_DESC", channel_name=interaction.channel.name, user_mention=interaction.user.mention)
         await send_ticket_log(
             interaction.guild, 
-            "Ticket Cerrado", 
+            _(interaction.guild.id, "LOG_TICKET_CLOSED_TITLE"), 
             log_description, 
             discord.Color.red(), 
             interaction.user, 
@@ -201,9 +230,11 @@ class TicketCreateView(discord.ui.View):
         ticket_channel_name = f"ticket-{interaction.user.name}"
         for channel in interaction.guild.text_channels:
             if channel.name.startswith(ticket_channel_name.lower()):
-                return await interaction.followup.send("⚠️ ¡Ya tienes un ticket abierto!", ephemeral=True)
+                return await interaction.followup.send(_(interaction.guild.id, "ALREADY_HAS_TICKET"), ephemeral=True)
+        
         category = discord.utils.get(interaction.guild.categories, name="Tickets")
         if category is None: category = await interaction.guild.create_category("Tickets")
+        
         overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
             interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
@@ -218,11 +249,12 @@ class TicketCreateView(discord.ui.View):
         
         welcome_config = load_embed_config(interaction.guild.id).get('welcome', {})
         welcome_embed = build_embed_from_config(welcome_config, user=interaction.user)
-        await ticket_channel.send(embed=welcome_embed, view=TicketActionsView())
-        await interaction.followup.send(f"✅ ¡Ticket creado! Ve a {ticket_channel.mention} para continuar.", ephemeral=True)
         
-        log_description = f"Ticket `{ticket_channel.name}` creado por {interaction.user.mention}."
-        await send_ticket_log(interaction.guild, "Ticket Creado", log_description, discord.Color.green(), interaction.user)
+        await ticket_channel.send(embed=welcome_embed, view=TicketActionsView(guild_id=interaction.guild.id))
+        await interaction.followup.send(_(interaction.guild.id, "TICKET_CREATED_SUCCESS", channel_mention=ticket_channel.mention), ephemeral=True)
+        
+        log_description = _(interaction.guild.id, "LOG_TICKET_CREATED_DESC", channel_name=ticket_channel.name, user_mention=interaction.user.mention)
+        await send_ticket_log(interaction.guild, _(interaction.guild.id, "LOG_TICKET_CREATED_TITLE"), log_description, discord.Color.green(), interaction.user)
 
 # --- TAREAS EN SEGUNDO PLANO ---
 @tasks.loop(seconds=5.0)
@@ -250,12 +282,12 @@ async def check_command_queue():
 @bot.event
 async def on_ready():
     print(f'✅ ¡Bot conectado como {bot.user}!')
-    bot.add_view(TicketActionsView())
     guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
     for guild_id in guild_ids:
         config = load_embed_config(guild_id)
         button_label = config.get('panel', {}).get('button_label', 'Crear Ticket')
         bot.add_view(TicketCreateView(button_label=button_label))
+        bot.add_view(TicketActionsView(guild_id=guild_id)) # Registrar la vista con el guild_id
     update_guilds_in_redis()
     check_command_queue.start()
 
@@ -300,7 +332,7 @@ async def on_message(message: discord.Message):
                 else: # text
                     knowledge_parts.append(content)
             else:
-                knowledge_parts.append(str(item)) # Fallback for old string-based knowledge
+                knowledge_parts.append(str(item)) 
 
         knowledge_text = "\n\n".join(f"- {part}" for part in knowledge_parts) if knowledge_parts else "No hay información específica proporcionada."
 
@@ -330,13 +362,13 @@ async def on_message(message: discord.Message):
                 pending_questions.append(new_question)
                 save_data_to_redis(training_queue_key, pending_questions)
                 
-                await message.reply("🤔 No estoy seguro de la respuesta. He enviado tu pregunta a un administrador para que me ayude a aprender.")
+                await message.reply(_(message.guild.id, "AI_NO_KNOWLEDGE"))
             else:
                 await message.reply(response_text)
 
         except Exception as e:
             print(f"Error en Gemini: {e}")
-            await message.reply("🤖 Ocurrió un error al contactar con la IA.")
+            await message.reply(_(message.guild.id, "AI_ERROR"))
 
 # --- COMANDOS DEL BOT ---
 @bot.command()
