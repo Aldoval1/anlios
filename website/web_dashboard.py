@@ -107,8 +107,6 @@ def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowled
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
 
 def load_embed_config(guild_id: int) -> dict:
-    # --- INICIO DE LA MODIFICACIÓN ---
-    # Se define un prompt base con las instrucciones y una personalidad simple por defecto.
     default_personality = "Eres Anlios, un amigable y servicial asistente de IA."
     default_prompt_template = (
         "{personality}\n\n"
@@ -123,9 +121,8 @@ def load_embed_config(guild_id: int) -> dict:
         'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'welcome': {'title': '¡Bienvenido, {user}!', 'description': 'Un asistente te atenderá pronto.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'ai_prompt': default_prompt_template.format(personality=default_personality, knowledge="{knowledge}"),
-        'ai_personality': default_personality # Nuevo campo para el usuario
+        'ai_personality': default_personality 
     }
-    # --- FIN DE LA MODIFICACIÓN ---
 
     config = load_data_from_redis(f"embed_config:{guild_id}", {})
     for key, value in default_config.items():
@@ -269,8 +266,6 @@ def select_page(guild_id, page):
                         for key in current_config[embed_type]:
                             current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}', current_config[embed_type][key])
                     
-                    # --- INICIO DE LA MODIFICACIÓN ---
-                    # Construir el prompt completo a partir de la personalidad simple.
                     personality = request.form.get('ai_personality', "Eres Anlios, un amigable y servicial asistente de IA.")
                     prompt_template = (
                         "{personality}\n\n"
@@ -284,7 +279,6 @@ def select_page(guild_id, page):
                     
                     current_config['ai_personality'] = personality
                     current_config['ai_prompt'] = full_prompt
-                    # --- FIN DE LA MODIFICACIÓN ---
 
                     save_embed_config(guild_id_int, current_config)
 
@@ -476,10 +470,13 @@ def training_action(guild_id):
             flash("La respuesta no puede estar vacía.", "danger")
         else:
             knowledge = load_knowledge(guild_id_int)
+            # --- INICIO DE LA MODIFICACIÓN ---
+            # Se guarda solo la respuesta como una pieza de conocimiento general.
             new_knowledge_entry = {
                 "type": "text",
-                "content": f"Pregunta: {question_to_process['question']}\nRespuesta: {answer}"
+                "content": answer
             }
+            # --- FIN DE LA MODIFICACIÓN ---
             knowledge.append(new_knowledge_entry)
             save_knowledge(guild_id_int, knowledge)
             
