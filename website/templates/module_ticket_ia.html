@@ -18,7 +18,7 @@
     <div class="row g-5">
         <!-- Columna Izquierda: Formularios de Configuración -->
         <div class="col-md-7">
-            <!-- CORREGIDO: El formulario principal ya no incluye la sección de conocimiento -->
+            <!-- El formulario principal ya no incluye la sección de conocimiento -->
             <form method="POST" id="main-config-form">
                 
                 <!-- SECCIÓN 1: Editor de Embeds -->
@@ -131,7 +131,24 @@
                         <ul id="knowledge-list" class="list-group list-group-flush mb-3" style="max-height: 200px; overflow-y: auto;">
                             {% for item in knowledge_base %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span class="me-2 text-truncate" style="white-space: pre-wrap;">{{ item }}</span>
+                                <span class="me-2 text-truncate" style="white-space: pre-wrap;">
+                                    {% if item is mapping %}
+                                        {# Comprueba si el 'item' es un objeto estructurado (como el de un PDF o web) #}
+                                        {% if item.type == 'pdf' %}
+                                            📄 Archivo PDF: <strong>{{ item.filename }}</strong>
+                                        {% elif item.type == 'web' %}
+                                            🌐 Página Web: <strong>{{ item.source }}</strong>
+                                        {% elif item.type == 'youtube' %}
+                                            🎥 Video de YouTube: <strong>{{ item.source }}</strong>
+                                        {% else %}
+                                            {# Para texto simple añadido desde la web #}
+                                            {{ item.content }}
+                                        {% endif %}
+                                    {% else %}
+                                        {# Mantiene compatibilidad con conocimiento antiguo que solo era texto #}
+                                        {{ item }}
+                                    {% endif %}
+                                </span>
                                 <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="{{ loop.index0 }}" title="Eliminar">×</button>
                             </li>
                             {% endfor %}
@@ -151,7 +168,7 @@
                                 <div class="mb-3"><textarea class="form-control" id="new-knowledge-text" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div>
                                 <button type="button" id="add-knowledge-btn" class="btn btn-info w-100">Añadir Texto</button>
                             </div>
-                            <!-- CORREGIDO: Formularios individuales para cada acción -->
+                            <!-- Formularios individuales para cada acción -->
                             <div class="tab-pane fade" id="pills-web" role="tabpanel">
                                 <form method="POST">
                                     <div class="input-group">
@@ -228,7 +245,7 @@
 <script id="initial-roles-data" type="application/json">{{ ticket_config.admin_roles | tojson | safe }}</script>
 <script id="all-roles-data" type="application/json">{{ roles | tojson | safe }}</script>
 
-<!-- MODIFICADO: Bloque de datos para los mensajes -->
+<!-- Bloque de datos para los mensajes -->
 <script id="flashed-messages" type="application/json">
     {{ get_flashed_messages(with_categories=true) | tojson | safe }}
 </script>
