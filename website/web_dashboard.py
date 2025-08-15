@@ -14,6 +14,7 @@ import time
 import uuid
 from datetime import datetime
 import google.generativeai as genai
+import re
 
 # --- CONFIGURACIÓN INICIAL ---
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -281,32 +282,29 @@ def select_page(guild_id, page):
                     elif action == 'knowledge_youtube':
                         url = request.form.get('youtube_url')
                         if not url: raise ValueError("La URL no puede estar vacía.")
-                        if 'v=' not in url: raise ValueError("URL de YouTube no válida.")
-                        video_id = url.split('v=')[1].split('&')[0]
+                        
+                        # --- INICIO DE LA CORRECCIÓN PARA YOUTUBE ---
+                        # Extraer el ID del video de la URL usando una expresión regular
+                        video_id_match = re.search(r'(?:v=|\/|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})', url)
+                        if not video_id_match:
+                            raise ValueError("URL de YouTube no válida o ID no encontrado.")
+                        video_id = video_id_match.group(1)
+                        # --- FIN DE LA CORRECCIÓN PARA YOUTUBE ---
+
                         try:
-                            # --- INICIO DE LA CORRECCIÓN PARA YOUTUBE ---
-                            # 1. Obtener la lista de transcripciones disponibles
                             transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-                            
-                            # 2. Definir un orden de preferencia para los idiomas
                             preferred_languages = ['es', 'en']
-                            
                             transcript = None
                             try:
-                                # 3. Intentar encontrar una transcripción en los idiomas preferidos
                                 transcript = transcript_list.find_transcript(preferred_languages)
                             except NoTranscriptFound:
-                                # 4. Si no se encuentra, tomar la primera disponible
                                 try:
                                     transcript = next(iter(transcript_list))
                                 except StopIteration:
-                                    # Esto ocurre si la lista está completamente vacía
                                     raise NoTranscriptFound("No hay ninguna transcripción disponible para este video.")
 
-                            # 5. Obtener el texto de la transcripción encontrada
                             transcript_data = transcript.fetch()
                             transcript_text = ' '.join([t['text'] for t in transcript_data])
-                            # --- FIN DE LA CORRECCIÓN PARA YOUTUBE ---
 
                             knowledge_item = {
                                 "type": "youtube",
