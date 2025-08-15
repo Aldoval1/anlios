@@ -1,15 +1,15 @@
 {% extends "dashboard.html" %}
-{% block title %}Módulo: Ticket I.A{% endblock %}
+{% block title %}{{ _('Module: Ticket I.A') }}{% endblock %}
 
 {% block dashboard_content %}
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Módulo: Ticket I.A</h1>
+        <h1>{{ _('Module: Ticket I.A') }}</h1>
         <form method="POST">
             <input type="hidden" name="action" value="toggle_module">
             <input type="hidden" name="module_name" value="ticket_ia">
             <div class="form-check form-switch fs-5">
                 <input class="form-check-input" type="checkbox" role="switch" id="module-toggle" name="enabled" {% if module_status %}checked{% endif %} onchange="this.form.submit()">
-                <label class="form-check-label" for="module-toggle">Habilitado</label>
+                <label class="form-check-label" for="module-toggle">{{ _('Enabled') }}</label>
             </div>
         </form>
     </div>
@@ -18,46 +18,45 @@
     <div class="row g-5">
         <!-- Columna Izquierda: Formularios de Configuración -->
         <div class="col-md-7">
-            <!-- El formulario principal ya no incluye la sección de conocimiento -->
             <form method="POST" id="main-config-form">
                 
                 <!-- SECCIÓN 1: Editor de Embeds -->
                 <section id="embeds-section" class="mb-5">
-                    <h2>Editor de Embeds</h2>
+                    <h2>{{ _('Embeds Editor') }}</h2>
                     <hr class="border-danger">
                     <div class="card mb-4 shadow-sm">
                         <div class="card-header">
                             <ul class="nav nav-tabs card-header-tabs" id="embedTabs" role="tablist">
-                                <li class="nav-item" role="presentation"><button class="nav-link active" id="panel-tab" data-bs-toggle="tab" data-bs-target="#panel-editor" type="button" role="tab">Panel de Tickets</button></li>
-                                <li class="nav-item" role="presentation"><button class="nav-link" id="welcome-tab" data-bs-toggle="tab" data-bs-target="#welcome-editor" type="button" role="tab">Embed de Bienvenida</button></li>
+                                <li class="nav-item" role="presentation"><button class="nav-link active" id="panel-tab" data-bs-toggle="tab" data-bs-target="#panel-editor" type="button" role="tab">{{ _('Ticket Panel') }}</button></li>
+                                <li class="nav-item" role="presentation"><button class="nav-link" id="welcome-tab" data-bs-toggle="tab" data-bs-target="#welcome-editor" type="button" role="tab">{{ _('Welcome Embed') }}</button></li>
                             </ul>
                         </div>
                         <div class="card-body tab-content" id="embedTabsContent">
                             <!-- Editor del Panel de Tickets -->
                             <div class="tab-pane fade show active" id="panel-editor" role="tabpanel">
-                                <div class="mb-3"><label class="form-label small">Texto del Botón</label><input type="text" class="form-control" id="panel_button_label" name="panel_button_label" value="{{ embed_config.panel.button_label }}" oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Título</label><input type="text" class="form-control" id="panel_title" name="panel_title" value="{{ embed_config.panel.title }}" oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Descripción</label><textarea class="form-control" id="panel_description" name="panel_description" rows="3" oninput="updatePreview()">{{ embed_config.panel.description }}</textarea></div>
-                                <div class="mb-3"><label class="form-label small">Autor</label><input type="text" class="form-control" id="panel_author_name" name="panel_author_name" value="{{ embed_config.panel.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Icono del Autor (URL)</label><input type="url" class="form-control" id="panel_author_icon" name="panel_author_icon" value="{{ embed_config.panel.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Imagen Principal (URL)</label><input type="url" class="form-control" id="panel_image" name="panel_image" value="{{ embed_config.panel.image }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Miniatura (URL)</label><input type="url" class="form-control" id="panel_thumbnail" name="panel_thumbnail" value="{{ embed_config.panel.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Pie de Página (Footer)</label><input type="text" class="form-control" id="panel_footer_text" name="panel_footer_text" value="{{ embed_config.panel.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
-                                <div class="mb-3"><label class="form-label small">Icono del Pie de Página (URL)</label><input type="url" class="form-control" id="panel_footer_icon" name="panel_footer_icon" value="{{ embed_config.panel.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Color</label><input type="color" class="form-control form-control-color" id="panel_color" name="panel_color" value="{{ embed_config.panel.color }}" oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Button Text') }}</label><input type="text" class="form-control" id="panel_button_label" name="panel_button_label" value="{{ embed_config.panel.button_label }}" oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Title') }}</label><input type="text" class="form-control" id="panel_title" name="panel_title" value="{{ embed_config.panel.title }}" oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Description') }}</label><textarea class="form-control" id="panel_description" name="panel_description" rows="3" oninput="updatePreview()">{{ embed_config.panel.description }}</textarea></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Author') }}</label><input type="text" class="form-control" id="panel_author_name" name="panel_author_name" value="{{ embed_config.panel.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Author Icon (URL)') }}</label><input type="url" class="form-control" id="panel_author_icon" name="panel_author_icon" value="{{ embed_config.panel.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Main Image (URL)') }}</label><input type="url" class="form-control" id="panel_image" name="panel_image" value="{{ embed_config.panel.image }}" placeholder="https://..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Thumbnail (URL)') }}</label><input type="url" class="form-control" id="panel_thumbnail" name="panel_thumbnail" value="{{ embed_config.panel.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Footer') }}</label><input type="text" class="form-control" id="panel_footer_text" name="panel_footer_text" value="{{ embed_config.panel.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Footer Icon (URL)') }}</label><input type="url" class="form-control" id="panel_footer_icon" name="panel_footer_icon" value="{{ embed_config.panel.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Color') }}</label><input type="color" class="form-control form-control-color" id="panel_color" name="panel_color" value="{{ embed_config.panel.color }}" oninput="updatePreview()"></div>
                             </div>
                             <!-- Editor del Embed de Bienvenida -->
                             <div class="tab-pane fade" id="welcome-editor" role="tabpanel">
-                                <p class="text-muted small">Puedes usar `{user}` para mencionar al usuario.</p>
-                                <div class="mb-3"><label class="form-label small">Título</label><input type="text" class="form-control" id="welcome_title" name="welcome_title" value="{{ embed_config.welcome.title }}" oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Descripción</label><textarea class="form-control" id="welcome_description" name="welcome_description" rows="3" oninput="updatePreview()">{{ embed_config.welcome.description }}</textarea></div>
-                                <div class="mb-3"><label class="form-label small">Autor</label><input type="text" class="form-control" id="welcome_author_name" name="welcome_author_name" value="{{ embed_config.welcome.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Icono del Autor (URL)</label><input type="url" class="form-control" id="welcome_author_icon" name="welcome_author_icon" value="{{ embed_config.welcome.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Imagen Principal (URL)</label><input type="url" class="form-control" id="welcome_image" name="welcome_image" value="{{ embed_config.welcome.image }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Miniatura (URL)</label><input type="url" class="form-control" id="welcome_thumbnail" name="welcome_thumbnail" value="{{ embed_config.welcome.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Pie de Página (Footer)</label><input type="text" class="form-control" id="welcome_footer_text" name="welcome_footer_text" value="{{ embed_config.welcome.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
-                                <div class="mb-3"><label class="form-label small">Icono del Pie de Página (URL)</label><input type="url" class="form-control" id="welcome_footer_icon" name="welcome_footer_icon" value="{{ embed_config.welcome.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">Color</label><input type="color" class="form-control form-control-color" id="welcome_color" name="welcome_color" value="{{ embed_config.welcome.color }}" oninput="updatePreview()"></div>
+                                <p class="text-muted small">{{ _('You can use {user} to mention the user.') }}</p>
+                                <div class="mb-3"><label class="form-label small">{{ _('Title') }}</label><input type="text" class="form-control" id="welcome_title" name="welcome_title" value="{{ embed_config.welcome.title }}" oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Description') }}</label><textarea class="form-control" id="welcome_description" name="welcome_description" rows="3" oninput="updatePreview()">{{ embed_config.welcome.description }}</textarea></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Author') }}</label><input type="text" class="form-control" id="welcome_author_name" name="welcome_author_name" value="{{ embed_config.welcome.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Author Icon (URL)') }}</label><input type="url" class="form-control" id="welcome_author_icon" name="welcome_author_icon" value="{{ embed_config.welcome.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Main Image (URL)') }}</label><input type="url" class="form-control" id="welcome_image" name="welcome_image" value="{{ embed_config.welcome.image }}" placeholder="https://..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Thumbnail (URL)') }}</label><input type="url" class="form-control" id="welcome_thumbnail" name="welcome_thumbnail" value="{{ embed_config.welcome.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Footer') }}</label><input type="text" class="form-control" id="welcome_footer_text" name="welcome_footer_text" value="{{ embed_config.welcome.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Footer Icon (URL)') }}</label><input type="url" class="form-control" id="welcome_footer_icon" name="welcome_footer_icon" value="{{ embed_config.welcome.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
+                                <div class="mb-3"><label class="form-label small">{{ _('Color') }}</label><input type="color" class="form-control form-control-color" id="welcome_color" name="welcome_color" value="{{ embed_config.welcome.color }}" oninput="updatePreview()"></div>
                             </div>
                         </div>
                     </div>
@@ -65,27 +64,25 @@
 
                 <!-- SECCIÓN 2: Personalidad de la IA -->
                 <section id="ai-section" class="mb-5">
-                    <h2>Personalidad de la IA</h2>
+                    <h2>{{ _('AI Personality') }}</h2>
                     <hr class="border-danger">
                     <div class="card mt-4 shadow-sm">
                         <div class="card-body">
-                            <!-- INICIO DE LA MODIFICACIÓN -->
-                            <p class="text-muted small">Define la personalidad base de la IA. El sistema se encargará de darle las instrucciones sobre cómo usar la base de conocimiento y cómo actuar si no sabe una respuesta.</p>
+                            <p class="text-muted small">{{ _('Define the base personality of the AI. The system will handle giving it instructions on how to use the knowledge base and how to act if it doesn\'t know an answer.') }}</p>
                             <textarea class="form-control" name="ai_personality" rows="8">{{ embed_config.ai_personality }}</textarea>
-                            <!-- FIN DE LA MODIFICACIÓN -->
                         </div>
                     </div>
                 </section>
 
                 <!-- SECCIÓN 4: Configuración General -->
                 <section id="configs-section" class="mb-5">
-                    <h2>Configuración General</h2>
+                    <h2>{{ _('General Settings') }}</h2>
                     <hr class="border-danger">
                     <!-- Configuración de Roles -->
                     <div class="card mt-4 shadow-sm">
-                        <div class="card-header"><h5>Roles de Administradores</h5></div>
+                        <div class="card-header"><h5>{{ _('Administrator Roles') }}</h5></div>
                         <div class="card-body">
-                            <p class="text-muted small">Haz doble clic en un rol para añadirlo a la lista de administradores de tickets.</p>
+                            <p class="text-muted small">{{ _('Double-click on a role to add it to the list of ticket administrators.') }}</p>
                             <div id="role-list-container">
                                 {% for role in roles %}
                                     <div class="role-item" data-role-id="{{ role.id }}" data-role-name="{{ role.name }}">{{ role.name }}</div>
@@ -93,24 +90,24 @@
                             </div>
                             <hr>
                             <div class="d-flex align-items-start mt-2">
-                                <span class="text-muted small me-3 pt-2" style="white-space: nowrap;">Roles con permiso:</span>
+                                <span class="text-muted small me-3 pt-2" style="white-space: nowrap;">{{ _('Roles with permission:') }}</span>
                                 <div id="selected-roles-container" class="w-100" style="min-height: 40px;"></div>
                             </div>
                             <input type="hidden" name="admin_roles_json" id="admin-roles-json">
                         </div>
                     </div>
-                    <!-- NUEVA SECCIÓN: Configuración de Logs -->
+                    <!-- Configuración de Logs -->
                     <div class="card mt-4 shadow-sm">
-                        <div class="card-header"><h5>Logs de Tickets</h5></div>
+                        <div class="card-header"><h5>{{ _('Ticket Logs') }}</h5></div>
                         <div class="card-body">
                             <div class="form-check form-switch mb-3">
                                 <input class="form-check-input" type="checkbox" role="switch" id="log-enabled-switch" name="log_enabled" {% if ticket_config.log_enabled %}checked{% endif %}>
-                                <label class="form-check-label" for="log-enabled-switch">Activar logs de tickets</label>
+                                <label class="form-check-label" for="log-enabled-switch">{{ _('Enable ticket logs') }}</label>
                             </div>
                             <div id="log-channel-selector-wrapper">
-                                <label for="log-channel-select" class="form-label small">Canal para enviar los logs</label>
+                                <label for="log-channel-select" class="form-label small">{{ _('Channel to send logs') }}</label>
                                 <select class="form-select" name="log_channel_id" id="log-channel-select">
-                                    <option value="" {% if not ticket_config.log_channel_id %}selected{% endif %} disabled>Selecciona un canal...</option>
+                                    <option value="" {% if not ticket_config.log_channel_id %}selected{% endif %} disabled>{{ _('Select a channel...') }}</option>
                                     {% for channel in channels %}
                                     <option value="{{ channel.id }}" {% if ticket_config.log_channel_id == channel.id|string %}selected{% endif %}>#{{ channel.name }}</option>
                                     {% endfor %}
@@ -118,24 +115,35 @@
                             </div>
                         </div>
                     </div>
+                    <!-- INICIO DE LA MODIFICACIÓN: Selector de Idioma del Bot -->
+                    <div class="card mt-4 shadow-sm">
+                        <div class="card-header"><h5>{{ _('Bot Language') }}</h5></div>
+                        <div class="card-body">
+                            <p class="text-muted small">{{ _('Choose the language the bot will use in this server.') }}</p>
+                            <select class="form-select" name="bot_language">
+                                <option value="es" {% if ticket_config.language == 'es' %}selected{% endif %}>{{ _('Spanish') }}</option>
+                                <option value="en" {% if ticket_config.language == 'en' %}selected{% endif %}>{{ _('English') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- FIN DE LA MODIFICACIÓN -->
                 </section>
 
-                <button type="submit" name="action" value="save_all" class="btn btn-success w-100 btn-lg">Guardar Toda la Configuración</button>
+                <button type="submit" name="action" value="save_all" class="btn btn-success w-100 btn-lg">{{ _('Save All Settings') }}</button>
             </form>
 
-            <!-- SECCIÓN 3: Base de Conocimiento (AHORA FUERA DEL FORMULARIO PRINCIPAL) -->
+            <!-- SECCIÓN 3: Base de Conocimiento -->
             <section id="knowledge-section" class="mb-5 mt-5">
-                <h2>Base de Conocimiento</h2>
+                <h2>{{ _('Knowledge Base') }}</h2>
                 <hr class="border-danger">
                 <div class="card mt-4 shadow-sm">
                     <div class="card-body">
-                        <h6>Conocimiento Actual:</h6>
+                        <h6>{{ _('Current Knowledge:') }}</h6>
                         <ul id="knowledge-list" class="list-group list-group-flush mb-3" style="max-height: 200px; overflow-y: auto;">
                             {% for item in knowledge_base %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <span class="me-2 text-truncate" style="white-space: pre-wrap;">
                                     {% if item is mapping %}
-                                        {# Comprueba si el 'item' es un objeto estructurado (como el de un PDF o web) #}
                                         {% if item.type == 'pdf' %}
                                             📄 Archivo PDF: <strong>{{ item.filename }}</strong>
                                         {% elif item.type == 'web' %}
@@ -143,11 +151,9 @@
                                         {% elif item.type == 'youtube' %}
                                             🎥 Video de YouTube: <strong>{{ item.source }}</strong>
                                         {% else %}
-                                            {# Para texto simple añadido desde la web #}
                                             {{ item.content }}
                                         {% endif %}
                                     {% else %}
-                                        {# Mantiene compatibilidad con conocimiento antiguo que solo era texto #}
                                         {{ item }}
                                     {% endif %}
                                 </span>
@@ -155,27 +161,26 @@
                             </li>
                             {% endfor %}
                             {% if not knowledge_base %}
-                            <li id="empty-knowledge-msg" class="list-group-item text-muted">La base de conocimientos está vacía.</li>
+                            <li id="empty-knowledge-msg" class="list-group-item text-muted">{{ _('The knowledge base is empty.') }}</li>
                             {% endif %}
                         </ul>
                         <hr>
                         <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
-                            <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab" data-bs-toggle="pill" data-bs-target="#pills-text" type="button" role="tab">Añadir Texto</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-web-tab" data-bs-toggle="pill" data-bs-target="#pills-web" type="button" role="tab">Leer Web</button></li>
+                            <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab" data-bs-toggle="pill" data-bs-target="#pills-text" type="button" role="tab">{{ _('Add Text') }}</button></li>
+                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-web-tab" data-bs-toggle="pill" data-bs-target="#pills-web" type="button" role="tab">{{ _('Read Web') }}</button></li>
                             <li class="nav-item" role="presentation"><button class="nav-link" id="pills-youtube-tab" data-bs-toggle="pill" data-bs-target="#pills-youtube" type="button" role="tab">YouTube</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-pdf-tab" data-bs-toggle="pill" data-bs-target="#pills-pdf" type="button" role="tab">Subir PDF</button></li>
+                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-pdf-tab" data-bs-toggle="pill" data-bs-target="#pills-pdf" type="button" role="tab">{{ _('Upload PDF') }}</button></li>
                         </ul>
                         <div class="tab-content" id="pills-tabContent">
                             <div class="tab-pane fade show active" id="pills-text" role="tabpanel">
                                 <div class="mb-3"><textarea class="form-control" id="new-knowledge-text" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div>
-                                <button type="button" id="add-knowledge-btn" class="btn btn-info w-100">Añadir Texto</button>
+                                <button type="button" id="add-knowledge-btn" class="btn btn-info w-100">{{ _('Add Text') }}</button>
                             </div>
-                            <!-- Formularios individuales para cada acción -->
                             <div class="tab-pane fade" id="pills-web" role="tabpanel">
                                 <form method="POST">
                                     <div class="input-group">
                                         <input type="url" class="form-control" name="web_url" placeholder="https://ejemplo.com" required>
-                                        <button type="submit" name="action" value="knowledge_web" class="btn btn-info">Leer Página Web</button>
+                                        <button type="submit" name="action" value="knowledge_web" class="btn btn-info">{{ _('Read Web Page') }}</button>
                                     </div>
                                 </form>
                             </div>
@@ -183,7 +188,7 @@
                                 <form method="POST">
                                     <div class="input-group">
                                         <input type="url" class="form-control" name="youtube_url" placeholder="https://youtube.com/watch?v=..." required>
-                                        <button type="submit" name="action" value="knowledge_youtube" class="btn btn-info">Transcribir Video</button>
+                                        <button type="submit" name="action" value="knowledge_youtube" class="btn btn-info">{{ _('Transcribe Video') }}</button>
                                     </div>
                                 </form>
                             </div>
@@ -191,7 +196,7 @@
                                 <form method="POST" enctype="multipart/form-data">
                                     <div class="input-group">
                                         <input type="file" class="form-control" name="pdf_file" accept=".pdf" required>
-                                        <button type="submit" name="action" value="knowledge_pdf" class="btn btn-info">Subir PDF</button>
+                                        <button type="submit" name="action" value="knowledge_pdf" class="btn btn-info">{{ _('Upload PDF') }}</button>
                                     </div>
                                 </form>
                             </div>
@@ -204,16 +209,16 @@
         <div class="col-md-5">
             <div class="sticky-top" style="top: 2rem;">
                 <div class="card shadow-sm mb-4">
-                    <div class="card-header"><h5 class="mb-0">Publicar Panel de Tickets</h5></div>
+                    <div class="card-header"><h5 class="mb-0">{{ _('Publish Ticket Panel') }}</h5></div>
                     <div class="card-body">
-                        <p class="small text-muted">Elige un canal para enviar el panel.</p>
+                        <p class="small text-muted">{{ _('Choose a channel to send the panel.') }}</p>
                         <form action="{{ url_for('send_panel', guild_id=active_guild_id) }}" method="POST">
-                            <div class="input-group"><select class="form-select" name="channel_id" required><option value="" disabled selected>Selecciona un canal...</option>{% for channel in channels %}<option value="{{ channel.id }}">#{{ channel.name }}</option>{% endfor %}</select><button class="btn btn-primary" type="submit">Enviar</button></div>
+                            <div class="input-group"><select class="form-select" name="channel_id" required><option value="" disabled selected>{{ _('Select a channel...') }}</option>{% for channel in channels %}<option value="{{ channel.id }}">#{{ channel.name }}</option>{% endfor %}</select><button class="btn btn-primary" type="submit">{{ _('Send') }}</button></div>
                         </form>
                     </div>
                 </div>
                 <div class="card shadow-sm">
-                    <div class="card-header"><h5 class="mb-0">Vista Previa</h5></div>
+                    <div class="card-header"><h5 class="mb-0">{{ _('Preview') }}</h5></div>
                     <div class="card-body" style="background-color: #36393f; padding: 20px;">
                         <div class="discord-chat-message">
                             <img src="{{ url_for('static', filename='images/favicon.png') }}" class="discord-avatar">
@@ -247,13 +252,11 @@
 <script id="initial-roles-data" type="application/json">{{ ticket_config.admin_roles | tojson | safe }}</script>
 <script id="all-roles-data" type="application/json">{{ roles | tojson | safe }}</script>
 
-<!-- Bloque de datos para los mensajes -->
 <script id="flashed-messages" type="application/json">
     {{ get_flashed_messages(with_categories=true) | tojson | safe }}
 </script>
 
 <script>
-// --- SCRIPT PARA MOSTRAR/OCULTAR EL SELECTOR DE CANAL DE LOGS Y MANEJAR NOTIFICACIONES ---
 document.addEventListener('DOMContentLoaded', () => {
     const logSwitch = document.getElementById('log-enabled-switch');
     const channelSelector = document.getElementById('log-channel-selector-wrapper');
@@ -268,18 +271,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (logSwitch && channelSelector) {
         logSwitch.addEventListener('change', toggleChannelSelector);
-        // Set initial state on page load
         toggleChannelSelector();
     }
 
-    // --- LÓGICA PARA MOSTRAR TODOS LOS TOASTS DE FORMA SEGURA ---
     const messagesData = document.getElementById('flashed-messages');
     if (messagesData) {
         try {
             const messages = JSON.parse(messagesData.textContent);
             if (typeof showToast === 'function' && Array.isArray(messages)) {
                 messages.forEach(([category, message]) => {
-                    let toastType = 'info'; // default
+                    let toastType = 'info'; 
                     if (category === 'log_error' || category === 'danger') {
                         toastType = 'error';
                     } else if (category === 'success') {
@@ -297,7 +298,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script>
-// Script para manejar el conocimiento de forma asíncrona
 document.addEventListener('DOMContentLoaded', () => {
     const guildId = '{{ active_guild_id }}';
     const addBtn = document.getElementById('add-knowledge-btn');
@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (newItemData.type === 'text') {
                     itemDisplayHTML = newItemData.content;
                 } else {
-                    itemDisplayHTML = newItemData.content; // Fallback seguro
+                    itemDisplayHTML = newItemData.content; 
                 }
 
                 newItem.innerHTML = `

@@ -1,10 +1,9 @@
 {% extends "dashboard.html" %}
-{% block title %}Seleccionar Servidor{% endblock %}
+{% block title %}{{ _('Select Server...') }}{% endblock %}
 
 {% block dashboard_content %}
     <div class="initial-prompt-wrapper">
         <img src="{{ url_for('static', filename='images/loading.gif') }}" alt="Selecciona un servidor" class="prompt-gif">
-        <!-- CORREGIDO: Texto actualizado -->
-        <p class="prompt-text">Selecciona un servidor, añade uno o ingresa en tu perfil de usuario</p>
+        <p class="prompt-text">{{ _('Select a server, add one, or go to your user profile') }}</p>
     </div>
 {% endblock %}

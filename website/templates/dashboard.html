@@ -22,7 +22,7 @@
 
 
 {% block body_content %}
-<!-- AÑADIDO: Capa de superposición para el menú móvil -->
+<!-- Capa de superposición para el menú móvil -->
 <div class="mobile-overlay"></div>
 
 <div class="dashboard-wrapper">
@@ -31,31 +31,31 @@
         <!-- Selector de Servidor -->
         <div class="mb-4 d-flex align-items-center">
             <select class="form-select" onchange="if (this.value) window.location.href=this.value;">
-                <option selected disabled>Seleccionar Servidor...</option>
+                <option selected disabled>{{ _('Select Server...') }}</option>
                 {% for guild in guilds_with_bot %}
                 <option value="{{ url_for('select_page', guild_id=guild.id, page='modules') }}" {% if guild.id == active_guild_id %}selected{% endif %}>
                     {{ guild.name }}
                 </option>
                 {% endfor %}
             </select>
-            <button class="btn btn-primary ms-2" type="button" data-bs-toggle="modal" data-bs-target="#inviteBotModal" title="Añadir bot a un servidor">+</button>
+            <button class="btn btn-primary ms-2" type="button" data-bs-toggle="modal" data-bs-target="#inviteBotModal" title="{{ _('Add bot to a server') }}">+</button>
         </div>
 
-        <!-- CORREGIDO: Menú de Cuenta (siempre visible) -->
-        <div class="menu-category">Cuenta</div>
+        <!-- Menú de Cuenta (siempre visible) -->
+        <div class="menu-category">{{ _('Account') }}</div>
         <nav class="nav flex-column">
-            <a class="nav-link {% if page == 'profile' %}active{% endif %}" href="{{ url_for('profile_page') }}">Perfil</a>
+            <a class="nav-link {% if page == 'profile' %}active{% endif %}" href="{{ url_for('profile_page') }}">{{ _('Profile') }}</a>
         </nav>
 
         {% if active_guild_id %}
-        <!-- CORREGIDO: Menú del Servidor (solo con servidor seleccionado) -->
-        <div class="menu-category">Servidor</div>
+        <!-- Menú del Servidor (solo con servidor seleccionado) -->
+        <div class="menu-category">{{ _('Server') }}</div>
         <nav class="nav flex-column">
-            <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='membership') }}">Membresía</a>
+            <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='membership') }}">{{ _('Membership') }}</a>
         </nav>
 
         <!-- Menú de Módulos -->
-        <div class="menu-category">Módulos</div>
+        <div class="menu-category">{{ _('Modules') }}</div>
         <nav class="nav flex-column">
             <div class="nav-link nav-link-with-toggle {% if page == 'modules' or page == 'training' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
@@ -65,15 +65,15 @@
                     </div>
                 </form>
                 <a class="nav-link-text" data-bs-toggle="collapse" href="#ticket-submenu" role="button" aria-expanded="true">
-                    Ticket I.A
+                    {{ _('Ticket I.A') }}
                 </a>
             </div>
             <div class="collapse show" id="ticket-submenu">
                 <div class="sub-menu">
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#embeds-section">Editor de Embeds</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#ai-section">IA y Conocimiento</a>
-                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='training') }}">Entrenamiento</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#configs-section">Configuración</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#embeds-section">{{ _('Embeds Editor') }}</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#ai-section">{{ _('IA & Knowledge') }}</a>
+                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='training') }}">{{ _('Training') }}</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#configs-section">{{ _('Configuration') }}</a>
                 </div>
             </div>
         </nav>
@@ -83,24 +83,36 @@
         <div class="user-info">
             <img src="{{ user.avatar_url }}" alt="Avatar">
             <span class="username">{{ user.username }}</span>
-            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-danger ms-auto">Logout</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-danger ms-auto">{{ _('Logout') }}</a>
         </div>
     </aside>
 
     <div class="content-wrapper">
         <!-- Barra Superior -->
         <header class="topbar">
-            <!-- AÑADIDO: Botón de menú hamburguesa para móviles -->
+            <!-- Botón de menú hamburguesa para móviles -->
             <button class="mobile-menu-button">
                 <span></span>
                 <span></span>
                 <span></span>
             </button>
-            <!-- CORREGIDO: Logo con bigote -->
+            <!-- Logo con bigote -->
             <div class="logo-container">
                 <img id="topbar-mustache" src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Mustache">
-                <div class="logo">Anlios</div>
+                <div class="logo">{{ _('Anlios') }}</div>
             </div>
+            
+            <!-- INICIO DE LA MODIFICACIÓN: Selector de Idioma -->
+            <div class="dropdown ms-auto">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    🌐 {{ g.lang.upper() }}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+                    <li><a class="dropdown-item" href="{{ url_for('set_language', lang='es') }}">Español</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en') }}">English</a></li>
+                </ul>
+            </div>
+            <!-- FIN DE LA MODIFICACIÓN -->
         </header>
 
         <!-- Contenido Principal -->
@@ -111,9 +123,9 @@
         <!-- Pie de Página -->
         <footer class="page-footer">
             <div class="footer-links">
-                <a href="#">Documentación</a>
-                <a href="#">Servidor de Soporte</a>
-                <a href="#">Términos y Servicios</a>
+                <a href="#">{{ _('Documentation') }}</a>
+                <a href="#">{{ _('Support Server') }}</a>
+                <a href="#">{{ _('Terms and Services') }}</a>
             </div>
             <div class="copyright">
                 &copy; 2024-2025 Anlios
@@ -127,21 +139,21 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="inviteBotModalLabel">Invitar Anlios Bot a un Servidor</h5>
+        <h5 class="modal-title" id="inviteBotModalLabel">{{ _('Invite Anlios Bot to a Server') }}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p>Selecciona un servidor donde tengas permisos de administrador para añadir a Anlios.</p>
+        <p>{{ _('Choose a server where you have administrator permissions to add Anlios.') }}</p>
         <select class="form-select" id="server-invite-select">
-            <option selected disabled>Elige un servidor...</option>
+            <option selected disabled>{{ _('Choose a server...') }}</option>
             {% for guild in guilds_without_bot %}
             <option value="{{ guild.id }}">{{ guild.name }}</option>
             {% endfor %}
         </select>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" onclick="inviteBot()">Invitar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-primary" onclick="inviteBot()">{{ _('Invite') }}</button>
       </div>
     </div>
   </div>
@@ -168,20 +180,17 @@
             designSheets.forEach(sheet => sheet.disabled = (sheet.id !== `design-${design}`));
             colorSheets.forEach(sheet => sheet.disabled = (sheet.id !== `color-${color}`));
 
-            // --- CORREGIDO: Aplicar la fuente y los colores del tema al body y al toast ---
             setTimeout(() => {
                 const computedStyle = getComputedStyle(body);
                 const pixelFont = computedStyle.getPropertyValue('--font-pixel').trim();
                 const sansFont = computedStyle.getPropertyValue('--font-sans').trim();
                 const toastContainer = document.getElementById('toast-container');
                 
-                // Aplicar la fuente correcta al cuerpo del documento
                 body.style.fontFamily = sansFont; 
                 document.querySelectorAll('h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .page-footer, .topbar .logo, .nav-link-with-toggle .nav-link-text').forEach(el => {
                     el.style.fontFamily = pixelFont;
                 });
                 
-                // Aplicar la fuente y los colores al toast
                 if (toastContainer) {
                     toastContainer.style.setProperty('--toast-font-family', pixelFont);
                     toastContainer.style.setProperty('--toast-bg', computedStyle.getPropertyValue('--bg-tertiary').trim());
@@ -191,7 +200,7 @@
                 }
 
                 body.classList.remove('theme-transition');
-            }, 50); // Pequeño retraso para asegurar que las hojas de estilo se carguen
+            }, 50); 
         }
 
         function saveTheme(design, color) {
@@ -219,7 +228,6 @@
             }
         }
 
-        // Event Listeners for theme selection (on profile page)
         if (designSelector && colorSelector) {
             designSelector.addEventListener('click', e => {
                 const card = e.target.closest('.theme-card');
@@ -250,7 +258,6 @@
             };
         }
 
-        // Initial theme load on all pages
         loadTheme();
     });
 </script>
@@ -269,7 +276,7 @@ function inviteBot() {
     }
 }
 </script>
-<!-- AÑADIDO: Script para la navegación móvil -->
+<!-- Script para la navegación móvil -->
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const menuButton = document.querySelector('.mobile-menu-button');
