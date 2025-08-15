@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, g
 from requests_oauthlib import OAuth2Session
 from oauthlib.oauth2 import TokenExpiredError
 import os
@@ -24,6 +24,34 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 logging.basicConfig(level=logging.INFO)
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(dotenv_path=env_path)
+
+# --- Lógica de Traducción ---
+translations = {}
+try:
+    with open(os.path.join(os.path.dirname(__file__), 'translations.json'), 'r', encoding='utf-8') as f:
+        translations = json.load(f)
+except Exception as e:
+    app.logger.error(f"No se pudo cargar el archivo de traducciones: {e}")
+
+@app.before_request
+def before_request():
+    # --- INICIO DE LA MODIFICACIÓN: Detección Automática de Idioma ---
+    if 'lang' not in session:
+        # Detectar el idioma desde las cabeceras del navegador
+        browser_lang = request.headers.get('Accept-Language', 'en')
+        if browser_lang.lower().startswith('es'):
+            session['lang'] = 'es'
+        else:
+            session['lang'] = 'en'
+    
+    g.lang = session.get('lang', 'en') # Usar 'en' como fallback seguro
+    # --- FIN DE LA MODIFICACIÓN ---
+
+@app.context_processor
+def inject_translations():
+    def _(text_key):
+        return translations.get(g.lang, {}).get(text_key, text_key)
+    return dict(_=_)
 
 # --- CONFIGURACIÓN DE IA DE GEMINI ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -96,10 +124,11 @@ def get_subscription_status(guild_id: int) -> dict:
     return {"is_premium": False, "expires_at": None}
 
 def load_ticket_config(guild_id: int) -> dict:
-    default_config = {'admin_roles': [], 'log_enabled': False, 'log_channel_id': None}
+    default_config = {'admin_roles': [], 'log_enabled': False, 'log_channel_id': None, 'language': 'es'}
     config = load_data_from_redis(f"ticket_config:{guild_id}", default_config)
     config.setdefault('log_enabled', False)
     config.setdefault('log_channel_id', None)
+    config.setdefault('language', 'es')
     return config
 
 def save_ticket_config(guild_id: int, data: dict): save_data_to_redis(f"ticket_config:{guild_id}", data)
@@ -172,6 +201,12 @@ def callback():
 def logout():
     session.clear()
     return redirect(url_for('index'))
+
+@app.route('/language/<lang>')
+def set_language(lang):
+    if lang in ['es', 'en']:
+        session['lang'] = lang
+    return redirect(request.referrer or url_for('index'))
 
 @app.route("/dashboard")
 def dashboard_home():
@@ -286,6 +321,7 @@ def select_page(guild_id, page):
                     ticket_config['admin_roles'] = [str(role_id) for role_id in admin_roles]
                     ticket_config['log_enabled'] = log_enabled
                     ticket_config['log_channel_id'] = log_channel_id
+                    ticket_config['language'] = request.form.get('bot_language', 'es')
                     save_ticket_config(guild_id_int, ticket_config)
                     
                     flash("Configuración guardada con éxito.", "success")
@@ -470,13 +506,10 @@ def training_action(guild_id):
             flash("La respuesta no puede estar vacía.", "danger")
         else:
             knowledge = load_knowledge(guild_id_int)
-            # --- INICIO DE LA MODIFICACIÓN ---
-            # Se guarda solo la respuesta como una pieza de conocimiento general.
             new_knowledge_entry = {
                 "type": "text",
                 "content": answer
             }
-            # --- FIN DE LA MODIFICACIÓN ---
             knowledge.append(new_knowledge_entry)
             save_knowledge(guild_id_int, knowledge)
             
