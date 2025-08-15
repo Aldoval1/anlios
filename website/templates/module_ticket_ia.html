@@ -69,8 +69,10 @@
                     <hr class="border-danger">
                     <div class="card mt-4 shadow-sm">
                         <div class="card-body">
-                            <p class="text-muted small">Define la personalidad y las reglas de la IA. Usa <code>{knowledge}</code> para indicarle dónde usar la información que le proporcionas. Si no conoce la respuesta, debe empezar su respuesta con <code>[NO_KNOWLEDGE]</code>.</p>
-                            <textarea class="form-control" name="ai_prompt" rows="12">{{ embed_config.ai_prompt }}</textarea>
+                            <!-- INICIO DE LA MODIFICACIÓN -->
+                            <p class="text-muted small">Define la personalidad base de la IA. El sistema se encargará de darle las instrucciones sobre cómo usar la base de conocimiento y cómo actuar si no sabe una respuesta.</p>
+                            <textarea class="form-control" name="ai_personality" rows="8">{{ embed_config.ai_personality }}</textarea>
+                            <!-- FIN DE LA MODIFICACIÓN -->
                         </div>
                     </div>
                 </section>
@@ -318,18 +320,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newItem = document.createElement('li');
                 newItem.className = 'list-group-item d-flex justify-content-between align-items-center';
                 
-                // --- INICIO DE LA CORRECCIÓN ---
-                // Esta lógica ahora replica la del servidor (Jinja2) para mostrar el nuevo
-                // elemento correctamente sin necesidad de recargar la página.
                 const newItemData = data.newItem;
                 let itemDisplayHTML = '';
 
                 if (newItemData.type === 'text') {
-                    // Si el tipo es 'text', muestra el contenido directamente.
                     itemDisplayHTML = newItemData.content;
                 } else {
-                    // En el futuro, si se añaden otros tipos de forma asíncrona,
-                    // se pueden manejar aquí. De momento, esto soluciona el problema del texto.
                     itemDisplayHTML = newItemData.content; // Fallback seguro
                 }
 
@@ -337,7 +333,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="me-2 text-truncate" style="white-space: pre-wrap;">${itemDisplayHTML}</span>
                     <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="${newItemData.index}" title="Eliminar">×</button>
                 `;
-                // --- FIN DE LA CORRECCIÓN ---
 
                 knowledgeList.appendChild(newItem);
                 textArea.value = '';
