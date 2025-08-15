@@ -263,9 +263,11 @@ def select_page(guild_id, page):
                     
                     flash("Configuración guardada con éxito.", "success")
             
+            # --- PRIMERA CORRECCIÓN ---
+            # Se ha modificado este bloque para guardar un objeto estructurado en lugar de una cadena de texto.
             elif action in ['knowledge_web', 'knowledge_youtube', 'knowledge_pdf']:
                 try:
-                    knowledge_item = {}
+                    knowledge_item = {} # Contendrá el objeto estructurado
                     if action == 'knowledge_web':
                         url = request.form.get('web_url')
                         if not url: raise ValueError("La URL no puede estar vacía.")
@@ -292,7 +294,7 @@ def select_page(guild_id, page):
                                 "content": transcript_text
                             }
                         except (NoTranscriptFound, TranscriptsDisabled):
-                            raise ValueError("No se pudieron obtener los subtítulos para este video. Pueden estar desactivados o no ser compatibles.")
+                            raise ValueError("No se pudieron obtener los subtítulos para este video.")
                     elif action == 'knowledge_pdf':
                         if 'pdf_file' not in request.files: raise ValueError("No se encontró el archivo PDF.")
                         file = request.files['pdf_file']
@@ -307,9 +309,10 @@ def select_page(guild_id, page):
                     
                     if knowledge_item:
                         knowledge = load_knowledge(guild_id_int)
-                        knowledge.append(knowledge_item)
+                        knowledge.append(knowledge_item) # Se añade el objeto completo
                         save_knowledge(guild_id_int, knowledge)
                         flash("Conocimiento añadido con éxito desde la fuente externa.", "success")
+
                 except Exception as e:
                     flash(f"Error al procesar la fuente: {e}", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
@@ -426,7 +429,8 @@ def training_action(guild_id):
             flash("La respuesta no puede estar vacía.", "danger")
         else:
             knowledge = load_knowledge(guild_id_int)
-            # --- MODIFICADO: Guardar la respuesta como texto simple ---
+            # --- SEGUNDA CORRECCIÓN ---
+            # Se ha modificado para guardar la respuesta como un objeto de tipo 'text'.
             new_knowledge_entry = {
                 "type": "text",
                 "content": f"Pregunta: {question_to_process['question']}\nRespuesta: {answer}"
