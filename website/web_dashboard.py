@@ -264,7 +264,7 @@ def select_page(guild_id, page):
                     flash("Configuración guardada con éxito.", "success")
             
             # --- PRIMERA CORRECCIÓN ---
-            # Se ha modificado este bloque para guardar un objeto estructurado en lugar de una cadena de texto.
+            # Este bloque ahora crea un diccionario (knowledge_item) en lugar de una cadena de texto.
             elif action in ['knowledge_web', 'knowledge_youtube', 'knowledge_pdf']:
                 try:
                     knowledge_item = {} # Contendrá el objeto estructurado
@@ -309,7 +309,7 @@ def select_page(guild_id, page):
                     
                     if knowledge_item:
                         knowledge = load_knowledge(guild_id_int)
-                        knowledge.append(knowledge_item) # Se añade el objeto completo
+                        knowledge.append(knowledge_item) # Se añade el diccionario en lugar de la cadena de texto
                         save_knowledge(guild_id_int, knowledge)
                         flash("Conocimiento añadido con éxito desde la fuente externa.", "success")
 
