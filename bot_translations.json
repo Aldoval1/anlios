@@ -1,0 +1,30 @@
+{
+  "es": {
+    "TICKET_CLAIMED": "✅ Ticket reclamado por **{user_display_name}**. El asistente de IA ha sido desactivado.",
+    "TICKET_ALREADY_CLAIMED": "Este ticket ya ha sido reclamado.",
+    "TICKET_CLOSED_TRANSCRIPT": "✅ **Ticket cerrado.** Generando transcripción... Este canal se eliminará en 5 segundos.",
+    "NO_PERMISSION": "❌ No tienes permisos para realizar esta acción.",
+    "TICKET_CREATED_SUCCESS": "✅ ¡Ticket creado! Ve a {channel_mention} para continuar.",
+    "ALREADY_HAS_TICKET": "⚠️ ¡Ya tienes un ticket abierto!",
+    "LOG_TICKET_CREATED_TITLE": "Ticket Creado",
+    "LOG_TICKET_CREATED_DESC": "Ticket `{channel_name}` creado por {user_mention}.",
+    "LOG_TICKET_CLOSED_TITLE": "Ticket Cerrado",
+    "LOG_TICKET_CLOSED_DESC": "Ticket `{channel_name}` cerrado por {user_mention}.",
+    "AI_NO_KNOWLEDGE": "🤔 No estoy seguro de la respuesta. He enviado tu pregunta a un administrador para que me ayude a aprender.",
+    "AI_ERROR": "🤖 Ocurrió un error al contactar con la IA."
+  },
+  "en": {
+    "TICKET_CLAIMED": "✅ Ticket claimed by **{user_display_name}**. The AI assistant has been deactivated.",
+    "TICKET_ALREADY_CLAIMED": "This ticket has already been claimed.",
+    "TICKET_CLOSED_TRANSCRIPT": "✅ **Ticket closed.** Generating transcript... This channel will be deleted in 5 seconds.",
+    "NO_PERMISSION": "❌ You do not have permission to perform this action.",
+    "TICKET_CREATED_SUCCESS": "✅ Ticket created! Go to {channel_mention} to continue.",
+    "ALREADY_HAS_TICKET": "⚠️ You already have an open ticket!",
+    "LOG_TICKET_CREATED_TITLE": "Ticket Created",
+    "LOG_TICKET_CREATED_DESC": "Ticket `{channel_name}` created by {user_mention}.",
+    "LOG_TICKET_CLOSED_TITLE": "Ticket Closed",
+    "LOG_TICKET_CLOSED_DESC": "Ticket `{channel_name}` closed by {user_mention}.",
+    "AI_NO_KNOWLEDGE": "🤔 I'm not sure about the answer. I've sent your question to an administrator to help me learn.",
+    "AI_ERROR": "🤖 An error occurred while contacting the AI."
+  }
+}
