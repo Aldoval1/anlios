@@ -265,7 +265,7 @@ def select_page(guild_id, page):
             
             elif action in ['knowledge_web', 'knowledge_youtube', 'knowledge_pdf']:
                 try:
-                    text = ""
+                    knowledge_item = {}
                     if action == 'knowledge_web':
                         url = request.form.get('web_url')
                         if not url: raise ValueError("La URL no puede estar vacía.")
@@ -273,7 +273,11 @@ def select_page(guild_id, page):
                         page_req = requests.get(url, timeout=30, headers=headers)
                         page_req.raise_for_status()
                         soup = BeautifulSoup(page_req.content, 'html.parser')
-                        text = f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}"
+                        knowledge_item = {
+                            "type": "web",
+                            "source": url,
+                            "content": soup.get_text(separator=' ', strip=True)
+                        }
                     elif action == 'knowledge_youtube':
                         url = request.form.get('youtube_url')
                         if not url: raise ValueError("La URL no puede estar vacía.")
@@ -281,7 +285,12 @@ def select_page(guild_id, page):
                         video_id = url.split('v=')[1].split('&')[0]
                         try:
                             transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-                            text = f"Transcripción de YouTube {url}:\n{' '.join([t['text'] for t in transcript])}"
+                            transcript_text = ' '.join([t['text'] for t in transcript])
+                            knowledge_item = {
+                                "type": "youtube",
+                                "source": url,
+                                "content": transcript_text
+                            }
                         except (NoTranscriptFound, TranscriptsDisabled):
                             raise ValueError("No se pudieron obtener los subtítulos para este video. Pueden estar desactivados o no ser compatibles.")
                     elif action == 'knowledge_pdf':
@@ -290,12 +299,15 @@ def select_page(guild_id, page):
                         if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
                         reader = PyPDF2.PdfReader(file.stream)
                         pdf_text = ''.join(page.extract_text() for page in reader.pages)
-                        # --- CORREGIDO: Guardar el texto completo para la IA ---
-                        text = f"Contenido del PDF '{file.filename}':\n{pdf_text}"
+                        knowledge_item = {
+                            "type": "pdf",
+                            "filename": file.filename,
+                            "content": pdf_text
+                        }
                     
-                    if text:
+                    if knowledge_item:
                         knowledge = load_knowledge(guild_id_int)
-                        knowledge.append(text)
+                        knowledge.append(knowledge_item)
                         save_knowledge(guild_id_int, knowledge)
                         flash("Conocimiento añadido con éxito desde la fuente externa.", "success")
                 except Exception as e:
@@ -360,13 +372,14 @@ def add_knowledge_ajax(guild_id):
         if not text: return jsonify({'success': False, 'error': 'El texto no puede estar vacío'}), 400
         
         knowledge = load_knowledge(int(guild_id))
-        knowledge.append(text)
+        new_item = {"type": "text", "content": text}
+        knowledge.append(new_item)
         save_knowledge(int(guild_id), knowledge)
         
         log_action(session.get('user'), "Añadido Conocimiento", {"guild_id": guild_id, "text": text})
         
-        new_item = {'text': text, 'index': len(knowledge) - 1}
-        return jsonify({'success': True, 'newItem': new_item})
+        new_item_response = {'type': 'text', 'content': text, 'index': len(knowledge) - 1}
+        return jsonify({'success': True, 'newItem': new_item_response})
     except Exception as e:
         app.logger.error(f"Error al añadir conocimiento: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -413,7 +426,11 @@ def training_action(guild_id):
             flash("La respuesta no puede estar vacía.", "danger")
         else:
             knowledge = load_knowledge(guild_id_int)
-            new_knowledge_entry = f"Pregunta: {question_to_process['question']}\nRespuesta: {answer}"
+            # --- MODIFICADO: Guardar la respuesta como texto simple ---
+            new_knowledge_entry = {
+                "type": "text",
+                "content": f"Pregunta: {question_to_process['question']}\nRespuesta: {answer}"
+            }
             knowledge.append(new_knowledge_entry)
             save_knowledge(guild_id_int, knowledge)
             
