@@ -317,10 +317,28 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success) {
                 const newItem = document.createElement('li');
                 newItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                
+                // --- INICIO DE LA CORRECCIÓN ---
+                // Esta lógica ahora replica la del servidor (Jinja2) para mostrar el nuevo
+                // elemento correctamente sin necesidad de recargar la página.
+                const newItemData = data.newItem;
+                let itemDisplayHTML = '';
+
+                if (newItemData.type === 'text') {
+                    // Si el tipo es 'text', muestra el contenido directamente.
+                    itemDisplayHTML = newItemData.content;
+                } else {
+                    // En el futuro, si se añaden otros tipos de forma asíncrona,
+                    // se pueden manejar aquí. De momento, esto soluciona el problema del texto.
+                    itemDisplayHTML = newItemData.content; // Fallback seguro
+                }
+
                 newItem.innerHTML = `
-                    <span class="me-2 text-truncate" style="white-space: pre-wrap;">${data.newItem.content}</span>
-                    <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="${data.newItem.index}" title="Eliminar">×</button>
+                    <span class="me-2 text-truncate" style="white-space: pre-wrap;">${itemDisplayHTML}</span>
+                    <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="${newItemData.index}" title="Eliminar">×</button>
                 `;
+                // --- FIN DE LA CORRECCIÓN ---
+
                 knowledgeList.appendChild(newItem);
                 textArea.value = '';
                 const emptyMsg = document.getElementById('empty-knowledge-msg');
