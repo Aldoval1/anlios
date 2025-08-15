@@ -263,11 +263,9 @@ def select_page(guild_id, page):
                     
                     flash("Configuración guardada con éxito.", "success")
             
-            # --- PRIMERA CORRECCIÓN ---
-            # Este bloque ahora crea un diccionario (knowledge_item) en lugar de una cadena de texto.
             elif action in ['knowledge_web', 'knowledge_youtube', 'knowledge_pdf']:
                 try:
-                    knowledge_item = {} # Contendrá el objeto estructurado
+                    knowledge_item = {} 
                     if action == 'knowledge_web':
                         url = request.form.get('web_url')
                         if not url: raise ValueError("La URL no puede estar vacía.")
@@ -286,8 +284,30 @@ def select_page(guild_id, page):
                         if 'v=' not in url: raise ValueError("URL de YouTube no válida.")
                         video_id = url.split('v=')[1].split('&')[0]
                         try:
-                            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-                            transcript_text = ' '.join([t['text'] for t in transcript])
+                            # --- INICIO DE LA CORRECCIÓN PARA YOUTUBE ---
+                            # 1. Obtener la lista de transcripciones disponibles
+                            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                            
+                            # 2. Definir un orden de preferencia para los idiomas
+                            preferred_languages = ['es', 'en']
+                            
+                            transcript = None
+                            try:
+                                # 3. Intentar encontrar una transcripción en los idiomas preferidos
+                                transcript = transcript_list.find_transcript(preferred_languages)
+                            except NoTranscriptFound:
+                                # 4. Si no se encuentra, tomar la primera disponible
+                                try:
+                                    transcript = next(iter(transcript_list))
+                                except StopIteration:
+                                    # Esto ocurre si la lista está completamente vacía
+                                    raise NoTranscriptFound("No hay ninguna transcripción disponible para este video.")
+
+                            # 5. Obtener el texto de la transcripción encontrada
+                            transcript_data = transcript.fetch()
+                            transcript_text = ' '.join([t['text'] for t in transcript_data])
+                            # --- FIN DE LA CORRECCIÓN PARA YOUTUBE ---
+
                             knowledge_item = {
                                 "type": "youtube",
                                 "source": url,
@@ -309,7 +329,7 @@ def select_page(guild_id, page):
                     
                     if knowledge_item:
                         knowledge = load_knowledge(guild_id_int)
-                        knowledge.append(knowledge_item) # Se añade el diccionario en lugar de la cadena de texto
+                        knowledge.append(knowledge_item)
                         save_knowledge(guild_id_int, knowledge)
                         flash("Conocimiento añadido con éxito desde la fuente externa.", "success")
 
@@ -429,8 +449,6 @@ def training_action(guild_id):
             flash("La respuesta no puede estar vacía.", "danger")
         else:
             knowledge = load_knowledge(guild_id_int)
-            # --- SEGUNDA CORRECCIÓN ---
-            # Se ha modificado para guardar la respuesta como un objeto de tipo 'text'.
             new_knowledge_entry = {
                 "type": "text",
                 "content": f"Pregunta: {question_to_process['question']}\nRespuesta: {answer}"
