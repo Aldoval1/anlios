@@ -277,7 +277,6 @@ async def on_message(message: discord.Message):
     module_config = load_module_config()
     if not module_config.get(str(message.guild.id), {}).get('modules', {}).get('ticket_ia', False): return
     
-    # --- CORREGIDO: La comprobación ahora funciona correctamente ---
     if CLAIMED_TAG in message.channel.name:
         return
 
@@ -286,7 +285,25 @@ async def on_message(message: discord.Message):
     async with message.channel.typing():
         config = load_embed_config(message.guild.id)
         knowledge = load_knowledge(message.guild.id)
-        knowledge_text = "\n".join(f"- {item}" for item in knowledge) if knowledge else "No hay información específica proporcionada."
+        
+        knowledge_parts = []
+        for item in knowledge:
+            if isinstance(item, dict):
+                content = item.get('content', '')
+                item_type = item.get('type')
+                if item_type == 'pdf':
+                    knowledge_parts.append(f"Contenido del PDF '{item.get('filename', 'N/A')}':\n{content}")
+                elif item_type == 'web':
+                    knowledge_parts.append(f"Contenido de la web {item.get('source', 'N/A')}:\n{content}")
+                elif item_type == 'youtube':
+                    knowledge_parts.append(f"Transcripción de YouTube {item.get('source', 'N/A')}:\n{content}")
+                else: # text
+                    knowledge_parts.append(content)
+            else:
+                knowledge_parts.append(str(item)) # Fallback for old string-based knowledge
+
+        knowledge_text = "\n\n".join(f"- {part}" for part in knowledge_parts) if knowledge_parts else "No hay información específica proporcionada."
+
         history_log = ""
         async for msg in message.channel.history(limit=10, oldest_first=False):
             if msg.embeds and msg.author == bot.user: continue
