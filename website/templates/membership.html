@@ -1,23 +1,23 @@
 {% extends "dashboard.html" %}
-{% block title %}Membresía Premium{% endblock %}
+{% block title %}{{ _('Premium Membership') }}{% endblock %}
 
 {% block dashboard_content %}
-    <h1>Membresía Premium</h1>
-    <p>Gestiona el estado de tu suscripción y desbloquea funciones exclusivas.</p>
+    <h1>{{ _('Premium Membership') }}</h1>
+    <p>{{ _('Manage your subscription status and unlock exclusive features.') }}</p>
 
     <div class="row">
         <div class="col-md-6">
             <div class="card h-100">
                 <div class="card-header">
-                    <h5>Estado Actual</h5>
+                    <h5>{{ _('Current Status') }}</h5>
                 </div>
                 <div class="card-body">
                     {% if subscription.is_premium %}
-                        <p class="fs-5" style="color: #28a745;">¡Este servidor es Premium!</p>
-                        <p>Tu acceso expira el: <span class="fw-bold">{{ subscription.expires_at|timestamp_to_date }}</span></p>
+                        <p class="fs-5" style="color: #28a745;">{{ _('This server is Premium!') }}</p>
+                        <p>{{ _('Your access expires on:') }} <span class="fw-bold">{{ subscription.expires_at|timestamp_to_date }}</span></p>
                     {% else %}
-                        <p class="fs-5" style="color: #ffc107;">Este servidor no tiene una suscripción activa.</p>
-                        <p>¡Canjea un código para desbloquear todo el potencial de Anlios Bot!</p>
+                        <p class="fs-5" style="color: #ffc107;">{{ _('This server does not have an active subscription.') }}</p>
+                        <p>{{ _('Redeem a code to unlock the full potential of Anlios Bot!') }}</p>
                     {% endif %}
                 </div>
             </div>
@@ -25,15 +25,15 @@
         <div class="col-md-6">
             <div class="card h-100">
                 <div class="card-header">
-                    <h5>Canjear Código</h5>
+                    <h5>{{ _('Redeem Code') }}</h5>
                 </div>
                 <div class="card-body">
                     <form method="POST">
                         <div class="mb-3">
-                            <label for="code" class="form-label">Introduce tu código premium:</label>
+                            <label for="code" class="form-label">{{ _('Enter your premium code:') }}</label>
                             <input type="text" class="form-control" id="code" name="code" required>
                         </div>
-                        <button type="submit" class="btn btn-info w-100">Canjear</button>
+                        <button type="submit" class="btn btn-info w-100">{{ _('Redeem') }}</button>
                     </form>
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}

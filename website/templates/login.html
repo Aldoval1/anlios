@@ -12,21 +12,21 @@
     <div class="landing-wrapper">
         <div class="landing-box">
             <img src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Icon" id="demo-trigger" class="landing-icon">
-            <p class="click-me-prompt">¡Haz clic en mí para una demo!</p>
-            <h1 class="logo mb-2">Anlios Bot</h1>
-            <p class="lead mb-4" style="color: #ff8282;">Inicia sesión para configurar tu bot</p>
+            <p class="click-me-prompt">{{ _('Click me for a demo!') }}</p>
+            <h1 class="logo mb-2">{{ _('Anlios Bot') }}</h1>
+            <p class="lead mb-4" style="color: #ff8282;">{{ _('Login to configure your bot') }}</p>
             <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">
-                Login con Discord
+                {{ _('Login with Discord') }}
             </a>
         </div>
         <div class="stats-container">
-            <div class="stat-item"><div class="stat-value">{{ stats.servers }}</div><div class="stat-label">Servidores</div></div>
-            <div class="stat-item"><div class="stat-value">{{ stats.users }}</div><div class="stat-label">Usuarios</div></div>
-            <div class="stat-item"><div class="stat-value">{{ stats.uptime }}</div><div class="stat-label">Tiempo en Línea</div></div>
+            <div class="stat-item"><div class="stat-value">{{ stats.servers }}</div><div class="stat-label">{{ _('Servers') }}</div></div>
+            <div class="stat-item"><div class="stat-value">{{ stats.users }}</div><div class="stat-label">{{ _('Users') }}</div></div>
+            <div class="stat-item"><div class="stat-value">{{ stats.uptime }}</div><div class="stat-label">{{ _('Uptime') }}</div></div>
         </div>
         <footer class="page-footer">
             <div class="footer-links">
-                <a href="#">Documentación</a><a href="#">Servidor de Soporte</a><a href="#">Términos y Servicios</a><a href="#">Estado del Servidor</a><a href="#">Sobre nosotros</a>
+                <a href="#">{{ _('Documentation') }}</a><a href="#">{{ _('Support Server') }}</a><a href="#">{{ _('Terms and Services') }}</a><a href="#">{{ _('Server Status') }}</a><a href="#">{{ _('About us') }}</a>
             </div>
             <div class="copyright">&copy; 2024-2025 Anlios</div>
         </footer>
@@ -38,31 +38,31 @@
     <!-- Menú Lateral de la Demo -->
     <aside class="demo-sidebar">
         <div class="sidebar-header">
-            <h2>Prueba la I.A.</h2>
-            <button id="exit-demo-btn" class="btn btn-sm btn-danger">Salir</button>
+            <h2>{{ _('Test the A.I.') }}</h2>
+            <button id="exit-demo-btn" class="btn btn-sm btn-danger">{{ _('Exit') }}</button>
         </div>
         <div class="sidebar-content">
             <div class="card">
-                <div class="card-header">Personalidad</div>
+                <div class="card-header">{{ _('Personality') }}</div>
                 <div class="card-body"><textarea id="demo-ai-prompt" class="form-control" rows="6">Eres Anlios, un asistente de IA amigable. Tu conocimiento se limita a la 'Base de Conocimientos'. Si no sabes la respuesta, dilo amablemente.
 
 --- BASE DE CONOCIMIENTOS ---
 {knowledge}</textarea></div>
             </div>
             <div class="card mt-3 flex-grow-1">
-                <div class="card-header">Base de Conocimiento</div>
+                <div class="card-header">{{ _('Knowledge Base') }}</div>
                 <div class="card-body">
                     <ul class="nav nav-pills mb-3" id="pills-tab-demo" role="tablist">
-                        <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab-demo" data-bs-toggle="pill" data-bs-target="#pills-text-demo" type="button" role="tab">Texto</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab-demo" data-bs-toggle="pill" data-bs-target="#pills-text-demo" type="button" role="tab">{{ _('Text') }}</button></li>
                         <li class="nav-item" role="presentation"><button class="nav-link" id="pills-web-tab-demo" data-bs-toggle="pill" data-bs-target="#pills-web-demo" type="button" role="tab">Web</button></li>
                         <li class="nav-item" role="presentation"><button class="nav-link" id="pills-youtube-tab-demo" data-bs-toggle="pill" data-bs-target="#pills-youtube-demo" type="button" role="tab">YouTube</button></li>
                         <li class="nav-item" role="presentation"><button class="nav-link" id="pills-pdf-tab-demo" data-bs-toggle="pill" data-bs-target="#pills-pdf-demo" type="button" role="tab">PDF</button></li>
                     </ul>
                     <div class="tab-content" id="pills-tabContent-demo">
                         <div class="tab-pane fade show active" id="pills-text-demo" role="tabpanel"><textarea id="demo-knowledge-base" class="form-control" rows="4" placeholder="Ej: Las reglas son no hacer spam."></textarea></div>
-                        <div class="tab-pane fade" id="pills-web-demo" role="tabpanel"><form id="demo-web-form" class="input-group"><input type="url" class="form-control" name="web_url" placeholder="https://ejemplo.com" required><button type="submit" class="btn btn-info">Leer</button></form></div>
-                        <div class="tab-pane fade" id="pills-youtube-demo" role="tabpanel"><form id="demo-youtube-form" class="input-group"><input type="url" class="form-control" name="youtube_url" placeholder="https://youtube.com/watch?v=..." required><button type="submit" class="btn btn-info">Transcribir</button></form></div>
-                        <div class="tab-pane fade" id="pills-pdf-demo" role="tabpanel"><form id="demo-pdf-form" class="input-group"><input type="file" class="form-control" name="pdf_file" accept=".pdf" required><button type="submit" class="btn btn-info">Subir</button></form></div>
+                        <div class="tab-pane fade" id="pills-web-demo" role="tabpanel"><form id="demo-web-form" class="input-group"><input type="url" class="form-control" name="web_url" placeholder="https://ejemplo.com" required><button type="submit" class="btn btn-info">{{ _('Read') }}</button></form></div>
+                        <div class="tab-pane fade" id="pills-youtube-demo" role="tabpanel"><form id="demo-youtube-form" class="input-group"><input type="url" class="form-control" name="youtube_url" placeholder="https://youtube.com/watch?v=..." required><button type="submit" class="btn btn-info">{{ _('Transcribe') }}</button></form></div>
+                        <div class="tab-pane fade" id="pills-pdf-demo" role="tabpanel"><form id="demo-pdf-form" class="input-group"><input type="file" class="form-control" name="pdf_file" accept=".pdf" required><button type="submit" class="btn btn-info">{{ _('Upload') }}</button></form></div>
                     </div>
                     <div id="knowledge-feedback" class="small text-muted mt-2"></div>
                 </div>
@@ -80,7 +80,7 @@
         </div>
         <div class="discord-input-bar">
             <input type="text" id="chat-input" placeholder="Chatea con Anlios Bot...">
-            <button id="send-chat-btn" class="btn btn-primary">Enviar</button>
+            <button id="send-chat-btn" class="btn btn-primary">{{ _('Send') }}</button>
         </div>
     </main>
 </div>
