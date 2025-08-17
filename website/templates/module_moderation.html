@@ -1,0 +1,247 @@
+{% extends "dashboard.html" %}
+{% block title %}{{ _('Module: Moderation') }}{% endblock %}
+
+{% block dashboard_content %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ _('Module: Moderation') }}</h1>
+        <form method="POST">
+            <input type="hidden" name="action" value="toggle_moderation_module">
+            <div class="form-check form-switch fs-5">
+                <input class="form-check-input" type="checkbox" role="switch" id="module-toggle" name="enabled" {% if module_status %}checked{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label" for="module-toggle">{{ _('Enabled') }}</label>
+            </div>
+        </form>
+    </div>
+
+    {% if module_status %}
+    <div class="row g-5">
+        <div class="col-12">
+            <form method="POST" id="main-config-form">
+                
+                <!-- SECCIÓN 1: Auto-Mod -->
+                <section id="automod-section" class="mb-5">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2>{{ _('Auto-Mod') }}</h2>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="automod-enabled" name="automod_enabled" {% if moderation_config.automod.enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="automod-enabled">{{ _('Enable Auto-Mod') }}</label>
+                        </div>
+                    </div>
+                    <hr class="border-danger">
+                    <div id="automod-settings" {% if not moderation_config.automod.enabled %}style="display:none;"{% endif %}>
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header"><h5>{{ _('Forbidden Words') }}</h5></div>
+                            <div class="card-body">
+                                <p class="text-muted small">{{ _('Add words that should be automatically deleted. One word or phrase per line.') }}</p>
+                                <textarea class="form-control" name="forbidden_words" rows="5">{{ moderation_config.automod.forbidden_words | join('\n') }}</textarea>
+                                <label class="form-label small mt-3">{{ _('Action') }}</label>
+                                <select class="form-select" name="forbidden_words_action">
+                                    <option value="delete" {% if moderation_config.automod.forbidden_words_action == 'delete' %}selected{% endif %}>{{ _('Delete Message') }}</option>
+                                    <option value="warn" {% if moderation_config.automod.forbidden_words_action == 'warn' %}selected{% endif %}>{{ _('Warn User') }}</option>
+                                    <option value="timeout" {% if moderation_config.automod.forbidden_words_action == 'timeout' %}selected{% endif %}>{{ _('Isolate User (10 min)') }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header"><h5>{{ _('Link Filtering') }}</h5></div>
+                            <div class="card-body">
+                                 <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="block_links" {% if moderation_config.automod.block_links %}checked{% endif %}>
+                                    <label class="form-check-label">{{ _('Block All Malicious Links') }}</label>
+                                </div>
+                                <label class="form-label small mt-3">{{ _('Action') }}</label>
+                                <select class="form-select" name="block_links_action">
+                                    <option value="delete" {% if moderation_config.automod.block_links_action == 'delete' %}selected{% endif %}>{{ _('Delete Message') }}</option>
+                                    <option value="warn" {% if moderation_config.automod.block_links_action == 'warn' %}selected{% endif %}>{{ _('Warn User') }}</option>
+                                    <option value="kick" {% if moderation_config.automod.block_links_action == 'kick' %}selected{% endif %}>{{ _('Kick User') }}</option>
+                                    <option value="ban" {% if moderation_config.automod.block_links_action == 'ban' %}selected{% endif %}>{{ _('Ban User') }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card shadow-sm">
+                            <div class="card-header"><h5>{{ _('NSFW Content Filter') }}</h5></div>
+                            <div class="card-body">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="block_nsfw" {% if moderation_config.automod.block_nsfw %}checked{% endif %}>
+                                    <label class="form-check-label">{{ _('Block NSFW Content (Images)') }}</label>
+                                </div>
+                                <label class="form-label small mt-3">{{ _('Action') }}</label>
+                                <select class="form-select" name="block_nsfw_action">
+                                    <option value="delete" {% if moderation_config.automod.block_nsfw_action == 'delete' %}selected{% endif %}>{{ _('Delete Message') }}</option>
+                                    <option value="warn" {% if moderation_config.automod.block_nsfw_action == 'warn' %}selected{% endif %}>{{ _('Warn User') }}</option>
+                                    <option value="ban" {% if moderation_config.automod.block_nsfw_action == 'ban' %}selected{% endif %}>{{ _('Ban User') }}</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECCIÓN 2: Advertencias -->
+                <section id="warnings-section" class="mb-5">
+                     <div class="d-flex justify-content-between align-items-center">
+                        <h2>{{ _('Warnings') }}</h2>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="warnings-enabled" name="warnings_enabled" {% if moderation_config.warnings.enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="warnings-enabled">{{ _('Enable Warnings System') }}</label>
+                        </div>
+                    </div>
+                    <hr class="border-danger">
+                    <div id="warnings-settings" {% if not moderation_config.warnings.enabled %}style="display:none;"{% endif %}>
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header"><h5>{{ _('Configuration') }}</h5></div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="warning-limit" class="form-label">{{ _('Warning Limit Before Ban') }}</label>
+                                    <input type="number" class="form-control" id="warning-limit" name="warning_limit" min="1" value="{{ moderation_config.warnings.limit }}">
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="warn_dm_user" {% if moderation_config.warnings.dm_user %}checked{% endif %}>
+                                    <label class="form-check-label">{{ _('Notify User via DM on Warning') }}</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card shadow-sm">
+                            <div class="card-header"><h5>{{ _('Warned Users Log') }}</h5></div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>{{ _('User') }}</th>
+                                                <th>{{ _('Warnings') }}</th>
+                                                <th>{{ _('Actions') }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for user_id, data in warnings_log.items() %}
+                                            <tr>
+                                                <td>{{ data.username }} ({{ user_id }})</td>
+                                                <td>{{ data.warnings | length }} / {{ moderation_config.warnings.limit }}</td>
+                                                <td>
+                                                    <form method="POST" class="d-inline">
+                                                        <input type="hidden" name="action" value="remove_warning">
+                                                        <input type="hidden" name="user_id" value="{{ user_id }}">
+                                                        <button type="submit" class="btn btn-danger btn-sm">{{ _('Remove Last Warning') }}</button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                            {% else %}
+                                            <tr><td colspan="3" class="text-muted">{{ _('No users have been warned yet.') }}</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECCIÓN 3: Comandos -->
+                <section id="commands-section" class="mb-5">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2>{{ _('Commands') }}</h2>
+                         <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="commands-enabled" name="commands_enabled" {% if moderation_config.commands.enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="commands-enabled">{{ _('Enable Commands') }}</label>
+                        </div>
+                    </div>
+                    <hr class="border-danger">
+                     <div id="commands-settings" {% if not moderation_config.commands.enabled %}style="display:none;"{% endif %}>
+                        <div class="card shadow-sm">
+                            <div class="card-body">
+                                <ul class="list-group">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <code>/cleanc</code>
+                                            <p class="text-muted small mb-0">{{ _('Deletes all messages and recreates the channel.') }}</p>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch" name="command_cleanc_enabled" {% if moderation_config.commands.cleanc %}checked{% endif %}>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <code>/lock & /unlock</code>
+                                            <p class="text-muted small mb-0">{{ _('Blocks or unblocks a channel for all users.') }}</p>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch" name="command_lock_enabled" {% if moderation_config.commands.lock %}checked{% endif %}>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- SECCIÓN 4: Anlios Vault -->
+                <section id="vault-section" class="mb-5">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2>Anlios Vault</h2>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="vault-enabled" name="vault_enabled" {% if moderation_config.vault.enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="vault-enabled">{{ _('Enable Anlios Vault') }}</label>
+                        </div>
+                    </div>
+                    <hr class="border-danger">
+                    <div id="vault-settings" {% if not moderation_config.vault.enabled %}style="display:none;"{% endif %}>
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header"><h5>{{ _('Create Server Backup') }}</h5></div>
+                            <div class="card-body">
+                                <p class="text-muted small">{{ _('This will create a backup of roles, channels, server icon, and permissions. You can load this backup on any other server where you are the owner.') }}</p>
+                                <form method="POST">
+                                    <input type="hidden" name="action" value="create_backup">
+                                    <button type="submit" class="btn btn-primary w-100">{{ _('Create Backup') }}</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="card shadow-sm">
+                             <div class="card-header"><h5>{{ _('Existing Backups') }}</h5></div>
+                             <div class="card-body">
+                                 <ul class="list-group">
+                                    {% for backup in backups %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <code>ID: {{ backup.id }}</code>
+                                            <p class="text-muted small mb-0">{{ _('Created on:') }} {{ backup.timestamp | timestamp_to_date }}</p>
+                                        </div>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="action" value="delete_backup">
+                                            <input type="hidden" name="backup_id" value="{{ backup.id }}">
+                                            <button type="submit" class="btn btn-danger btn-sm">{{ _('Delete') }}</button>
+                                        </form>
+                                    </li>
+                                    {% else %}
+                                    <li class="list-group-item text-muted">{{ _('No backups have been created yet.') }}</li>
+                                    {% endfor %}
+                                 </ul>
+                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <button type="submit" name="action" value="save_moderation" class="btn btn-success w-100 btn-lg">{{ _('Save Moderation Settings') }}</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Lógica para mostrar/ocultar los ajustes de cada sub-módulo
+    const sections = ['automod', 'warnings', 'commands', 'vault'];
+    sections.forEach(section => {
+        const toggle = document.getElementById(`${section}-enabled`);
+        const settings = document.getElementById(`${section}-settings`);
+        if (toggle && settings) {
+            toggle.addEventListener('change', () => {
+                settings.style.display = toggle.checked ? 'block' : 'none';
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

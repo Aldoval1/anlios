@@ -57,6 +57,7 @@
         <!-- Menú de Módulos -->
         <div class="menu-category">{{ _('Modules') }}</div>
         <nav class="nav flex-column">
+            <a class="nav-link {% if page == 'moderation' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}">{{ _('Moderation') }}</a>
             <div class="nav-link nav-link-with-toggle {% if page == 'modules' or page == 'training' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
                     <input type="hidden" name="action" value="toggle_module">
