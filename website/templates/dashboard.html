@@ -57,7 +57,7 @@
         <!-- Menú de Módulos -->
         <div class="menu-category">{{ _('Modules') }}</div>
         <nav class="nav flex-column">
-            <!-- INICIO DE LA MODIFICACIÓN: Botón de Moderación con interruptor -->
+            <!-- INICIO DE LA MODIFICACIÓN: Menú de Moderación con submenú -->
             <div class="nav-link nav-link-with-toggle {% if page == 'moderation' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}">
                     <input type="hidden" name="action" value="toggle_moderation_module">
@@ -65,9 +65,17 @@
                         <input class="form-check-input" type="checkbox" role="switch" name="enabled" {% if module_statuses.moderation %}checked{% endif %} onchange="this.form.submit()">
                     </div>
                 </form>
-                <a class="nav-link-text" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}">
+                <a class="nav-link-text" data-bs-toggle="collapse" href="#moderation-submenu" role="button" aria-expanded="true">
                     {{ _('Moderation') }}
                 </a>
+            </div>
+            <div class="collapse show" id="moderation-submenu">
+                <div class="sub-menu">
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#automod-section">{{ _('Auto-Mod') }}</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#warnings-section">{{ _('Warnings') }}</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#commands-section">{{ _('Commands') }}</a>
+                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#vault-section">Anlios Vault</a>
+                </div>
             </div>
             <!-- FIN DE LA MODIFICACIÓN -->
             
@@ -104,13 +112,11 @@
     <div class="content-wrapper">
         <!-- Barra Superior -->
         <header class="topbar">
-            <!-- Botón de menú hamburguesa para móviles -->
             <button class="mobile-menu-button">
                 <span></span>
                 <span></span>
                 <span></span>
             </button>
-            <!-- Logo con bigote -->
             <div class="logo-container">
                 <img id="topbar-mustache" src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Mustache">
                 <div class="logo">{{ _('Anlios') }}</div>
@@ -172,7 +178,6 @@
 </div>
 {% endblock %}
 
-<!-- This block will inject the theme-switching script into the layout -->
 {% block theme_scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -288,7 +293,6 @@ function inviteBot() {
     }
 }
 </script>
-<!-- Script para la navegación móvil -->
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const menuButton = document.querySelector('.mobile-menu-button');
