@@ -142,7 +142,7 @@ def load_embed_config(guild_id: int) -> dict:
         "Tu propósito es ayudar a los usuarios y responder sus preguntas. "
         "Para preguntas específicas sobre el servidor, consulta la siguiente 'Base de Conocimientos'. "
         "Si la respuesta no está ahí, DEBES empezar tu respuesta única y exclusivamente con la etiqueta [NO_KNOWLEDGE] y nada más. "
-        "Para preguntas generales o conversacionales (como 'hola', 'cómo estás', o 'quién eres'), responde de forma natural y amigable.\n\n"
+        "Para preguntas generales o conversacionales (como 'hola', 'cómo estás', 'quién eres'), responde de forma natural y amigable.\n\n"
         "--- BASE DE CONOCIMIENTOS ---\n{knowledge}"
     )
 
@@ -166,6 +166,45 @@ def load_embed_config(guild_id: int) -> dict:
 def save_embed_config(guild_id: int, data: dict): save_data_to_redis(f"embed_config:{guild_id}", data)
 def load_module_config() -> dict: return load_data_from_redis("module_config", {})
 def save_module_config(data: dict): save_data_to_redis("module_config", data)
+
+# --- INICIO DE LA MODIFICACIÓN: Funciones para el Módulo de Moderación ---
+def load_moderation_config(guild_id: int) -> dict:
+    default_config = {
+        "automod": {
+            "enabled": False, "forbidden_words": [], "forbidden_words_action": "delete",
+            "block_links": False, "block_links_action": "delete",
+            "block_nsfw": False, "block_nsfw_action": "delete"
+        },
+        "warnings": {"enabled": False, "limit": 3, "dm_user": True},
+        "commands": {"enabled": False, "cleanc": False, "lock": False},
+        "vault": {"enabled": False}
+    }
+    config = load_data_from_redis(f"moderation_config:{guild_id}", {})
+    # Rellenar claves faltantes para evitar errores en la plantilla
+    for section, defaults in default_config.items():
+        if section not in config:
+            config[section] = defaults
+        else:
+            for key, value in defaults.items():
+                config[section].setdefault(key, value)
+    return config
+
+def save_moderation_config(guild_id: int, data: dict):
+    save_data_to_redis(f"moderation_config:{guild_id}", data)
+
+def load_warnings_log(guild_id: int) -> dict:
+    return load_data_from_redis(f"warnings_log:{guild_id}", {})
+
+def save_warnings_log(guild_id: int, data: dict):
+    save_data_to_redis(f"warnings_log:{guild_id}", data)
+
+def load_backups(guild_id: int) -> list:
+    return load_data_from_redis(f"backups:{guild_id}", [])
+
+def save_backups(guild_id: int, data: list):
+    save_data_to_redis(f"backups:{guild_id}", data)
+# --- FIN DE LA MODIFICACIÓN ---
+
 
 def make_user_session(token=None):
     def token_updater(new_token): session['discord_token'] = new_token
@@ -285,6 +324,74 @@ def select_page(guild_id, page):
                 save_module_config(config)
                 log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "ticket_ia", "enabled": is_enabled})
                 flash("Módulo actualizado.", "success")
+            
+            # --- INICIO DE LA MODIFICACIÓN: Lógica para el Módulo de Moderación ---
+            elif action == 'toggle_moderation_module':
+                config = load_module_config()
+                if guild_id not in config: config[guild_id] = {'modules': {}}
+                is_enabled = 'enabled' in request.form
+                config[guild_id]['modules']['moderation'] = is_enabled
+                save_module_config(config)
+                log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "moderation", "enabled": is_enabled})
+                flash("Módulo de Moderación actualizado.", "success")
+                return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
+            
+            elif action == 'save_moderation':
+                config = load_moderation_config(guild_id_int)
+                # Auto-Mod
+                config['automod']['enabled'] = 'automod_enabled' in request.form
+                config['automod']['forbidden_words'] = [word.strip() for word in request.form.get('forbidden_words', '').splitlines() if word.strip()]
+                config['automod']['forbidden_words_action'] = request.form.get('forbidden_words_action')
+                config['automod']['block_links'] = 'block_links' in request.form
+                config['automod']['block_links_action'] = request.form.get('block_links_action')
+                config['automod']['block_nsfw'] = 'block_nsfw' in request.form
+                config['automod']['block_nsfw_action'] = request.form.get('block_nsfw_action')
+                # Warnings
+                config['warnings']['enabled'] = 'warnings_enabled' in request.form
+                config['warnings']['limit'] = int(request.form.get('warning_limit', 3))
+                config['warnings']['dm_user'] = 'warn_dm_user' in request.form
+                # Commands
+                config['commands']['enabled'] = 'commands_enabled' in request.form
+                config['commands']['cleanc'] = 'command_cleanc_enabled' in request.form
+                config['commands']['lock'] = 'command_lock_enabled' in request.form
+                # Vault
+                config['vault']['enabled'] = 'vault_enabled' in request.form
+                
+                save_moderation_config(guild_id_int, config)
+                log_action(user_info, "Guardada Configuración de Moderación", {"guild_id": guild_id})
+                flash("Configuración de moderación guardada con éxito.", "success")
+                return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
+            
+            elif action == 'remove_warning':
+                user_id_to_clear = request.form.get('user_id')
+                warnings_log = load_warnings_log(guild_id_int)
+                if user_id_to_clear in warnings_log and warnings_log[user_id_to_clear]['warnings']:
+                    warnings_log[user_id_to_clear]['warnings'].pop()
+                    if not warnings_log[user_id_to_clear]['warnings']: # Si no quedan advertencias, se elimina al usuario
+                        del warnings_log[user_id_to_clear]
+                    save_warnings_log(guild_id_int, warnings_log)
+                    flash("Última advertencia eliminada.", "success")
+                else:
+                    flash("El usuario no tiene advertencias para eliminar.", "warning")
+                return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
+
+            elif action == 'create_backup':
+                command = {'command': 'create_backup', 'guild_id': guild_id_int, 'user_id': user_info['id']}
+                redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
+                flash("La creación del backup se ha puesto en cola. Aparecerá en la lista en breve.", "info")
+                return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
+            
+            elif action == 'delete_backup':
+                backup_id_to_delete = request.form.get('backup_id')
+                backups = load_backups(guild_id_int)
+                new_backups = [b for b in backups if b['id'] != backup_id_to_delete]
+                if len(new_backups) < len(backups):
+                    save_backups(guild_id_int, new_backups)
+                    flash("Backup eliminado.", "success")
+                else:
+                    flash("No se encontró el backup a eliminar.", "danger")
+                return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
+            # --- FIN DE LA MODIFICACIÓN ---
 
             elif action == 'save_all':
                 log_action(user_info, "Guardada Configuración Completa", {"guild_id": guild_id, "form_data": request.form.to_dict()})
@@ -411,14 +518,18 @@ def select_page(guild_id, page):
     guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
 
     module_config = load_module_config()
-    module_status = module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False)
+    # Determinar el estado del módulo basándose en la página actual
+    if page == 'moderation':
+        module_status = module_config.get(guild_id, {}).get('modules', {}).get('moderation', False)
+    else: # Por defecto, o para 'modules', 'training', etc.
+        module_status = module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False)
 
     render_data = {
         "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot,
         "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page, "module_status": module_status
     }
     
-    template_map = {"modules": "module_ticket_ia.html", "membership": "membership.html", "profile": "profile.html", "training": "training.html"}
+    template_map = {"modules": "module_ticket_ia.html", "membership": "membership.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html"}
     template_to_render = template_map.get(page, "under_construction.html")
     
     if page in ['modules', 'training']:
@@ -439,6 +550,13 @@ def select_page(guild_id, page):
     
     elif page == 'membership':
         render_data['subscription'] = get_subscription_status(guild_id_int)
+
+    # --- INICIO DE LA MODIFICACIÓN: Datos para el Módulo de Moderación ---
+    elif page == 'moderation':
+        render_data['moderation_config'] = load_moderation_config(guild_id_int)
+        render_data['warnings_log'] = load_warnings_log(guild_id_int)
+        render_data['backups'] = load_backups(guild_id_int)
+    # --- FIN DE LA MODIFICACIÓN ---
         
     return render_template(template_to_render, **render_data)
 
