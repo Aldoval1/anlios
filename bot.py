@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands, tasks
+from discord import app_commands
 import os
 import json
 import google.generativeai as genai
@@ -8,7 +9,7 @@ import asyncio
 import redis
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import io
 
 # --- CONFIGURACIÓN INICIAL ---
@@ -19,15 +20,13 @@ intents.message_content = True
 intents.members = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- INICIO DE LA MODIFICACIÓN: Cargar traducciones del bot ---
+# --- Cargar traducciones del bot ---
 bot_translations = {}
 try:
     with open('bot_translations.json', 'r', encoding='utf-8') as f:
         bot_translations = json.load(f)
 except Exception as e:
     print(f"ERROR: No se pudo cargar el archivo de traducciones del bot: {e}")
-# --- FIN DE LA MODIFICACIÓN ---
-
 
 # --- CONFIGURACIÓN DE REDIS ---
 try:
@@ -52,7 +51,11 @@ REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 REDIS_CODES_KEY = "premium_codes"
-PREMIUM_ROLE_ID = 1401935354575065158
+# --- INICIO DE LA MODIFICACIÓN: Nuevas claves de Redis ---
+REDIS_MODERATION_CONFIG_KEY = "moderation_config:{}"
+REDIS_WARNINGS_LOG_KEY = "warnings_log:{}"
+REDIS_BACKUPS_KEY = "backups:{}"
+# --- FIN DE LA MODIFICACIÓN ---
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
 def load_data_from_redis(key: str, default_value):
@@ -84,18 +87,33 @@ def load_ticket_config(guild_id: int) -> dict:
     config.setdefault('language', 'es')
     return config
 
-# --- INICIO DE LA MODIFICACIÓN: Función de traducción del bot ---
+# --- INICIO DE LA MODIFICACIÓN: Funciones para el Módulo de Moderación ---
+def load_moderation_config(guild_id: int) -> dict:
+    default_config = {
+        "automod": {"enabled": False, "forbidden_words": [], "forbidden_words_action": "delete", "block_links": False, "block_links_action": "delete", "block_nsfw": False, "block_nsfw_action": "delete"},
+        "warnings": {"enabled": False, "limit": 3, "dm_user": True},
+        "commands": {"enabled": False, "cleanc": False, "lock": False},
+        "vault": {"enabled": False}
+    }
+    key = REDIS_MODERATION_CONFIG_KEY.format(guild_id)
+    config = load_data_from_redis(key, {})
+    for section, defaults in default_config.items():
+        if section not in config: config[section] = defaults
+        else:
+            for sub_key, value in defaults.items(): config[section].setdefault(sub_key, value)
+    return config
+
+def load_warnings_log(guild_id: int) -> dict: return load_data_from_redis(REDIS_WARNINGS_LOG_KEY.format(guild_id), {})
+def save_warnings_log(guild_id: int, data: dict): save_data_to_redis(REDIS_WARNINGS_LOG_KEY.format(guild_id), data)
+def load_backups(guild_id: int) -> list: return load_data_from_redis(REDIS_BACKUPS_KEY.format(guild_id), [])
+def save_backups(guild_id: int, data: list): save_data_to_redis(REDIS_BACKUPS_KEY.format(guild_id), data)
+# --- FIN DE LA MODIFICACIÓN ---
+
 def _(guild_id: int, key: str, **kwargs):
-    """Obtiene una cadena de texto traducida para un servidor específico."""
     config = load_ticket_config(guild_id)
     lang = config.get('language', 'es')
-    
     text = bot_translations.get(lang, {}).get(key, key)
-    
-    if kwargs:
-        return text.format(**kwargs)
-    return text
-# --- FIN DE LA MODIFICACIÓN ---
+    return text.format(**kwargs) if kwargs else text
 
 def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowledge:{guild_id}", [])
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
@@ -107,30 +125,23 @@ def load_embed_config(guild_id: int) -> dict:
     }
     config = load_data_from_redis(f"embed_config:{guild_id}", {})
     for key, value in default_config.items():
-        if key not in config:
-            config[key] = value
+        if key not in config: config[key] = value
         elif isinstance(value, dict):
             for sub_key, sub_value in value.items():
-                if sub_key not in config[key]:
-                    config[key][sub_key] = sub_value
+                if sub_key not in config[key]: config[key][sub_key] = sub_value
     return config
 def load_module_config() -> dict: return load_data_from_redis("module_config", {})
 
-# --- FUNCIÓN PARA ENVIAR LOGS ---
 async def send_ticket_log(guild: discord.Guild, title: str, description: str, color: discord.Color, author: discord.Member, file: discord.File = None):
     config = load_ticket_config(guild.id)
-    if not config.get('log_enabled') or not config.get('log_channel_id'):
-        return
-
+    if not config.get('log_enabled') or not config.get('log_channel_id'): return
     log_channel = guild.get_channel(int(config['log_channel_id']))
     if not log_channel:
         print(f"Error de Log: Canal {config['log_channel_id']} no encontrado en el servidor {guild.name}.")
         return
-
     embed = discord.Embed(title=title, description=description, color=color, timestamp=datetime.utcnow())
     embed.set_author(name=str(author), icon_url=author.display_avatar.url)
     embed.set_footer(text=f"ID de Usuario: {author.id}")
-    
     await log_channel.send(embed=embed, file=file)
 
 def update_guilds_in_redis():
@@ -160,7 +171,6 @@ class TicketActionsView(discord.ui.View):
     def __init__(self, guild_id: int): 
         super().__init__(timeout=None)
         self.guild_id = guild_id
-        # Actualizar etiquetas de los botones con el idioma correcto
         self.claim_button.label = _(guild_id, "Reclamar Ticket")
         self.close_button.label = _(guild_id, "Cerrar Ticket")
 
@@ -206,14 +216,7 @@ class TicketActionsView(discord.ui.View):
             transcript_file = discord.File(buffer, filename=f"transcript-{interaction.channel.name}.txt")
 
         log_description = _(interaction.guild.id, "LOG_TICKET_CLOSED_DESC", channel_name=interaction.channel.name, user_mention=interaction.user.mention)
-        await send_ticket_log(
-            interaction.guild, 
-            _(interaction.guild.id, "LOG_TICKET_CLOSED_TITLE"), 
-            log_description, 
-            discord.Color.red(), 
-            interaction.user, 
-            file=transcript_file
-        )
+        await send_ticket_log(interaction.guild, _(interaction.guild.id, "LOG_TICKET_CLOSED_TITLE"), log_description, discord.Color.red(), interaction.user, file=transcript_file)
         
         await asyncio.sleep(5)
         await interaction.channel.delete(reason=f"Ticket cerrado por {interaction.user}")
@@ -275,6 +278,54 @@ async def check_command_queue():
                 panel_embed = build_embed_from_config(panel_config)
                 view = TicketCreateView(button_label=panel_config.get('button_label', 'Crear Ticket'))
                 await channel.send(embed=panel_embed, view=view)
+        
+        # --- INICIO DE LA MODIFICACIÓN: Lógica para Anlios Vault ---
+        elif command == 'create_backup':
+            guild_id = command_data.get('guild_id')
+            guild = bot.get_guild(guild_id)
+            if not guild: return
+
+            icon_url = str(guild.icon.url) if guild.icon else None
+            
+            roles_data = []
+            for role in sorted(guild.roles, key=lambda r: r.position, reverse=True):
+                if role.is_default(): continue
+                roles_data.append({
+                    "name": role.name, "permissions": role.permissions.value,
+                    "color": role.color.value, "hoist": role.hoist,
+                    "mentionable": role.mentionable
+                })
+
+            channels_data = []
+            for category, channels in guild.by_category():
+                category_data = None
+                if category:
+                    category_data = {
+                        "name": category.name, "type": "category",
+                        "overwrites": [{"role_name": role.name, "permissions": perms.value} for role, perms in category.overwrites.items()]
+                    }
+                
+                channel_list = []
+                for channel in channels:
+                    channel_list.append({
+                        "name": channel.name, "type": str(channel.type),
+                        "topic": getattr(channel, 'topic', None),
+                        "overwrites": [{"role_name": role.name, "permissions": perms.value} for role, perms in channel.overwrites.items()]
+                    })
+                
+                channels_data.append({"category": category_data, "channels": channel_list})
+
+            backup = {
+                "id": str(uuid.uuid4()), "timestamp": time.time(),
+                "name": guild.name, "icon_url": icon_url,
+                "roles": roles_data, "channels": channels_data
+            }
+            
+            backups = load_backups(guild_id)
+            backups.append(backup)
+            save_backups(guild_id, backups)
+            print(f"Backup creado para el servidor {guild.name} (ID: {backup['id']})")
+        # --- FIN DE LA MODIFICACIÓN ---
 
     except Exception as e: print(f"[TAREA] ERROR: {e}")
 
@@ -287,9 +338,16 @@ async def on_ready():
         config = load_embed_config(guild_id)
         button_label = config.get('panel', {}).get('button_label', 'Crear Ticket')
         bot.add_view(TicketCreateView(button_label=button_label))
-        bot.add_view(TicketActionsView(guild_id=guild_id)) # Registrar la vista con el guild_id
+        bot.add_view(TicketActionsView(guild_id=guild_id))
     update_guilds_in_redis()
     check_command_queue.start()
+    # --- INICIO DE LA MODIFICACIÓN: Sincronizar comandos slash ---
+    try:
+        synced = await bot.tree.sync()
+        print(f"Sincronizados {len(synced)} comandos slash.")
+    except Exception as e:
+        print(f"Error al sincronizar comandos: {e}")
+    # --- FIN DE LA MODIFICACIÓN ---
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
@@ -303,15 +361,53 @@ async def on_guild_remove(guild: discord.Guild):
 
 @bot.event
 async def on_message(message: discord.Message):
-    await bot.process_commands(message)
-    if message.author.bot or not message.channel.name.startswith('ticket-'): return
-    
-    module_config = load_module_config()
-    if not module_config.get(str(message.guild.id), {}).get('modules', {}).get('ticket_ia', False): return
-    
-    if CLAIMED_TAG in message.channel.name:
+    if message.author.bot or not message.guild:
+        await bot.process_commands(message)
         return
 
+    # --- INICIO DE LA MODIFICACIÓN: Lógica de Auto-Mod ---
+    module_config = load_module_config()
+    moderation_enabled = module_config.get(str(message.guild.id), {}).get('modules', {}).get('moderation', False)
+    
+    if moderation_enabled and not message.author.guild_permissions.manage_messages:
+        mod_config = load_moderation_config(message.guild.id)
+        automod_config = mod_config.get('automod', {})
+        
+        if automod_config.get('enabled'):
+            # 1. Filtro de palabras prohibidas
+            forbidden_words = automod_config.get('forbidden_words', [])
+            if any(word in message.content.lower() for word in forbidden_words):
+                action = automod_config.get('forbidden_words_action')
+                await message.delete()
+                if action == 'warn':
+                    await warn_user(message.author, message.guild, _(message.guild.id, "AUTO_WARN_REASON_WORD"))
+                elif action == 'timeout':
+                    await message.author.timeout(timedelta(minutes=10), reason=_(message.guild.id, "AUTO_TIMEOUT_REASON_WORD"))
+                return # Detener procesamiento si se encuentra una infracción
+
+            # 2. Filtro de enlaces (simplificado)
+            if automod_config.get('block_links') and ('http://' in message.content or 'https://' in message.content):
+                action = automod_config.get('block_links_action')
+                await message.delete()
+                reason = _(message.guild.id, "AUTO_REASON_LINK")
+                if action == 'warn': await warn_user(message.author, message.guild, reason)
+                elif action == 'kick': await message.author.kick(reason=reason)
+                elif action == 'ban': await message.author.ban(reason=reason)
+                return
+            
+            # 3. Filtro NSFW (placeholder - requiere IA de visión)
+            # La implementación real requeriría una API externa de análisis de imágenes.
+            if automod_config.get('block_nsfw') and message.attachments:
+                # Aquí iría la lógica para analizar message.attachments[0].url
+                pass
+
+    # --- FIN DE LA MODIFICACIÓN ---
+    
+    await bot.process_commands(message)
+    if not message.channel.name.startswith('ticket-'): return
+    
+    if not module_config.get(str(message.guild.id), {}).get('modules', {}).get('ticket_ia', False): return
+    if CLAIMED_TAG in message.channel.name: return
     if not GEMINI_API_KEY: return
     
     async with message.channel.typing():
@@ -321,18 +417,12 @@ async def on_message(message: discord.Message):
         knowledge_parts = []
         for item in knowledge:
             if isinstance(item, dict):
-                content = item.get('content', '')
-                item_type = item.get('type')
-                if item_type == 'pdf':
-                    knowledge_parts.append(f"Contenido del PDF '{item.get('filename', 'N/A')}':\n{content}")
-                elif item_type == 'web':
-                    knowledge_parts.append(f"Contenido de la web {item.get('source', 'N/A')}:\n{content}")
-                elif item_type == 'youtube':
-                    knowledge_parts.append(f"Transcripción de YouTube {item.get('source', 'N/A')}:\n{content}")
-                else: # text
-                    knowledge_parts.append(content)
-            else:
-                knowledge_parts.append(str(item)) 
+                content, item_type = item.get('content', ''), item.get('type')
+                if item_type == 'pdf': knowledge_parts.append(f"Contenido del PDF '{item.get('filename', 'N/A')}':\n{content}")
+                elif item_type == 'web': knowledge_parts.append(f"Contenido de la web {item.get('source', 'N/A')}:\n{content}")
+                elif item_type == 'youtube': knowledge_parts.append(f"Transcripción de YouTube {item.get('source', 'N/A')}:\n{content}")
+                else: knowledge_parts.append(content)
+            else: knowledge_parts.append(str(item)) 
 
         knowledge_text = "\n\n".join(f"- {part}" for part in knowledge_parts) if knowledge_parts else "No hay información específica proporcionada."
 
@@ -353,30 +443,96 @@ async def on_message(message: discord.Message):
             if response_text.strip().startswith(NO_KNOWLEDGE_TAG):
                 training_queue_key = f"{REDIS_TRAINING_QUEUE_KEY}:{message.guild.id}"
                 pending_questions = load_data_from_redis(training_queue_key, [])
-                
-                new_question = {
-                    "id": str(uuid.uuid4()),
-                    "question": message.content,
-                    "user": message.author.name
-                }
+                new_question = {"id": str(uuid.uuid4()), "question": message.content, "user": message.author.name}
                 pending_questions.append(new_question)
                 save_data_to_redis(training_queue_key, pending_questions)
-                
                 await message.reply(_(message.guild.id, "AI_NO_KNOWLEDGE"))
             else:
                 await message.reply(response_text)
-
         except Exception as e:
             print(f"Error en Gemini: {e}")
             await message.reply(_(message.guild.id, "AI_ERROR"))
 
-# --- COMANDOS DEL BOT ---
-@bot.command()
-@commands.guild_only()
-@commands.is_owner()
-async def sync(ctx: commands.Context):
-    synced = await bot.tree.sync()
-    await ctx.send(f"Sincronizados {len(synced)} comandos.")
+# --- INICIO DE LA MODIFICACIÓN: Comandos Slash de Moderación ---
+async def warn_user(member: discord.Member, guild: discord.Guild, reason: str):
+    """Función auxiliar para advertir a un usuario y verificar el límite."""
+    mod_config = load_moderation_config(guild.id)
+    if not mod_config['warnings']['enabled']: return
+
+    warnings_log = load_warnings_log(guild.id)
+    user_id = str(member.id)
+    
+    if user_id not in warnings_log:
+        warnings_log[user_id] = {"username": member.name, "warnings": []}
+    
+    warnings_log[user_id]['warnings'].append({"reason": reason, "timestamp": time.time()})
+    
+    limit = mod_config['warnings']['limit']
+    current_warnings = len(warnings_log[user_id]['warnings'])
+
+    if mod_config['warnings']['dm_user']:
+        try:
+            await member.send(_(guild.id, "WARN_DM", guild_name=guild.name, reason=reason, current_warnings=current_warnings, limit=limit))
+        except discord.Forbidden:
+            pass # No se puede enviar DM al usuario
+
+    if current_warnings >= limit:
+        await member.ban(reason=_(guild.id, "BAN_REASON_WARN_LIMIT", limit=limit))
+        del warnings_log[user_id] # Limpiar registro después del baneo
+    
+    save_warnings_log(guild.id, warnings_log)
+    return current_warnings, limit
+
+@bot.tree.command(name="warn", description="Advierte a un usuario.")
+@app_commands.describe(member="El miembro a advertir", reason="La razón de la advertencia")
+@app_commands.checks.has_permissions(kick_members=True)
+async def warn(interaction: discord.Interaction, member: discord.Member, reason: str):
+    current_warnings, limit = await warn_user(member, interaction.guild, reason)
+    await interaction.response.send_message(_(interaction.guild.id, "WARN_SUCCESS", member_name=member.name, reason=reason, current_warnings=current_warnings, limit=limit), ephemeral=True)
+
+@bot.tree.command(name="cleanc", description="Borra y recrea el canal actual.")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def cleanc(interaction: discord.Interaction):
+    class ConfirmationView(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=30)
+            self.value = None
+        
+        @discord.ui.button(label="Confirmar", style=discord.ButtonStyle.danger)
+        async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+            self.value = True
+            self.stop()
+        
+        @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.grey)
+        async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+            self.value = False
+            self.stop()
+
+    view = ConfirmationView()
+    await interaction.response.send_message(_(interaction.guild.id, "CLEANC_CONFIRM"), view=view, ephemeral=True)
+    await view.wait()
+
+    if view.value is True:
+        channel = interaction.channel
+        try:
+            new_channel = await channel.clone(reason=f"Clonado por {interaction.user}")
+            await channel.delete(reason=f"Canal limpiado por {interaction.user}")
+            await new_channel.send(_(interaction.guild.id, "CLEANC_SUCCESS"))
+        except discord.HTTPException as e:
+            await interaction.followup.send(f"Error: {e}", ephemeral=True)
+
+@bot.tree.command(name="lock", description="Bloquea el canal actual.")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def lock(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
+    await interaction.response.send_message(_(interaction.guild.id, "LOCK_SUCCESS"))
+
+@bot.tree.command(name="unlock", description="Desbloquea el canal actual.")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def unlock(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=None)
+    await interaction.response.send_message(_(interaction.guild.id, "UNLOCK_SUCCESS"))
+# --- FIN DE LA MODIFICACIÓN ---
 
 # --- EJECUCIÓN DEL BOT ---
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
