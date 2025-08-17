@@ -4,19 +4,12 @@
 {% block dashboard_content %}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>{{ _('Module: Moderation') }}</h1>
-        <form method="POST">
-            <input type="hidden" name="action" value="toggle_moderation_module">
-            <div class="form-check form-switch fs-5">
-                <input class="form-check-input" type="checkbox" role="switch" id="module-toggle" name="enabled" {% if module_status %}checked{% endif %} onchange="this.form.submit()">
-                <label class="form-check-label" for="module-toggle">{{ _('Enabled') }}</label>
-            </div>
-        </form>
     </div>
 
     {% if module_status %}
-    <div class="row g-5">
-        <div class="col-12">
-            <form method="POST" id="main-config-form">
+    <form method="POST">
+        <div class="row g-5">
+            <div class="col-12">
                 
                 <!-- SECCIÓN 1: Auto-Mod -->
                 <section id="automod-section" class="mb-5">
@@ -118,11 +111,7 @@
                                                 <td>{{ data.username }} ({{ user_id }})</td>
                                                 <td>{{ data.warnings | length }} / {{ moderation_config.warnings.limit }}</td>
                                                 <td>
-                                                    <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="action" value="remove_warning">
-                                                        <input type="hidden" name="user_id" value="{{ user_id }}">
-                                                        <button type="submit" class="btn btn-danger btn-sm">{{ _('Remove Last Warning') }}</button>
-                                                    </form>
+                                                    <button type="submit" name="action_remove_warning" value="{{ user_id }}" class="btn btn-danger btn-sm">{{ _('Remove Last Warning') }}</button>
                                                 </td>
                                             </tr>
                                             {% else %}
@@ -189,10 +178,7 @@
                             <div class="card-header"><h5>{{ _('Create Server Backup') }}</h5></div>
                             <div class="card-body">
                                 <p class="text-muted small">{{ _('This will create a backup of roles, channels, server icon, and permissions. You can load this backup on any other server where you are the owner.') }}</p>
-                                <form method="POST">
-                                    <input type="hidden" name="action" value="create_backup">
-                                    <button type="submit" class="btn btn-primary w-100">{{ _('Create Backup') }}</button>
-                                </form>
+                                <button type="submit" name="action" value="create_backup" class="btn btn-primary w-100">{{ _('Create Backup') }}</button>
                             </div>
                         </div>
                         <div class="card shadow-sm">
@@ -205,11 +191,7 @@
                                             <code>ID: {{ backup.id }}</code>
                                             <p class="text-muted small mb-0">{{ _('Created on:') }} {{ backup.timestamp | timestamp_to_date }}</p>
                                         </div>
-                                        <form method="POST" class="d-inline">
-                                            <input type="hidden" name="action" value="delete_backup">
-                                            <input type="hidden" name="backup_id" value="{{ backup.id }}">
-                                            <button type="submit" class="btn btn-danger btn-sm">{{ _('Delete') }}</button>
-                                        </form>
+                                        <button type="submit" name="action_delete_backup" value="{{ backup.id }}" class="btn btn-danger btn-sm">{{ _('Delete') }}</button>
                                     </li>
                                     {% else %}
                                     <li class="list-group-item text-muted">{{ _('No backups have been created yet.') }}</li>
@@ -221,9 +203,15 @@
                 </section>
 
                 <button type="submit" name="action" value="save_moderation" class="btn btn-success w-100 btn-lg">{{ _('Save Moderation Settings') }}</button>
-            </form>
+            </div>
         </div>
-    </div>
+    </form>
+    {% else %}
+        <div class="initial-prompt-wrapper">
+             <img src="{{ url_for('static', filename='images/warning.gif') }}" alt="Módulo Deshabilitado" class="prompt-gif">
+             <p class="prompt-text">{{ _('This module is disabled.') }}</p>
+             <p class="text-muted">{{ _('Enable it from the sidebar to configure it.') }}</p>
+        </div>
     {% endif %}
 {% endblock %}
 
