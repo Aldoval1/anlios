@@ -313,9 +313,36 @@ def select_page(guild_id, page):
     
     if request.method == 'POST':
         try:
-            action = request.form.get('action')
             user_info = session.get('user', {'username': 'Desconocido', 'id': 'Desconocido'})
+            
+            # --- INICIO DE LA MODIFICACIÓN: Lógica de POST refactorizada ---
+            # Acciones con ID específico (desde botones con name="action_..."):
+            if 'action_remove_warning' in request.form:
+                user_id_to_clear = request.form.get('action_remove_warning')
+                warnings_log = load_warnings_log(guild_id_int)
+                if user_id_to_clear in warnings_log and warnings_log[user_id_to_clear]['warnings']:
+                    warnings_log[user_id_to_clear]['warnings'].pop()
+                    if not warnings_log[user_id_to_clear]['warnings']:
+                        del warnings_log[user_id_to_clear]
+                    save_warnings_log(guild_id_int, warnings_log)
+                    flash("Última advertencia eliminada.", "success")
+                else:
+                    flash("El usuario no tiene advertencias para eliminar.", "warning")
+                return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
+            elif 'action_delete_backup' in request.form:
+                backup_id_to_delete = request.form.get('action_delete_backup')
+                backups = load_backups(guild_id_int)
+                new_backups = [b for b in backups if b['id'] != backup_id_to_delete]
+                if len(new_backups) < len(backups):
+                    save_backups(guild_id_int, new_backups)
+                    flash("Backup eliminado.", "success")
+                else:
+                    flash("No se encontró el backup a eliminar.", "danger")
+                return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
+
+            # Acciones generales (desde botones con name="action"):
+            action = request.form.get('action')
             if action == 'toggle_module':
                 config = load_module_config()
                 if guild_id not in config: config[guild_id] = {'modules': {}}
@@ -356,35 +383,11 @@ def select_page(guild_id, page):
                 log_action(user_info, "Guardada Configuración de Moderación", {"guild_id": guild_id})
                 flash("Configuración de moderación guardada con éxito.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
-            
-            elif action == 'remove_warning':
-                user_id_to_clear = request.form.get('user_id')
-                warnings_log = load_warnings_log(guild_id_int)
-                if user_id_to_clear in warnings_log and warnings_log[user_id_to_clear]['warnings']:
-                    warnings_log[user_id_to_clear]['warnings'].pop()
-                    if not warnings_log[user_id_to_clear]['warnings']:
-                        del warnings_log[user_id_to_clear]
-                    save_warnings_log(guild_id_int, warnings_log)
-                    flash("Última advertencia eliminada.", "success")
-                else:
-                    flash("El usuario no tiene advertencias para eliminar.", "warning")
-                return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
             elif action == 'create_backup':
                 command = {'command': 'create_backup', 'guild_id': guild_id_int, 'user_id': user_info['id']}
                 redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
                 flash("La creación del backup se ha puesto en cola. Aparecerá en la lista en breve.", "info")
-                return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
-            
-            elif action == 'delete_backup':
-                backup_id_to_delete = request.form.get('backup_id')
-                backups = load_backups(guild_id_int)
-                new_backups = [b for b in backups if b['id'] != backup_id_to_delete]
-                if len(new_backups) < len(backups):
-                    save_backups(guild_id_int, new_backups)
-                    flash("Backup eliminado.", "success")
-                else:
-                    flash("No se encontró el backup a eliminar.", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
             elif action == 'save_all':
@@ -467,7 +470,7 @@ def select_page(guild_id, page):
                 except Exception as e:
                     flash(f"Error al procesar la fuente: {e}", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
-
+            # --- FIN DE LA MODIFICACIÓN ---
         except Exception as e:
             app.logger.error(f"Error al procesar formulario: {e}")
             flash(f"Error al guardar: {e}", "danger")
@@ -490,7 +493,7 @@ def select_page(guild_id, page):
         'moderation': module_config.get(guild_id, {}).get('modules', {}).get('moderation', False)
     }
     
-    module_status = module_statuses.get(page if page == 'moderation' else 'ticket_ia', False)
+    module_status = module_statuses.get('moderation' if page == 'moderation' else 'ticket_ia', False)
 
     render_data = {
         "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot,
