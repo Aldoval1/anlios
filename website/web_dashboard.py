@@ -35,17 +35,14 @@ except Exception as e:
 
 @app.before_request
 def before_request():
-    # --- INICIO DE LA MODIFICACIÓN: Detección Automática de Idioma ---
     if 'lang' not in session:
-        # Detectar el idioma desde las cabeceras del navegador
         browser_lang = request.headers.get('Accept-Language', 'en')
         if browser_lang.lower().startswith('es'):
             session['lang'] = 'es'
         else:
             session['lang'] = 'en'
     
-    g.lang = session.get('lang', 'en') # Usar 'en' como fallback seguro
-    # --- FIN DE LA MODIFICACIÓN ---
+    g.lang = session.get('lang', 'en')
 
 @app.context_processor
 def inject_translations():
@@ -167,7 +164,6 @@ def save_embed_config(guild_id: int, data: dict): save_data_to_redis(f"embed_con
 def load_module_config() -> dict: return load_data_from_redis("module_config", {})
 def save_module_config(data: dict): save_data_to_redis("module_config", data)
 
-# --- INICIO DE LA MODIFICACIÓN: Funciones para el Módulo de Moderación ---
 def load_moderation_config(guild_id: int) -> dict:
     default_config = {
         "automod": {
@@ -180,7 +176,6 @@ def load_moderation_config(guild_id: int) -> dict:
         "vault": {"enabled": False}
     }
     config = load_data_from_redis(f"moderation_config:{guild_id}", {})
-    # Rellenar claves faltantes para evitar errores en la plantilla
     for section, defaults in default_config.items():
         if section not in config:
             config[section] = defaults
@@ -203,8 +198,6 @@ def load_backups(guild_id: int) -> list:
 
 def save_backups(guild_id: int, data: list):
     save_data_to_redis(f"backups:{guild_id}", data)
-# --- FIN DE LA MODIFICACIÓN ---
-
 
 def make_user_session(token=None):
     def token_updater(new_token): session['discord_token'] = new_token
@@ -294,6 +287,12 @@ def profile_page():
         guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
         guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
 
+        module_config = load_module_config()
+        module_statuses = {
+            'ticket_ia': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('ticket_ia', False),
+            'moderation': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('moderation', False)
+        }
+
         return render_template("profile.html", 
                                user=session['user'], 
                                guilds_with_bot=guilds_with_bot, 
@@ -301,7 +300,7 @@ def profile_page():
                                client_id=CLIENT_ID,
                                active_guild_id=None, 
                                page='profile',
-                               module_status=None)
+                               module_statuses=module_statuses)
     except TokenExpiredError:
         return redirect(url_for('logout'))
 
@@ -309,6 +308,7 @@ def profile_page():
 @app.route("/dashboard/<guild_id>/<page>", methods=['GET', 'POST'])
 def select_page(guild_id, page):
     if 'discord_token' not in session: return redirect(url_for('login'))
+    session['active_guild_id'] = guild_id
     guild_id_int = int(guild_id)
     
     if request.method == 'POST':
@@ -323,9 +323,9 @@ def select_page(guild_id, page):
                 config[guild_id]['modules']['ticket_ia'] = is_enabled
                 save_module_config(config)
                 log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "ticket_ia", "enabled": is_enabled})
-                flash("Módulo actualizado.", "success")
-            
-            # --- INICIO DE LA MODIFICACIÓN: Lógica para el Módulo de Moderación ---
+                flash("Módulo Ticket I.A actualizado.", "success")
+                return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
+
             elif action == 'toggle_moderation_module':
                 config = load_module_config()
                 if guild_id not in config: config[guild_id] = {'modules': {}}
@@ -338,7 +338,6 @@ def select_page(guild_id, page):
             
             elif action == 'save_moderation':
                 config = load_moderation_config(guild_id_int)
-                # Auto-Mod
                 config['automod']['enabled'] = 'automod_enabled' in request.form
                 config['automod']['forbidden_words'] = [word.strip() for word in request.form.get('forbidden_words', '').splitlines() if word.strip()]
                 config['automod']['forbidden_words_action'] = request.form.get('forbidden_words_action')
@@ -346,17 +345,13 @@ def select_page(guild_id, page):
                 config['automod']['block_links_action'] = request.form.get('block_links_action')
                 config['automod']['block_nsfw'] = 'block_nsfw' in request.form
                 config['automod']['block_nsfw_action'] = request.form.get('block_nsfw_action')
-                # Warnings
                 config['warnings']['enabled'] = 'warnings_enabled' in request.form
                 config['warnings']['limit'] = int(request.form.get('warning_limit', 3))
                 config['warnings']['dm_user'] = 'warn_dm_user' in request.form
-                # Commands
                 config['commands']['enabled'] = 'commands_enabled' in request.form
                 config['commands']['cleanc'] = 'command_cleanc_enabled' in request.form
                 config['commands']['lock'] = 'command_lock_enabled' in request.form
-                # Vault
                 config['vault']['enabled'] = 'vault_enabled' in request.form
-                
                 save_moderation_config(guild_id_int, config)
                 log_action(user_info, "Guardada Configuración de Moderación", {"guild_id": guild_id})
                 flash("Configuración de moderación guardada con éxito.", "success")
@@ -367,7 +362,7 @@ def select_page(guild_id, page):
                 warnings_log = load_warnings_log(guild_id_int)
                 if user_id_to_clear in warnings_log and warnings_log[user_id_to_clear]['warnings']:
                     warnings_log[user_id_to_clear]['warnings'].pop()
-                    if not warnings_log[user_id_to_clear]['warnings']: # Si no quedan advertencias, se elimina al usuario
+                    if not warnings_log[user_id_to_clear]['warnings']:
                         del warnings_log[user_id_to_clear]
                     save_warnings_log(guild_id_int, warnings_log)
                     flash("Última advertencia eliminada.", "success")
@@ -391,11 +386,9 @@ def select_page(guild_id, page):
                 else:
                     flash("No se encontró el backup a eliminar.", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
-            # --- FIN DE LA MODIFICACIÓN ---
 
             elif action == 'save_all':
                 log_action(user_info, "Guardada Configuración Completa", {"guild_id": guild_id, "form_data": request.form.to_dict()})
-                
                 ticket_config = load_ticket_config(guild_id_int)
                 log_enabled = 'log_enabled' in request.form
                 log_channel_id = request.form.get('log_channel_id')
@@ -443,40 +436,19 @@ def select_page(guild_id, page):
                         page_req = requests.get(url, timeout=30, headers=headers)
                         page_req.raise_for_status()
                         soup = BeautifulSoup(page_req.content, 'html.parser')
-                        knowledge_item = {
-                            "type": "web",
-                            "source": url,
-                            "content": soup.get_text(separator=' ', strip=True)
-                        }
+                        knowledge_item = {"type": "web", "source": url, "content": soup.get_text(separator=' ', strip=True)}
                     elif action == 'knowledge_youtube':
                         url = request.form.get('youtube_url')
                         if not url: raise ValueError("La URL no puede estar vacía.")
-                        
                         video_id_match = re.search(r'(?:v=|\/|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})', url)
-                        if not video_id_match:
-                            raise ValueError("URL de YouTube no válida o ID no encontrado.")
+                        if not video_id_match: raise ValueError("URL de YouTube no válida o ID no encontrado.")
                         video_id = video_id_match.group(1)
-
                         try:
                             transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-                            preferred_languages = ['es', 'en']
-                            transcript = None
-                            try:
-                                transcript = transcript_list.find_transcript(preferred_languages)
-                            except NoTranscriptFound:
-                                try:
-                                    transcript = next(iter(transcript_list))
-                                except StopIteration:
-                                    raise NoTranscriptFound("No hay ninguna transcripción disponible para este video.")
-
+                            transcript = transcript_list.find_transcript(['es', 'en'])
                             transcript_data = transcript.fetch()
                             transcript_text = ' '.join([t['text'] for t in transcript_data])
-
-                            knowledge_item = {
-                                "type": "youtube",
-                                "source": url,
-                                "content": transcript_text
-                            }
+                            knowledge_item = {"type": "youtube", "source": url, "content": transcript_text}
                         except (NoTranscriptFound, TranscriptsDisabled):
                             raise ValueError("No se pudieron obtener los subtítulos para este video.")
                     elif action == 'knowledge_pdf':
@@ -485,22 +457,16 @@ def select_page(guild_id, page):
                         if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
                         reader = PyPDF2.PdfReader(file.stream)
                         pdf_text = ''.join(page.extract_text() for page in reader.pages)
-                        knowledge_item = {
-                            "type": "pdf",
-                            "filename": file.filename,
-                            "content": pdf_text
-                        }
+                        knowledge_item = {"type": "pdf", "filename": file.filename, "content": pdf_text}
                     
                     if knowledge_item:
                         knowledge = load_knowledge(guild_id_int)
                         knowledge.append(knowledge_item)
                         save_knowledge(guild_id_int, knowledge)
                         flash("Conocimiento añadido con éxito desde la fuente externa.", "success")
-
                 except Exception as e:
                     flash(f"Error al procesar la fuente: {e}", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
-
 
         except Exception as e:
             app.logger.error(f"Error al procesar formulario: {e}")
@@ -518,15 +484,18 @@ def select_page(guild_id, page):
     guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
 
     module_config = load_module_config()
-    # Determinar el estado del módulo basándose en la página actual
-    if page == 'moderation':
-        module_status = module_config.get(guild_id, {}).get('modules', {}).get('moderation', False)
-    else: # Por defecto, o para 'modules', 'training', etc.
-        module_status = module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False)
+    
+    module_statuses = {
+        'ticket_ia': module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False),
+        'moderation': module_config.get(guild_id, {}).get('modules', {}).get('moderation', False)
+    }
+    
+    module_status = module_statuses.get(page if page == 'moderation' else 'ticket_ia', False)
 
     render_data = {
         "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot,
-        "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page, "module_status": module_status
+        "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page, 
+        "module_status": module_status, "module_statuses": module_statuses
     }
     
     template_map = {"modules": "module_ticket_ia.html", "membership": "membership.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html"}
@@ -551,12 +520,10 @@ def select_page(guild_id, page):
     elif page == 'membership':
         render_data['subscription'] = get_subscription_status(guild_id_int)
 
-    # --- INICIO DE LA MODIFICACIÓN: Datos para el Módulo de Moderación ---
     elif page == 'moderation':
         render_data['moderation_config'] = load_moderation_config(guild_id_int)
         render_data['warnings_log'] = load_warnings_log(guild_id_int)
         render_data['backups'] = load_backups(guild_id_int)
-    # --- FIN DE LA MODIFICACIÓN ---
         
     return render_template(template_to_render, **render_data)
 
@@ -624,22 +591,16 @@ def training_action(guild_id):
             flash("La respuesta no puede estar vacía.", "danger")
         else:
             knowledge = load_knowledge(guild_id_int)
-            new_knowledge_entry = {
-                "type": "text",
-                "content": answer
-            }
+            new_knowledge_entry = {"type": "text", "content": answer}
             knowledge.append(new_knowledge_entry)
             save_knowledge(guild_id_int, knowledge)
-            
             log_action(user_info, "IA Entrenada", {"guild_id": guild_id, "question": question_to_process['question'], "answer": answer})
-            
             pending_questions = [q for q in pending_questions if q['id'] != question_id]
             save_data_to_redis(training_queue_key, pending_questions)
             flash("¡IA entrenada con éxito!", "success")
 
     elif action == 'discard':
         log_action(user_info, "Pregunta Descartada", {"guild_id": guild_id, "question": question_to_process})
-        
         pending_questions = [q for q in pending_questions if q['id'] != question_id]
         save_data_to_redis(training_queue_key, pending_questions)
         flash("Pregunta descartada.", "info")
