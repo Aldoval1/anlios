@@ -57,12 +57,25 @@
         <!-- Menú de Módulos -->
         <div class="menu-category">{{ _('Modules') }}</div>
         <nav class="nav flex-column">
-            <a class="nav-link {% if page == 'moderation' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}">{{ _('Moderation') }}</a>
+            <!-- INICIO DE LA MODIFICACIÓN: Botón de Moderación con interruptor -->
+            <div class="nav-link nav-link-with-toggle {% if page == 'moderation' %}active{% endif %}">
+                <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}">
+                    <input type="hidden" name="action" value="toggle_moderation_module">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" name="enabled" {% if module_statuses.moderation %}checked{% endif %} onchange="this.form.submit()">
+                    </div>
+                </form>
+                <a class="nav-link-text" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}">
+                    {{ _('Moderation') }}
+                </a>
+            </div>
+            <!-- FIN DE LA MODIFICACIÓN -->
+            
             <div class="nav-link nav-link-with-toggle {% if page == 'modules' or page == 'training' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
                     <input type="hidden" name="action" value="toggle_module">
                     <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" name="enabled" {% if module_status %}checked{% endif %} onchange="this.form.submit()">
+                        <input class="form-check-input" type="checkbox" role="switch" name="enabled" {% if module_statuses.ticket_ia %}checked{% endif %} onchange="this.form.submit()">
                     </div>
                 </form>
                 <a class="nav-link-text" data-bs-toggle="collapse" href="#ticket-submenu" role="button" aria-expanded="true">
@@ -103,7 +116,6 @@
                 <div class="logo">{{ _('Anlios') }}</div>
             </div>
             
-            <!-- INICIO DE LA MODIFICACIÓN: Selector de Idioma -->
             <div class="dropdown ms-auto">
                 <button class="btn btn-secondary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                     🌐 {{ g.lang.upper() }}
@@ -113,7 +125,6 @@
                     <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en') }}">English</a></li>
                 </ul>
             </div>
-            <!-- FIN DE LA MODIFICACIÓN -->
         </header>
 
         <!-- Contenido Principal -->
