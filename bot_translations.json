@@ -11,7 +11,17 @@
     "LOG_TICKET_CLOSED_TITLE": "Ticket Cerrado",
     "LOG_TICKET_CLOSED_DESC": "Ticket `{channel_name}` cerrado por {user_mention}.",
     "AI_NO_KNOWLEDGE": "🤔 No estoy seguro de la respuesta. He enviado tu pregunta a un administrador para que me ayude a aprender.",
-    "AI_ERROR": "🤖 Ocurrió un error al contactar con la IA."
+    "AI_ERROR": "🤖 Ocurrió un error al contactar con la IA.",
+    "AUTO_WARN_REASON_WORD": "Mensaje eliminado por contener palabras prohibidas.",
+    "AUTO_TIMEOUT_REASON_WORD": "Aislamiento automático por uso de palabras prohibidas.",
+    "AUTO_REASON_LINK": "Mensaje eliminado por contener un enlace no permitido.",
+    "WARN_DM": "Has sido advertido en el servidor **{guild_name}**.\nRazón: {reason}\nAdvertencias: {current_warnings}/{limit}",
+    "BAN_REASON_WARN_LIMIT": "Baneado automáticamente por alcanzar el límite de {limit} advertencias.",
+    "WARN_SUCCESS": "✅ Se ha advertido a **{member_name}**.\nRazón: {reason}\nAhora tiene {current_warnings}/{limit} advertencias.",
+    "CLEANC_CONFIRM": "⚠️ ¿Estás seguro de que quieres borrar TODOS los mensajes de este canal? Esta acción es irreversible.",
+    "CLEANC_SUCCESS": "✅ Canal limpiado con éxito.",
+    "LOCK_SUCCESS": "🔒 Canal bloqueado.",
+    "UNLOCK_SUCCESS": "🔓 Canal desbloqueado."
   },
   "en": {
     "TICKET_CLAIMED": "✅ Ticket claimed by **{user_display_name}**. The AI assistant has been deactivated.",
@@ -25,6 +35,16 @@
     "LOG_TICKET_CLOSED_TITLE": "Ticket Closed",
     "LOG_TICKET_CLOSED_DESC": "Ticket `{channel_name}` closed by {user_mention}.",
     "AI_NO_KNOWLEDGE": "🤔 I'm not sure about the answer. I've sent your question to an administrator to help me learn.",
-    "AI_ERROR": "🤖 An error occurred while contacting the AI."
+    "AI_ERROR": "🤖 An error occurred while contacting the AI.",
+    "AUTO_WARN_REASON_WORD": "Message deleted for containing forbidden words.",
+    "AUTO_TIMEOUT_REASON_WORD": "Automatic timeout for using forbidden words.",
+    "AUTO_REASON_LINK": "Message deleted for containing a disallowed link.",
+    "WARN_DM": "You have been warned in the server **{guild_name}**.\nReason: {reason}\nWarnings: {current_warnings}/{limit}",
+    "BAN_REASON_WARN_LIMIT": "Automatically banned for reaching the limit of {limit} warnings.",
+    "WARN_SUCCESS": "✅ **{member_name}** has been warned.\nReason: {reason}\nThey now have {current_warnings}/{limit} warnings.",
+    "CLEANC_CONFIRM": "⚠️ Are you sure you want to delete ALL messages in this channel? This action is irreversible.",
+    "CLEANC_SUCCESS": "✅ Channel successfully cleared.",
+    "LOCK_SUCCESS": "🔒 Channel locked.",
+    "UNLOCK_SUCCESS": "🔓 Channel unlocked."
   }
 }
