@@ -11,6 +11,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 import io
+import aiohttp
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
@@ -51,11 +52,9 @@ REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 REDIS_CODES_KEY = "premium_codes"
-# --- INICIO DE LA MODIFICACIÓN: Nuevas claves de Redis ---
 REDIS_MODERATION_CONFIG_KEY = "moderation_config:{}"
 REDIS_WARNINGS_LOG_KEY = "warnings_log:{}"
 REDIS_BACKUPS_KEY = "backups:{}"
-# --- FIN DE LA MODIFICACIÓN ---
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
 def load_data_from_redis(key: str, default_value):
@@ -87,7 +86,6 @@ def load_ticket_config(guild_id: int) -> dict:
     config.setdefault('language', 'es')
     return config
 
-# --- INICIO DE LA MODIFICACIÓN: Funciones para el Módulo de Moderación ---
 def load_moderation_config(guild_id: int) -> dict:
     default_config = {
         "automod": {"enabled": False, "forbidden_words": [], "forbidden_words_action": "delete", "block_links": False, "block_links_action": "delete", "block_nsfw": False, "block_nsfw_action": "delete"},
@@ -107,7 +105,6 @@ def load_warnings_log(guild_id: int) -> dict: return load_data_from_redis(REDIS_
 def save_warnings_log(guild_id: int, data: dict): save_data_to_redis(REDIS_WARNINGS_LOG_KEY.format(guild_id), data)
 def load_backups(guild_id: int) -> list: return load_data_from_redis(REDIS_BACKUPS_KEY.format(guild_id), [])
 def save_backups(guild_id: int, data: list): save_data_to_redis(REDIS_BACKUPS_KEY.format(guild_id), data)
-# --- FIN DE LA MODIFICACIÓN ---
 
 def _(guild_id: int, key: str, **kwargs):
     config = load_ticket_config(guild_id)
@@ -279,7 +276,6 @@ async def check_command_queue():
                 view = TicketCreateView(button_label=panel_config.get('button_label', 'Crear Ticket'))
                 await channel.send(embed=panel_embed, view=view)
         
-        # --- INICIO DE LA MODIFICACIÓN: Lógica para Anlios Vault ---
         elif command == 'create_backup':
             guild_id = command_data.get('guild_id')
             guild = bot.get_guild(guild_id)
@@ -325,7 +321,6 @@ async def check_command_queue():
             backups.append(backup)
             save_backups(guild_id, backups)
             print(f"Backup creado para el servidor {guild.name} (ID: {backup['id']})")
-        # --- FIN DE LA MODIFICACIÓN ---
 
     except Exception as e: print(f"[TAREA] ERROR: {e}")
 
@@ -341,13 +336,11 @@ async def on_ready():
         bot.add_view(TicketActionsView(guild_id=guild_id))
     update_guilds_in_redis()
     check_command_queue.start()
-    # --- INICIO DE LA MODIFICACIÓN: Sincronizar comandos slash ---
     try:
         synced = await bot.tree.sync()
         print(f"Sincronizados {len(synced)} comandos slash.")
     except Exception as e:
         print(f"Error al sincronizar comandos: {e}")
-    # --- FIN DE LA MODIFICACIÓN ---
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
@@ -365,7 +358,6 @@ async def on_message(message: discord.Message):
         await bot.process_commands(message)
         return
 
-    # --- INICIO DE LA MODIFICACIÓN: Lógica de Auto-Mod ---
     module_config = load_module_config()
     moderation_enabled = module_config.get(str(message.guild.id), {}).get('modules', {}).get('moderation', False)
     
@@ -374,7 +366,6 @@ async def on_message(message: discord.Message):
         automod_config = mod_config.get('automod', {})
         
         if automod_config.get('enabled'):
-            # 1. Filtro de palabras prohibidas
             forbidden_words = automod_config.get('forbidden_words', [])
             if any(word in message.content.lower() for word in forbidden_words):
                 action = automod_config.get('forbidden_words_action')
@@ -383,9 +374,8 @@ async def on_message(message: discord.Message):
                     await warn_user(message.author, message.guild, _(message.guild.id, "AUTO_WARN_REASON_WORD"))
                 elif action == 'timeout':
                     await message.author.timeout(timedelta(minutes=10), reason=_(message.guild.id, "AUTO_TIMEOUT_REASON_WORD"))
-                return # Detener procesamiento si se encuentra una infracción
+                return
 
-            # 2. Filtro de enlaces (simplificado)
             if automod_config.get('block_links') and ('http://' in message.content or 'https://' in message.content):
                 action = automod_config.get('block_links_action')
                 await message.delete()
@@ -395,14 +385,9 @@ async def on_message(message: discord.Message):
                 elif action == 'ban': await message.author.ban(reason=reason)
                 return
             
-            # 3. Filtro NSFW (placeholder - requiere IA de visión)
-            # La implementación real requeriría una API externa de análisis de imágenes.
             if automod_config.get('block_nsfw') and message.attachments:
-                # Aquí iría la lógica para analizar message.attachments[0].url
                 pass
 
-    # --- FIN DE LA MODIFICACIÓN ---
-    
     await bot.process_commands(message)
     if not message.channel.name.startswith('ticket-'): return
     
@@ -453,9 +438,8 @@ async def on_message(message: discord.Message):
             print(f"Error en Gemini: {e}")
             await message.reply(_(message.guild.id, "AI_ERROR"))
 
-# --- INICIO DE LA MODIFICACIÓN: Comandos Slash de Moderación ---
+# --- COMANDOS SLASH DE MODERACIÓN ---
 async def warn_user(member: discord.Member, guild: discord.Guild, reason: str):
-    """Función auxiliar para advertir a un usuario y verificar el límite."""
     mod_config = load_moderation_config(guild.id)
     if not mod_config['warnings']['enabled']: return
 
@@ -474,11 +458,11 @@ async def warn_user(member: discord.Member, guild: discord.Guild, reason: str):
         try:
             await member.send(_(guild.id, "WARN_DM", guild_name=guild.name, reason=reason, current_warnings=current_warnings, limit=limit))
         except discord.Forbidden:
-            pass # No se puede enviar DM al usuario
+            pass
 
     if current_warnings >= limit:
         await member.ban(reason=_(guild.id, "BAN_REASON_WARN_LIMIT", limit=limit))
-        del warnings_log[user_id] # Limpiar registro después del baneo
+        del warnings_log[user_id]
     
     save_warnings_log(guild.id, warnings_log)
     return current_warnings, limit
@@ -532,6 +516,113 @@ async def lock(interaction: discord.Interaction):
 async def unlock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=None)
     await interaction.response.send_message(_(interaction.guild.id, "UNLOCK_SUCCESS"))
+
+# --- INICIO DE LA MODIFICACIÓN: Comandos de Backup ---
+backup_commands = app_commands.Group(name="backup", description="Comandos para gestionar backups del servidor.")
+
+@backup_commands.command(name="load", description="Carga un backup en el servidor actual. ¡Esto borrará toda la configuración!")
+@app_commands.describe(backup_id="El ID del backup a cargar.")
+@app_commands.checks.is_owner()
+async def load_backup(interaction: discord.Interaction, backup_id: str):
+    class ConfirmationView(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=30)
+            self.value = None
+        @discord.ui.button(label="Confirmar Carga", style=discord.ButtonStyle.danger)
+        async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+            self.value = True
+            self.stop()
+        @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.grey)
+        async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+            self.value = False
+            self.stop()
+
+    view = ConfirmationView()
+    await interaction.response.send_message(_(interaction.guild.id, "BACKUP_LOAD_CONFIRM"), view=view, ephemeral=True)
+    await view.wait()
+
+    if view.value is not True:
+        await interaction.followup.send(_(interaction.guild.id, "BACKUP_LOAD_ABORTED"), ephemeral=True)
+        return
+
+    await interaction.edit_original_response(content="⏳ " + _(interaction.guild.id, "BACKUP_LOAD_STARTING"), view=None)
+    
+    # Nota: Los backups se guardan por ID de servidor. Para cargar un backup de otro servidor,
+    # necesitarías acceso a la base de datos de ese servidor o cambiar la lógica de guardado.
+    # Esta implementación asume que el backup_id pertenece a un backup creado en ESTE servidor.
+    backups = load_backups(interaction.guild.id)
+    backup_data = next((b for b in backups if b['id'] == backup_id), None)
+
+    if not backup_data:
+        await interaction.followup.send("❌ " + _(interaction.guild.id, "BACKUP_LOAD_NOT_FOUND"), ephemeral=True)
+        return
+
+    guild = interaction.guild
+    try:
+        # Borrar canales y roles existentes
+        for channel in guild.channels: await channel.delete(reason="Cargando backup")
+        for role in guild.roles:
+            if role.is_default() or role.is_bot_managed(): continue
+            await role.delete(reason="Cargando backup")
+
+        # Cargar icono del servidor
+        if backup_data.get("icon_url"):
+            async with aiohttp.ClientSession() as session:
+                async with session.get(backup_data["icon_url"]) as resp:
+                    if resp.status == 200:
+                        icon_bytes = await resp.read()
+                        await guild.edit(icon=icon_bytes)
+
+        # Crear roles
+        await interaction.followup.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_ROLES"), ephemeral=True)
+        role_map = {}
+        for role_data in reversed(backup_data["roles"]): # Crear de abajo hacia arriba
+            permissions = discord.Permissions(role_data["permissions"])
+            color = discord.Color(role_data["color"])
+            new_role = await guild.create_role(
+                name=role_data["name"], permissions=permissions, color=color,
+                hoist=role_data["hoist"], mentionable=role_data["mentionable"],
+                reason="Cargando backup"
+            )
+            role_map[role_data["name"]] = new_role
+
+        # Crear canales y categorías
+        await interaction.followup.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_CHANNELS"), ephemeral=True)
+        for category_info in backup_data["channels"]:
+            category_data = category_info.get("category")
+            new_category = None
+            if category_data:
+                overwrites = {}
+                for ow_data in category_data.get("overwrites", []):
+                    role = role_map.get(ow_data["role_name"])
+                    if role: overwrites[role] = discord.PermissionOverwrite.from_pair(discord.Permissions(ow_data["permissions"]), discord.Permissions(~ow_data["permissions"]))
+                new_category = await guild.create_category(name=category_data["name"], overwrites=overwrites)
+
+            for channel_data in category_info["channels"]:
+                overwrites = {}
+                for ow_data in channel_data.get("overwrites", []):
+                    role = role_map.get(ow_data["role_name"])
+                    if role: overwrites[role] = discord.PermissionOverwrite.from_pair(discord.Permissions(ow_data["permissions"]), discord.Permissions(~ow_data["permissions"]))
+                
+                channel_type = channel_data.get("type")
+                if channel_type == "text":
+                    await guild.create_text_channel(name=channel_data["name"], topic=channel_data.get("topic"), category=new_category, overwrites=overwrites)
+                elif channel_type == "voice":
+                    await guild.create_voice_channel(name=channel_data["name"], category=new_category, overwrites=overwrites)
+
+        await interaction.followup.send("✅ " + _(interaction.guild.id, "BACKUP_LOAD_SUCCESS"), ephemeral=True)
+
+    except Exception as e:
+        await interaction.followup.send(f"❌ {_ (interaction.guild.id, 'BACKUP_LOAD_ERROR')}: {e}", ephemeral=True)
+
+@load_backup.error
+async def load_backup_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.errors.NotOwner):
+        await interaction.response.send_message(_(interaction.guild.id, "BACKUP_LOAD_NO_PERMISSION"), ephemeral=True)
+    else:
+        raise error
+
+bot.tree.add_command(backup_commands)
 # --- FIN DE LA MODIFICACIÓN ---
 
 # --- EJECUCIÓN DEL BOT ---
