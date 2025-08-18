@@ -283,14 +283,17 @@ async def check_command_queue():
 
             icon_url = str(guild.icon.url) if guild.icon else None
             
+            # --- INICIO DE LA MODIFICACIÓN: Corrección del orden de guardado de roles ---
             roles_data = []
-            for role in sorted(guild.roles, key=lambda r: r.position, reverse=True):
+            # Guardar roles de menor a mayor posición para recrearlos en el orden correcto
+            for role in guild.roles:
                 if role.is_default(): continue
                 roles_data.append({
                     "name": role.name, "permissions": role.permissions.value,
                     "color": role.color.value, "hoist": role.hoist,
                     "mentionable": role.mentionable
                 })
+            # --- FIN DE LA MODIFICACIÓN ---
 
             channels_data = []
             for category, channels in guild.by_category():
@@ -602,7 +605,9 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
 
         await interaction.user.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_ROLES"))
         role_map = {}
-        for role_data in reversed(backup_data["roles"]):
+        # --- INICIO DE LA MODIFICACIÓN: Corrección del orden de creación de roles ---
+        for role_data in backup_data["roles"]:
+        # --- FIN DE LA MODIFICACIÓN ---
             permissions = discord.Permissions(role_data["permissions"])
             color = discord.Color(role_data["color"])
             new_role = await guild.create_role(
