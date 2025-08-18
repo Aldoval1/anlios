@@ -541,8 +541,8 @@ async def unlock(interaction: discord.Interaction):
 backup_commands = app_commands.Group(name="backup", description="Comandos para gestionar backups del servidor.")
 
 @backup_commands.command(name="load", description="Carga un backup en el servidor actual. ¡Esto borrará toda la configuración!")
-@app_commands.describe(backup_id="El ID del backup a cargar.")
-async def load_backup(interaction: discord.Interaction, backup_id: str):
+@app_commands.describe(backup_id="El ID del backup a cargar.", server_id="El ID del servidor original del backup (opcional).")
+async def load_backup(interaction: discord.Interaction, backup_id: str, server_id: str = None):
     if interaction.user.id != interaction.guild.owner_id:
         await interaction.response.send_message(_(interaction.guild.id, "BACKUP_LOAD_NO_PERMISSION"), ephemeral=True)
         return
@@ -570,8 +570,11 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
 
     await interaction.edit_original_response(content="⏳ " + _(interaction.guild.id, "BACKUP_LOAD_STARTING"), view=None)
     
-    backups = load_backups(interaction.guild.id)
+    # --- INICIO DE LA MODIFICACIÓN: Lógica para cargar backups de otros servidores ---
+    source_guild_id = int(server_id) if server_id else interaction.guild.id
+    backups = load_backups(source_guild_id)
     backup_data = next((b for b in backups if b['id'] == backup_id), None)
+    # --- FIN DE LA MODIFICACIÓN ---
 
     if not backup_data:
         await interaction.followup.send("❌ " + _(interaction.guild.id, "BACKUP_LOAD_NOT_FOUND"), ephemeral=True)
