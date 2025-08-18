@@ -541,8 +541,8 @@ async def unlock(interaction: discord.Interaction):
 backup_commands = app_commands.Group(name="backup", description="Comandos para gestionar backups del servidor.")
 
 @backup_commands.command(name="load", description="Carga un backup en el servidor actual. ¡Esto borrará toda la configuración!")
-@app_commands.describe(backup_id="El ID del backup a cargar.", server_id="El ID del servidor original del backup (opcional).")
-async def load_backup(interaction: discord.Interaction, backup_id: str, server_id: str = None):
+@app_commands.describe(backup_id="El ID del backup a cargar.")
+async def load_backup(interaction: discord.Interaction, backup_id: str):
     if interaction.user.id != interaction.guild.owner_id:
         await interaction.response.send_message(_(interaction.guild.id, "BACKUP_LOAD_NO_PERMISSION"), ephemeral=True)
         return
@@ -568,13 +568,16 @@ async def load_backup(interaction: discord.Interaction, backup_id: str, server_i
         await interaction.followup.send(_(interaction.guild.id, "BACKUP_LOAD_ABORTED"), ephemeral=True)
         return
 
-    await interaction.edit_original_response(content="⏳ " + _(interaction.guild.id, "BACKUP_LOAD_STARTING"), view=None)
+    await interaction.edit_original_response(content="⏳ " + _(interaction.guild.id, "BACKUP_LOAD_STARTING_DM"), view=None)
     
-    # --- INICIO DE LA MODIFICACIÓN: Lógica para cargar backups de otros servidores ---
-    source_guild_id = int(server_id) if server_id else interaction.guild.id
-    backups = load_backups(source_guild_id)
-    backup_data = next((b for b in backups if b['id'] == backup_id), None)
-    # --- FIN DE LA MODIFICACIÓN ---
+    backup_data = None
+    all_guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
+    for guild_id in all_guild_ids:
+        backups = load_backups(guild_id)
+        found = next((b for b in backups if b['id'] == backup_id), None)
+        if found:
+            backup_data = found
+            break
 
     if not backup_data:
         await interaction.followup.send("❌ " + _(interaction.guild.id, "BACKUP_LOAD_NOT_FOUND"), ephemeral=True)
@@ -597,7 +600,7 @@ async def load_backup(interaction: discord.Interaction, backup_id: str, server_i
                         icon_bytes = await resp.read()
                         await guild.edit(icon=icon_bytes)
 
-        await interaction.followup.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_ROLES"), ephemeral=True)
+        await interaction.user.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_ROLES"))
         role_map = {}
         for role_data in reversed(backup_data["roles"]):
             permissions = discord.Permissions(role_data["permissions"])
@@ -609,7 +612,7 @@ async def load_backup(interaction: discord.Interaction, backup_id: str, server_i
             )
             role_map[role_data["name"]] = new_role
 
-        await interaction.followup.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_CHANNELS"), ephemeral=True)
+        await interaction.user.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_CHANNELS"))
         for category_info in backup_data["channels"]:
             category_data = category_info.get("category")
             new_category = None
@@ -642,10 +645,10 @@ async def load_backup(interaction: discord.Interaction, backup_id: str, server_i
                 elif channel_type == "voice":
                     await guild.create_voice_channel(name=channel_data["name"], category=new_category, overwrites=overwrites)
 
-        await interaction.followup.send("✅ " + _(interaction.guild.id, "BACKUP_LOAD_SUCCESS"), ephemeral=True)
+        await interaction.user.send("✅ " + _(interaction.guild.id, "BACKUP_LOAD_SUCCESS"))
 
     except Exception as e:
-        await interaction.followup.send(f"❌ {_ (interaction.guild.id, 'BACKUP_LOAD_ERROR')}: {e}", ephemeral=True)
+        await interaction.user.send(f"❌ {_ (interaction.guild.id, 'BACKUP_LOAD_ERROR')}: {e}")
 
 bot.tree.add_command(backup_commands)
 
