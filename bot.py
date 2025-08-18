@@ -296,18 +296,38 @@ async def check_command_queue():
             for category, channels in guild.by_category():
                 category_data = None
                 if category:
+                    # --- INICIO DE LA MODIFICACIÓN: Corrección del guardado de permisos ---
+                    category_overwrites = []
+                    for role, perms in category.overwrites.items():
+                        if isinstance(role, discord.Role):
+                            category_overwrites.append({
+                                "role_name": role.name,
+                                "allow": perms.allow.value,
+                                "deny": perms.deny.value
+                            })
                     category_data = {
                         "name": category.name, "type": "category",
-                        "overwrites": [{"role_name": role.name, "permissions": perms.value} for role, perms in category.overwrites.items()]
+                        "overwrites": category_overwrites
                     }
+                    # --- FIN DE LA MODIFICACIÓN ---
                 
                 channel_list = []
                 for channel in channels:
+                    # --- INICIO DE LA MODIFICACIÓN: Corrección del guardado de permisos ---
+                    channel_overwrites = []
+                    for role, perms in channel.overwrites.items():
+                         if isinstance(role, discord.Role):
+                            channel_overwrites.append({
+                                "role_name": role.name,
+                                "allow": perms.allow.value,
+                                "deny": perms.deny.value
+                            })
                     channel_list.append({
                         "name": channel.name, "type": str(channel.type),
                         "topic": getattr(channel, 'topic', None),
-                        "overwrites": [{"role_name": role.name, "permissions": perms.value} for role, perms in channel.overwrites.items()]
+                        "overwrites": channel_overwrites
                     })
+                    # --- FIN DE LA MODIFICACIÓN ---
                 
                 channels_data.append({"category": category_data, "channels": channel_list})
 
@@ -523,11 +543,9 @@ backup_commands = app_commands.Group(name="backup", description="Comandos para g
 @backup_commands.command(name="load", description="Carga un backup en el servidor actual. ¡Esto borrará toda la configuración!")
 @app_commands.describe(backup_id="El ID del backup a cargar.")
 async def load_backup(interaction: discord.Interaction, backup_id: str):
-    # --- INICIO DE LA MODIFICACIÓN: Verificación manual del propietario ---
     if interaction.user.id != interaction.guild.owner_id:
         await interaction.response.send_message(_(interaction.guild.id, "BACKUP_LOAD_NO_PERMISSION"), ephemeral=True)
         return
-    # --- FIN DE LA MODIFICACIÓN ---
 
     class ConfirmationView(discord.ui.View):
         def __init__(self):
@@ -593,17 +611,27 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
             category_data = category_info.get("category")
             new_category = None
             if category_data:
+                # --- INICIO DE LA MODIFICACIÓN: Corrección de la carga de permisos ---
                 overwrites = {}
                 for ow_data in category_data.get("overwrites", []):
                     role = role_map.get(ow_data["role_name"])
-                    if role: overwrites[role] = discord.PermissionOverwrite.from_pair(discord.Permissions(ow_data["permissions"]), discord.Permissions(~ow_data["permissions"]))
+                    if role:
+                        allow_perms = discord.Permissions(ow_data["allow"])
+                        deny_perms = discord.Permissions(ow_data["deny"])
+                        overwrites[role] = discord.PermissionOverwrite.from_pair(allow_perms, deny_perms)
                 new_category = await guild.create_category(name=category_data["name"], overwrites=overwrites)
+                # --- FIN DE LA MODIFICACIÓN ---
 
             for channel_data in category_info["channels"]:
+                # --- INICIO DE LA MODIFICACIÓN: Corrección de la carga de permisos ---
                 overwrites = {}
                 for ow_data in channel_data.get("overwrites", []):
                     role = role_map.get(ow_data["role_name"])
-                    if role: overwrites[role] = discord.PermissionOverwrite.from_pair(discord.Permissions(ow_data["permissions"]), discord.Permissions(~ow_data["permissions"]))
+                    if role:
+                        allow_perms = discord.Permissions(ow_data["allow"])
+                        deny_perms = discord.Permissions(ow_data["deny"])
+                        overwrites[role] = discord.PermissionOverwrite.from_pair(allow_perms, deny_perms)
+                # --- FIN DE LA MODIFICACIÓN ---
                 
                 channel_type = channel_data.get("type")
                 if channel_type == "text":
