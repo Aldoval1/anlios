@@ -517,13 +517,18 @@ async def unlock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=None)
     await interaction.response.send_message(_(interaction.guild.id, "UNLOCK_SUCCESS"))
 
-# --- INICIO DE LA MODIFICACIÓN: Comandos de Backup ---
+# --- Comandos de Backup ---
 backup_commands = app_commands.Group(name="backup", description="Comandos para gestionar backups del servidor.")
 
 @backup_commands.command(name="load", description="Carga un backup en el servidor actual. ¡Esto borrará toda la configuración!")
 @app_commands.describe(backup_id="El ID del backup a cargar.")
-@app_commands.checks.is_owner()
 async def load_backup(interaction: discord.Interaction, backup_id: str):
+    # --- INICIO DE LA MODIFICACIÓN: Verificación manual del propietario ---
+    if interaction.user.id != interaction.guild.owner_id:
+        await interaction.response.send_message(_(interaction.guild.id, "BACKUP_LOAD_NO_PERMISSION"), ephemeral=True)
+        return
+    # --- FIN DE LA MODIFICACIÓN ---
+
     class ConfirmationView(discord.ui.View):
         def __init__(self):
             super().__init__(timeout=30)
@@ -547,9 +552,6 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
 
     await interaction.edit_original_response(content="⏳ " + _(interaction.guild.id, "BACKUP_LOAD_STARTING"), view=None)
     
-    # Nota: Los backups se guardan por ID de servidor. Para cargar un backup de otro servidor,
-    # necesitarías acceso a la base de datos de ese servidor o cambiar la lógica de guardado.
-    # Esta implementación asume que el backup_id pertenece a un backup creado en ESTE servidor.
     backups = load_backups(interaction.guild.id)
     backup_data = next((b for b in backups if b['id'] == backup_id), None)
 
@@ -559,13 +561,14 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
 
     guild = interaction.guild
     try:
-        # Borrar canales y roles existentes
         for channel in guild.channels: await channel.delete(reason="Cargando backup")
         for role in guild.roles:
             if role.is_default() or role.is_bot_managed(): continue
-            await role.delete(reason="Cargando backup")
+            try:
+                await role.delete(reason="Cargando backup")
+            except discord.HTTPException:
+                pass 
 
-        # Cargar icono del servidor
         if backup_data.get("icon_url"):
             async with aiohttp.ClientSession() as session:
                 async with session.get(backup_data["icon_url"]) as resp:
@@ -573,10 +576,9 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
                         icon_bytes = await resp.read()
                         await guild.edit(icon=icon_bytes)
 
-        # Crear roles
         await interaction.followup.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_ROLES"), ephemeral=True)
         role_map = {}
-        for role_data in reversed(backup_data["roles"]): # Crear de abajo hacia arriba
+        for role_data in reversed(backup_data["roles"]):
             permissions = discord.Permissions(role_data["permissions"])
             color = discord.Color(role_data["color"])
             new_role = await guild.create_role(
@@ -586,7 +588,6 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
             )
             role_map[role_data["name"]] = new_role
 
-        # Crear canales y categorías
         await interaction.followup.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_CHANNELS"), ephemeral=True)
         for category_info in backup_data["channels"]:
             category_data = category_info.get("category")
@@ -615,15 +616,7 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
     except Exception as e:
         await interaction.followup.send(f"❌ {_ (interaction.guild.id, 'BACKUP_LOAD_ERROR')}: {e}", ephemeral=True)
 
-@load_backup.error
-async def load_backup_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    if isinstance(error, app_commands.errors.NotOwner):
-        await interaction.response.send_message(_(interaction.guild.id, "BACKUP_LOAD_NO_PERMISSION"), ephemeral=True)
-    else:
-        raise error
-
 bot.tree.add_command(backup_commands)
-# --- FIN DE LA MODIFICACIÓN ---
 
 # --- EJECUCIÓN DEL BOT ---
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
