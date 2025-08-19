@@ -57,7 +57,6 @@
         <!-- Menú de Módulos -->
         <div class="menu-category">{{ _('Modules') }}</div>
         <nav class="nav flex-column">
-            <!-- INICIO DE LA MODIFICACIÓN: Menú de Moderación con submenú -->
             <div class="nav-link nav-link-with-toggle {% if page == 'moderation' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}">
                     <input type="hidden" name="action" value="toggle_moderation_module">
@@ -77,7 +76,6 @@
                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#vault-section">Anlios Vault</a>
                 </div>
             </div>
-            <!-- FIN DE LA MODIFICACIÓN -->
             
             <div class="nav-link nav-link-with-toggle {% if page == 'modules' or page == 'training' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
@@ -178,6 +176,7 @@
 </div>
 {% endblock %}
 
+<!-- This block will inject the theme-switching script into the layout -->
 {% block theme_scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -189,6 +188,7 @@
 
         let previewedDesign = null;
         let previewedColor = null;
+        let toastVisible = false;
 
         function applyTheme(design, color) {
             body.classList.add('theme-transition');
@@ -245,6 +245,26 @@
             }
         }
 
+        // --- INICIO DE LA MODIFICACIÓN: Lógica del Toast optimizada ---
+        function showThemeToast() {
+            if (toastVisible) return;
+            toastVisible = true;
+            
+            showToast("{{ _('You have unsaved changes!') }}", [
+                { text: "{{ _('Save') }}", className: 'toast-btn-save', onClick: () => { savePreviewedTheme(); toastVisible = false; } },
+                { text: "{{ _('Cancel') }}", className: 'toast-btn-cancel', onClick: () => { revertToSavedTheme(); toastVisible = false; } }
+            ], 10000, () => { toastVisible = false; });
+        }
+
+        window.savePreviewedTheme = () => {
+            saveTheme(previewedDesign, previewedColor);
+        };
+        
+        window.revertToSavedTheme = () => {
+            loadTheme();
+        };
+        // --- FIN DE LA MODIFICACIÓN ---
+
         if (designSelector && colorSelector) {
             designSelector.addEventListener('click', e => {
                 const card = e.target.closest('.theme-card');
@@ -252,7 +272,7 @@
                     previewedDesign = card.dataset.design;
                     applyTheme(previewedDesign, previewedColor);
                     updateSelectors();
-                    window.showThemeToast();
+                    showThemeToast();
                 }
             });
 
@@ -262,17 +282,9 @@
                     previewedColor = swatch.dataset.color;
                     applyTheme(previewedDesign, previewedColor);
                     updateSelectors();
-                    window.showThemeToast();
+                    showThemeToast();
                 }
             });
-            
-            window.savePreviewedTheme = () => {
-                saveTheme(previewedDesign, previewedColor);
-            };
-            
-            window.revertToSavedTheme = () => {
-                loadTheme();
-            };
         }
 
         loadTheme();
