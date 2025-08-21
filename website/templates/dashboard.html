@@ -234,18 +234,13 @@
         
         function updateSelectors() {
             if(designSelector) {
-                designSelector.querySelectorAll('.theme-card').forEach(card => {
-                    card.classList.toggle('active', card.dataset.design === previewedDesign);
-                });
+                designSelector.value = previewedDesign;
             }
             if(colorSelector) {
-                colorSelector.querySelectorAll('.color-swatch').forEach(swatch => {
-                    swatch.classList.toggle('active', swatch.dataset.color === previewedColor);
-                });
+                colorSelector.value = previewedColor;
             }
         }
 
-        // --- INICIO DE LA MODIFICACIÓN: Lógica del Toast optimizada ---
         function showThemeToast() {
             if (toastVisible) return;
             toastVisible = true;
@@ -253,7 +248,12 @@
             showToast("{{ _('You have unsaved changes!') }}", [
                 { text: "{{ _('Save') }}", className: 'toast-btn-save', onClick: () => { savePreviewedTheme(); toastVisible = false; } },
                 { text: "{{ _('Cancel') }}", className: 'toast-btn-cancel', onClick: () => { revertToSavedTheme(); toastVisible = false; } }
-            ], 10000, () => { toastVisible = false; });
+            ], 10000, () => { 
+                if (toastVisible) { // Solo revertir si el toast no fue cerrado por un botón
+                    revertToSavedTheme();
+                }
+                toastVisible = false; 
+            });
         }
 
         window.savePreviewedTheme = () => {
@@ -263,27 +263,18 @@
         window.revertToSavedTheme = () => {
             loadTheme();
         };
-        // --- FIN DE LA MODIFICACIÓN ---
 
         if (designSelector && colorSelector) {
-            designSelector.addEventListener('click', e => {
-                const card = e.target.closest('.theme-card');
-                if (card) {
-                    previewedDesign = card.dataset.design;
-                    applyTheme(previewedDesign, previewedColor);
-                    updateSelectors();
-                    showThemeToast();
-                }
+            designSelector.addEventListener('change', e => {
+                previewedDesign = e.target.value;
+                applyTheme(previewedDesign, previewedColor);
+                showThemeToast();
             });
 
-            colorSelector.addEventListener('click', e => {
-                const swatch = e.target.closest('.color-swatch');
-                if (swatch) {
-                    previewedColor = swatch.dataset.color;
-                    applyTheme(previewedDesign, previewedColor);
-                    updateSelectors();
-                    showThemeToast();
-                }
+            colorSelector.addEventListener('change', e => {
+                previewedColor = e.target.value;
+                applyTheme(previewedDesign, previewedColor);
+                showThemeToast();
             });
         }
 

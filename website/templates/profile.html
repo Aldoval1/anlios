@@ -9,39 +9,38 @@
             <p class="text-muted">{{ _('Choose how you want your dashboard to look...') }}</p>
             <hr>
 
-            <!-- INICIO DE LA MODIFICACIÓN: Estructura de selección de tema restaurada -->
-            <div class="theme-customization-container">
+            <!-- INICIO DE LA MODIFICACIÓN: Estructura de selección de tema restaurada y funcional -->
+            <div class="row g-4">
                 <!-- Step 1: Design Selection -->
-                <div class="theme-step">
-                    <h2>{{ _('Step 1: Choose a Design') }}</h2>
-                    <div id="design-selector" class="theme-grid">
-                        <div class="theme-card" data-design="anlios">
-                            <img src="{{ url_for('static', filename='images/designs/design-anlios.png') }}" alt="Anlios Design">
-                            <div class="theme-card-name">{{ _('Anlios (Classic)') }}</div>
-                        </div>
-                        <div class="theme-card" data-design="discord">
-                            <img src="{{ url_for('static', filename='images/designs/design-discord.png') }}" alt="Discord Design">
-                            <div class="theme-card-name">{{ _('Discord Style') }}</div>
-                        </div>
-                        <div class="theme-card" data-design="nordic">
-                            <img src="{{ url_for('static', filename='images/designs/design-nordic.png') }}" alt="Nordic Design">
-                            <div class="theme-card-name">{{ _('Nordic Style') }}</div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ _('Step 1: Choose a Design') }}</h5>
+                            <select id="design-selector" class="form-select">
+                                <option value="anlios">{{ _('Anlios (Classic)') }}</option>
+                                <option value="discord">{{ _('Discord Style') }}</option>
+                                <option value="nordic">{{ _('Nordic Style') }}</option>
+                            </select>
                         </div>
                     </div>
                 </div>
 
                 <!-- Step 2: Color Palette Selection -->
-                <div class="theme-step">
-                    <h2>{{ _('Step 2: Choose a Color Palette') }}</h2>
-                    <div id="color-selector" class="color-grid">
-                        <div class="color-swatch" data-color="furia-roja" style="background: linear-gradient(45deg, #FF4141, #B82020);"></div>
-                        <div class="color-swatch" data-color="oceano-neon" style="background: linear-gradient(45deg, #20B8B8, #41FFFF);"></div>
-                        <div class="color-swatch" data-color="atardecer" style="background: linear-gradient(45deg, #FF8C41, #B85B20);"></div>
-                        <div class="color-swatch" data-color="bosque-encantado" style="background: linear-gradient(45deg, #41FF8C, #20B85B);"></div>
-                        <div class="color-swatch" data-color="menta-glacial" style="background: linear-gradient(45deg, #41FFFF, #8CFFB8);"></div>
-                        <div class="color-swatch" data-color="cerezo-en-flor" style="background: linear-gradient(45deg, #FF8CFF, #B820B8);"></div>
-                        <div class="color-swatch" data-color="grafito-y-oro" style="background: linear-gradient(45deg, #444444, #FFD700);"></div>
-                        <div class="color-swatch" data-color="tierra-y-cielo" style="background: linear-gradient(45deg, #8B4513, #87CEEB);"></div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ _('Step 2: Choose a Color Palette') }}</h5>
+                            <select id="color-selector" class="form-select">
+                                <option value="furia-roja">Furia Roja</option>
+                                <option value="oceano-neon">Océano Neón</option>
+                                <option value="atardecer">Atardecer</option>
+                                <option value="bosque-encantado">Bosque Encantado</option>
+                                <option value="menta-glacial">Menta Glacial</option>
+                                <option value="cerezo-en-flor">Cerezo en Flor</option>
+                                <option value="grafito-y-oro">Grafito y Oro</option>
+                                <option value="tierra-y-cielo">Tierra y Cielo</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
