@@ -1,0 +1,83 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ _('Under Maintenance') }}{% endblock %}
+
+{% block body_content %}
+<style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #1a1a1a;
+        color: #fff;
+        font-family: 'Arial', sans-serif;
+    }
+    .maintenance-container {
+        text-align: center;
+        padding: 40px;
+        border-radius: 15px;
+        background-color: #2a2a2a;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        max-width: 500px;
+        width: 90%;
+    }
+    .maintenance-container img {
+        width: 100px;
+        margin-bottom: 20px;
+    }
+    .maintenance-container h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+    .maintenance-container p {
+        font-size: 1.2rem;
+        color: #b0b0b0;
+    }
+    .password-form {
+        margin-top: 30px;
+    }
+    .password-form .form-control {
+        background-color: #3a3a3a;
+        border: 1px solid #555;
+        color: #fff;
+    }
+    .password-form .form-control:focus {
+        background-color: #3a3a3a;
+        border-color: #e63946;
+        box-shadow: none;
+        color: #fff;
+    }
+    .password-form .btn {
+        background-color: #e63946;
+        border-color: #e63946;
+        font-weight: bold;
+    }
+    .alert {
+        margin-top: 20px;
+    }
+</style>
+
+<div class="maintenance-container">
+    <img src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Logo">
+    <h1>{{ _('Under Maintenance') }}</h1>
+    <p>{{ _('Anlios is currently undergoing scheduled maintenance. We will be back shortly!') }}</p>
+
+    <div class="password-form">
+        <p class="text-muted">{{ _('Are you a tester? Enter the password to access the site.') }}</p>
+        <form method="POST" action="{{ url_for('maintenance') }}">
+            <div class="input-group mb-3">
+                <input type="password" name="password" class="form-control" placeholder="{{ _('Tester Password') }}" required>
+                <button class="btn btn-danger" type="submit">{{ _('Access') }}</button>
+            </div>
+        </form>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}

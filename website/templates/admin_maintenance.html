@@ -1,0 +1,45 @@
+{% extends "admin_layout.html" %}
+
+{% block title %}{{ _('Maintenance Mode') }}{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <h1>{{ _('Maintenance Mode Management') }}</h1>
+    <p class="text-muted">{{ _('Activate this mode to show a maintenance page to all users.') }}</p>
+    <hr>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card" style="background-color: #212529; border-color: #495057;">
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin_maintenance') }}">
+                <!-- Activar/Desactivar Modo -->
+                <div class="form-check form-switch mb-4">
+                    <input class="form-check-input" type="checkbox" role="switch" id="maintenance-enabled" name="enabled" {% if is_enabled %}checked{% endif %} style="height: 1.5em; width: 3em;">
+                    <label class="form-check-label ms-2" for="maintenance-enabled">
+                        <h5 class="text-white">{{ _('Enable Maintenance Mode') }}</h5>
+                    </label>
+                </div>
+
+                <!-- Contraseña para Testers -->
+                <div class="mb-3">
+                    <label for="tester-password" class="form-label text-white">{{ _('Tester Access Password') }}</label>
+                    <input type="text" class="form-control" id="tester-password" name="password" value="{{ tester_password }}" placeholder="{{ _('Leave empty for no password') }}" style="background-color: #343a40; color: #f8f9fa; border-color: #495057;">
+                    <div class="form-text">{{ _('Testers can use this password to bypass the maintenance page.') }}</div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">{{ _('Save Settings') }}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
