@@ -3,48 +3,47 @@
 
 {% block dashboard_content %}
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h1>{{ _('Profile Customization') }}</h1>
-            <p class="text-muted">{{ _('Choose how you want your dashboard to look...') }}</p>
-            <hr>
+    <!-- Título de la Sección -->
+    <h1>{{ _('Profile Customization') }}</h1>
+    <p class="text-muted">{{ _('Choose how you want your dashboard to look...') }}</p>
+    <hr class="border-danger">
 
-            <!-- INICIO DE LA MODIFICACIÓN: Estructura de selección de tema restaurada y funcional -->
-            <div class="row g-4">
-                <!-- Step 1: Design Selection -->
-                <div class="col-md-6">
-                    <div class="card shadow-sm">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ _('Step 1: Choose a Design') }}</h5>
-                            <select id="design-selector" class="form-select">
-                                <option value="anlios">{{ _('Anlios (Classic)') }}</option>
-                                <option value="discord">{{ _('Discord Style') }}</option>
-                                <option value="nordic">{{ _('Nordic Style') }}</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 2: Color Palette Selection -->
-                <div class="col-md-6">
-                    <div class="card shadow-sm">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ _('Step 2: Choose a Color Palette') }}</h5>
-                            <select id="color-selector" class="form-select">
-                                <option value="furia-roja">Furia Roja</option>
-                                <option value="oceano-neon">Océano Neón</option>
-                                <option value="atardecer">Atardecer</option>
-                                <option value="bosque-encantado">Bosque Encantado</option>
-                                <option value="menta-glacial">Menta Glacial</option>
-                                <option value="cerezo-en-flor">Cerezo en Flor</option>
-                                <option value="grafito-y-oro">Grafito y Oro</option>
-                                <option value="tierra-y-cielo">Tierra y Cielo</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
+    <!-- Sección de Diseños -->
+    <div class="mb-5">
+        <h5 class="mb-3">{{ _('Step 1: Choose a Design') }}</h5>
+        <!-- Contenedor para las tarjetas de diseño -->
+        <div id="design-selector-container" class="d-flex flex-wrap gap-4">
+            <!-- Tarjeta de Diseño Anlios -->
+            <div class="theme-card" data-design="anlios" role="button" tabindex="0">
+                <div class="theme-preview anlios"></div>
+                <div class="theme-name">{{ _('Anlios (Classic)') }}</div>
             </div>
-            <!-- FIN DE LA MODIFICACIÓN -->
+            <!-- Tarjeta de Diseño Discord -->
+            <div class="theme-card" data-design="discord" role="button" tabindex="0">
+                <div class="theme-preview discord"></div>
+                <div class="theme-name">{{ _('Discord Style') }}</div>
+            </div>
+            <!-- Tarjeta de Diseño Nordic -->
+            <div class="theme-card" data-design="nordic" role="button" tabindex="0">
+                <div class="theme-preview nordic"></div>
+                <div class="theme-name">{{ _('Nordic Style') }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección de Paletas de Colores -->
+    <div>
+        <h5 class="mb-3">{{ _('Step 2: Choose a Color Palette') }}</h5>
+        <!-- Contenedor para los círculos de color -->
+        <div id="color-selector-container" class="d-flex flex-wrap gap-3 align-items-center">
+            <div class="color-swatch" data-color="furia-roja" role="button" title="Furia Roja" tabindex="0"></div>
+            <div class="color-swatch" data-color="oceano-neon" role="button" title="Océano Neón" tabindex="0"></div>
+            <div class="color-swatch" data-color="atardecer" role="button" title="Atardecer" tabindex="0"></div>
+            <div class="color-swatch" data-color="bosque-encantado" role="button" title="Bosque Encantado" tabindex="0"></div>
+            <div class="color-swatch" data-color="menta-glacial" role="button" title="Menta Glacial" tabindex="0"></div>
+            <div class="color-swatch" data-color="cerezo-en-flor" role="button" title="Cerezo en Flor" tabindex="0"></div>
+            <div class="color-swatch" data-color="grafito-y-oro" role="button" title="Grafito y Oro" tabindex="0"></div>
+            <div class="color-swatch" data-color="tierra-y-cielo" role="button" title="Tierra y Cielo" tabindex="0"></div>
         </div>
     </div>
 </div>

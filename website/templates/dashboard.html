@@ -1,316 +1,200 @@
-{% extends "layout.html" %}
-
-<!-- This block will inject all the theme stylesheets into the layout -->
-{% block theme_styles %}
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Anlios Dashboard{% endblock %}</title>
+    <!-- Bootstrap 5.3.3 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Hojas de Estilo Base -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-base.css') }}">
-
-    <link id="design-anlios" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-anlios.css') }}" disabled>
-    <link id="design-discord" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-discord.css') }}" disabled>
-    <link id="design-nordic" rel="stylesheet" href="{{ url_for('static', filename='css/designs/design-nordic.css') }}" disabled>
-
-    <link id="color-furia-roja" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-furia-roja.css') }}" disabled>
-    <link id="color-oceano-neon" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-oceano-neon.css') }}" disabled>
-    <link id="color-atardecer" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-atardecer.css') }}" disabled>
-    <link id="color-bosque-encantado" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-bosque-encantado.css') }}" disabled>
-    <link id="color-menta-glacial" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-menta-glacial.css') }}" disabled>
-    <link id="color-cerezo-en-flor" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-cerezo-en-flor.css') }}" disabled>
-    <link id="color-grafito-y-oro" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-grafito-y-oro.css') }}" disabled>
-    <link id="color-tierra-y-cielo" rel="stylesheet" href="{{ url_for('static', filename='css/colors/color-tierra-y-cielo.css') }}" disabled>
-
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/toast.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
-{% endblock %}
-
-
-{% block body_content %}
-<!-- Capa de superposición para el menú móvil -->
-<div class="mobile-overlay"></div>
-
-<div class="dashboard-wrapper">
-    <!-- Menú Lateral -->
-    <aside class="sidebar">
-        <!-- Selector de Servidor -->
-        <div class="mb-4 d-flex align-items-center">
-            <select class="form-select" onchange="if (this.value) window.location.href=this.value;">
-                <option selected disabled>{{ _('Select Server...') }}</option>
-                {% for guild in guilds_with_bot %}
-                <option value="{{ url_for('select_page', guild_id=guild.id, page='modules') }}" {% if guild.id == active_guild_id %}selected{% endif %}>
-                    {{ guild.name }}
-                </option>
-                {% endfor %}
-            </select>
-            <button class="btn btn-primary ms-2" type="button" data-bs-toggle="modal" data-bs-target="#inviteBotModal" title="{{ _('Add bot to a server') }}">+</button>
-        </div>
-
-        <!-- Menú de Cuenta (siempre visible) -->
-        <div class="menu-category">{{ _('Account') }}</div>
-        <nav class="nav flex-column">
-            <a class="nav-link {% if page == 'profile' %}active{% endif %}" href="{{ url_for('profile_page') }}">{{ _('Profile') }}</a>
-        </nav>
-
-        {% if active_guild_id %}
-        <!-- Menú del Servidor (solo con servidor seleccionado) -->
-        <div class="menu-category">{{ _('Server') }}</div>
-        <nav class="nav flex-column">
-            <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='membership') }}">{{ _('Membership') }}</a>
-        </nav>
-
-        <!-- Menú de Módulos -->
-        <div class="menu-category">{{ _('Modules') }}</div>
-        <nav class="nav flex-column">
-            <div class="nav-link nav-link-with-toggle {% if page == 'moderation' %}active{% endif %}">
-                <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}">
-                    <input type="hidden" name="action" value="toggle_moderation_module">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" name="enabled" {% if module_statuses.moderation %}checked{% endif %} onchange="this.form.submit()">
-                    </div>
-                </form>
-                <a class="nav-link-text" data-bs-toggle="collapse" href="#moderation-submenu" role="button" aria-expanded="true">
-                    {{ _('Moderation') }}
+    <!-- Hojas de Estilo de Diseño (se activan/desactivan con JS) -->
+    <link rel="stylesheet" id="design-anlios" href="{{ url_for('static', filename='css/designs/design-anlios.css') }}" disabled>
+    <link rel="stylesheet" id="design-discord" href="{{ url_for('static', filename='css/designs/design-discord.css') }}" disabled>
+    <link rel="stylesheet" id="design-nordic" href="{{ url_for('static', filename='css/designs/design-nordic.css') }}" disabled>
+    <!-- Hojas de Estilo de Color (se activan/desactivan con JS) -->
+    <link rel="stylesheet" id="color-furia-roja" href="{{ url_for('static', filename='css/colors/color-furia-roja.css') }}" disabled>
+    <link rel="stylesheet" id="color-oceano-neon" href="{{ url_for('static', filename='css/colors/color-oceano-neon.css') }}" disabled>
+    <link rel="stylesheet" id="color-atardecer" href="{{ url_for('static', filename='css/colors/color-atardecer.css') }}" disabled>
+    <link rel="stylesheet" id="color-bosque-encantado" href="{{ url_for('static', filename='css/colors/color-bosque-encantado.css') }}" disabled>
+    <link rel="stylesheet" id="color-menta-glacial" href="{{ url_for('static', filename='css/colors/color-menta-glacial.css') }}" disabled>
+    <link rel="stylesheet" id="color-cerezo-en-flor" href="{{ url_for('static', filename='css/colors/color-cerezo-en-flor.css') }}" disabled>
+    <link rel="stylesheet" id="color-grafito-y-oro" href="{{ url_for('static', filename='css/colors/color-grafito-y-oro.css') }}" disabled>
+    <link rel="stylesheet" id="color-tierra-y-cielo" href="{{ url_for('static', filename='css/colors/color-tierra-y-cielo.css') }}" disabled>
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
+    {% block head_extra %}{% endblock %}
+</head>
+<body data-design="anlios">
+    <div id="toast-container"></div>
+    <div class="d-flex">
+        <!-- Sidebar -->
+        <div class="sidebar d-flex flex-column p-3">
+            <a href="{{ url_for('select_server') }}" class="sidebar-brand d-flex align-items-center mb-4 text-decoration-none">
+                <img src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Logo" width="40" height="40">
+                <span class="fs-4 ms-2">Anlios</span>
+            </a>
+            <ul class="nav nav-pills flex-column mb-auto">
+                {% if guild %}
+                <li class="nav-item">
+                    <a href="{{ url_for('manage_server', guild_id=guild.id) }}" class="nav-link {% if request.endpoint == 'manage_server' %}active{% endif %}">
+                        <i class="bi bi-house-door-fill me-2"></i> {{ _('Home') }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('module_ticket_ia', guild_id=guild.id) }}" class="nav-link {% if request.endpoint == 'module_ticket_ia' %}active{% endif %}">
+                        <i class="bi bi-robot me-2"></i> {{ _('Ticket IA Module') }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('module_moderation', guild_id=guild.id) }}" class="nav-link {% if request.endpoint == 'module_moderation' %}active{% endif %}">
+                        <i class="bi bi-shield-fill-check me-2"></i> {{ _('Moderation Module') }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('under_construction') }}" class="nav-link {% if request.endpoint == 'under_construction' %}active{% endif %}">
+                        <i class="bi bi-tools me-2"></i> {{ _('More Modules...') }}
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <hr>
+            <div class="dropdown">
+                <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" id="dropdownUser" data-bs-toggle="dropdown" aria-expanded="false">
+                    <img src="{{ user.avatar_url }}" alt="" width="32" height="32" class="rounded-circle me-2">
+                    <strong>{{ user.name }}</strong>
                 </a>
-            </div>
-            <div class="collapse show" id="moderation-submenu">
-                <div class="sub-menu">
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#automod-section">{{ _('Auto-Mod') }}</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#warnings-section">{{ _('Warnings') }}</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#commands-section">{{ _('Commands') }}</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#vault-section">Anlios Vault</a>
-                </div>
-            </div>
-            
-            <div class="nav-link nav-link-with-toggle {% if page == 'modules' or page == 'training' %}active{% endif %}">
-                <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
-                    <input type="hidden" name="action" value="toggle_module">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" name="enabled" {% if module_statuses.ticket_ia %}checked{% endif %} onchange="this.form.submit()">
-                    </div>
-                </form>
-                <a class="nav-link-text" data-bs-toggle="collapse" href="#ticket-submenu" role="button" aria-expanded="true">
-                    {{ _('Ticket I.A') }}
-                </a>
-            </div>
-            <div class="collapse show" id="ticket-submenu">
-                <div class="sub-menu">
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#embeds-section">{{ _('Embeds Editor') }}</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#ai-section">{{ _('IA & Knowledge') }}</a>
-                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='training') }}">{{ _('Training') }}</a>
-                    <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#configs-section">{{ _('Configuration') }}</a>
-                </div>
-            </div>
-        </nav>
-        {% endif %}
-
-        <!-- Info de Usuario y Logout -->
-        <div class="user-info">
-            <img src="{{ user.avatar_url }}" alt="Avatar">
-            <span class="username">{{ user.username }}</span>
-            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-danger ms-auto">{{ _('Logout') }}</a>
-        </div>
-    </aside>
-
-    <div class="content-wrapper">
-        <!-- Barra Superior -->
-        <header class="topbar">
-            <button class="mobile-menu-button">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-            <div class="logo-container">
-                <img id="topbar-mustache" src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Mustache">
-                <div class="logo">{{ _('Anlios') }}</div>
-            </div>
-            
-            <div class="dropdown ms-auto">
-                <button class="btn btn-secondary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    🌐 {{ g.lang.upper() }}
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
-                    <li><a class="dropdown-item" href="{{ url_for('set_language', lang='es') }}">Español</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en') }}">English</a></li>
+                <ul class="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser">
+                    <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i class="bi bi-palette-fill me-2"></i>{{ _('Profile') }}</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('select_server') }}"><i class="bi bi-server me-2"></i>{{ _('Change Server') }}</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-2"></i>{{ _('Logout') }}</a></li>
                 </ul>
             </div>
-        </header>
-
+        </div>
         <!-- Contenido Principal -->
-        <main class="main-content">
+        <main class="main-content p-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function() {
+                                showToast("{{ message }}", "{{ category }}");
+                            });
+                        </script>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
             {% block dashboard_content %}{% endblock %}
         </main>
-
-        <!-- Pie de Página -->
-        <footer class="page-footer">
-            <div class="footer-links">
-                <a href="#">{{ _('Documentation') }}</a>
-                <a href="#">{{ _('Support Server') }}</a>
-                <a href="#">{{ _('Terms and Services') }}</a>
-            </div>
-            <div class="copyright">
-                &copy; 2024-2025 Anlios
-            </div>
-        </footer>
     </div>
-</div>
 
-<!-- Modal para Invitar Bot -->
-<div class="modal fade" id="inviteBotModal" tabindex="-1" aria-labelledby="inviteBotModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="inviteBotModalLabel">{{ _('Invite Anlios Bot to a Server') }}</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>{{ _('Choose a server where you have administrator permissions to add Anlios.') }}</p>
-        <select class="form-select" id="server-invite-select">
-            <option selected disabled>{{ _('Choose a server...') }}</option>
-            {% for guild in guilds_without_bot %}
-            <option value="{{ guild.id }}">{{ guild.name }}</option>
-            {% endfor %}
-        </select>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
-        <button type="button" class="btn btn-primary" onclick="inviteBot()">{{ _('Invite') }}</button>
-      </div>
-    </div>
-  </div>
-</div>
-{% endblock %}
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Scripts de Toast y otros -->
+    <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
+    {% block scripts %}{% endblock %}
 
-<!-- This block will inject the theme-switching script into the layout -->
-{% block theme_scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const designSheets = document.querySelectorAll('link[id^="design-"]');
-        const colorSheets = document.querySelectorAll('link[id^="color-"]');
-        const designSelector = document.getElementById('design-selector');
-        const colorSelector = document.getElementById('color-selector');
-        const body = document.body;
-
-        let previewedDesign = null;
-        let previewedColor = null;
-        let toastVisible = false;
-
-        function applyTheme(design, color) {
-            body.classList.add('theme-transition');
-            body.dataset.design = design;
-
-            designSheets.forEach(sheet => sheet.disabled = (sheet.id !== `design-${design}`));
-            colorSheets.forEach(sheet => sheet.disabled = (sheet.id !== `color-${color}`));
-
-            setTimeout(() => {
-                const computedStyle = getComputedStyle(body);
-                const pixelFont = computedStyle.getPropertyValue('--font-pixel').trim();
-                const sansFont = computedStyle.getPropertyValue('--font-sans').trim();
-                const toastContainer = document.getElementById('toast-container');
-                
-                body.style.fontFamily = sansFont; 
-                document.querySelectorAll('h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .page-footer, .topbar .logo, .nav-link-with-toggle .nav-link-text').forEach(el => {
-                    el.style.fontFamily = pixelFont;
-                });
-                
-                if (toastContainer) {
-                    toastContainer.style.setProperty('--toast-font-family', pixelFont);
-                    toastContainer.style.setProperty('--toast-bg', computedStyle.getPropertyValue('--bg-tertiary').trim());
-                    toastContainer.style.setProperty('--toast-border', computedStyle.getPropertyValue('--accent-main').trim());
-                    toastContainer.style.setProperty('--toast-progress-bg', computedStyle.getPropertyValue('--bg-secondary').trim());
-                    toastContainer.style.setProperty('--toast-progress-fill', computedStyle.getPropertyValue('--accent-main').trim());
-                }
-
-                body.classList.remove('theme-transition');
-            }, 50); 
-        }
-
-        function saveTheme(design, color) {
-            localStorage.setItem('userTheme', JSON.stringify({ design, color }));
-        }
-
-        function loadTheme() {
-            const savedTheme = JSON.parse(localStorage.getItem('userTheme')) || { design: 'anlios', color: 'furia-roja' };
-            previewedDesign = savedTheme.design;
-            previewedColor = savedTheme.color;
-            applyTheme(savedTheme.design, savedTheme.color);
-            updateSelectors();
-        }
-        
-        function updateSelectors() {
-            if(designSelector) {
-                designSelector.value = previewedDesign;
-            }
-            if(colorSelector) {
-                colorSelector.value = previewedColor;
-            }
-        }
-
-        function showThemeToast() {
-            if (toastVisible) return;
-            toastVisible = true;
+    <!-- ================================================================== -->
+    <!--  NUEVO SCRIPT DE GESTIÓN DE TEMAS CON GUARDADO AUTOMÁTICO          -->
+    <!-- ================================================================== -->
+    {% block theme_scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const designSheets = document.querySelectorAll('link[id^="design-"]');
+            const colorSheets = document.querySelectorAll('link[id^="color-"]');
+            const body = document.body;
             
-            showToast("{{ _('You have unsaved changes!') }}", [
-                { text: "{{ _('Save') }}", className: 'toast-btn-save', onClick: () => { savePreviewedTheme(); toastVisible = false; } },
-                { text: "{{ _('Cancel') }}", className: 'toast-btn-cancel', onClick: () => { revertToSavedTheme(); toastVisible = false; } }
-            ], 10000, () => { 
-                if (toastVisible) { // Solo revertir si el toast no fue cerrado por un botón
-                    revertToSavedTheme();
+            const designContainer = document.getElementById('design-selector-container');
+            const colorContainer = document.getElementById('color-selector-container');
+
+            let currentTheme = { design: 'anlios', color: 'furia-roja' };
+
+            // Aplica el tema visualmente cambiando las hojas de estilo
+            function applyTheme(design, color) {
+                body.classList.add('theme-transition');
+                body.dataset.design = design;
+
+                designSheets.forEach(sheet => sheet.disabled = (sheet.id !== `design-${design}`));
+                colorSheets.forEach(sheet => sheet.disabled = (sheet.id !== `color-${color}`));
+
+                // Actualiza las variables de CSS dependientes (ej. para el toast)
+                setTimeout(() => {
+                    const computedStyle = getComputedStyle(body);
+                    const toastContainer = document.getElementById('toast-container');
+                    if (toastContainer) {
+                        toastContainer.style.setProperty('--toast-font-family', computedStyle.getPropertyValue('--font-pixel').trim());
+                        toastContainer.style.setProperty('--toast-bg', computedStyle.getPropertyValue('--bg-tertiary').trim());
+                        toastContainer.style.setProperty('--toast-border', computedStyle.getPropertyValue('--accent-main').trim());
+                        toastContainer.style.setProperty('--toast-progress-bg', computedStyle.getPropertyValue('--bg-secondary').trim());
+                        toastContainer.style.setProperty('--toast-progress-fill', computedStyle.getPropertyValue('--accent-main').trim());
+                    }
+                    body.classList.remove('theme-transition');
+                }, 50);
+            }
+
+            // Guarda el tema en el almacenamiento local del navegador
+            function saveTheme(design, color) {
+                localStorage.setItem('userTheme', JSON.stringify({ design, color }));
+            }
+            
+            // Carga el tema guardado al iniciar la página
+            function loadTheme() {
+                const savedTheme = JSON.parse(localStorage.getItem('userTheme')) || { design: 'anlios', color: 'furia-roja' };
+                currentTheme = savedTheme;
+                applyTheme(savedTheme.design, savedTheme.color);
+                updateActiveSelectors();
+            }
+
+            // Actualiza cuál tarjeta/círculo se muestra como "activo"
+            function updateActiveSelectors() {
+                if (designContainer) {
+                    const designCards = designContainer.querySelectorAll('.theme-card');
+                    designCards.forEach(card => {
+                        card.classList.toggle('active', card.dataset.design === currentTheme.design);
+                    });
                 }
-                toastVisible = false; 
-            });
-        }
+                if (colorContainer) {
+                    const colorSwatches = colorContainer.querySelectorAll('.color-swatch');
+                    colorSwatches.forEach(swatch => {
+                        swatch.classList.toggle('active', swatch.dataset.color === currentTheme.color);
+                    });
+                }
+            }
+            
+            // Evento para seleccionar un diseño
+            if (designContainer) {
+                designContainer.addEventListener('click', (e) => {
+                    const selectedCard = e.target.closest('.theme-card');
+                    if (!selectedCard) return;
 
-        window.savePreviewedTheme = () => {
-            saveTheme(previewedDesign, previewedColor);
-        };
-        
-        window.revertToSavedTheme = () => {
+                    currentTheme.design = selectedCard.dataset.design;
+                    applyTheme(currentTheme.design, currentTheme.color);
+                    saveTheme(currentTheme.design, currentTheme.color);
+                    updateActiveSelectors();
+                });
+            }
+            
+            // Evento para seleccionar un color
+            if (colorContainer) {
+                colorContainer.addEventListener('click', (e) => {
+                    const selectedSwatch = e.target.closest('.color-swatch');
+                    if (!selectedSwatch) return;
+
+                    currentTheme.color = selectedSwatch.dataset.color;
+                    applyTheme(currentTheme.design, currentTheme.color);
+                    saveTheme(currentTheme.design, currentTheme.color);
+                    updateActiveSelectors();
+                });
+            }
+
+            // Cargar el tema al iniciar
             loadTheme();
-        };
-
-        if (designSelector && colorSelector) {
-            designSelector.addEventListener('change', e => {
-                previewedDesign = e.target.value;
-                applyTheme(previewedDesign, previewedColor);
-                showThemeToast();
-            });
-
-            colorSelector.addEventListener('change', e => {
-                previewedColor = e.target.value;
-                applyTheme(previewedDesign, previewedColor);
-                showThemeToast();
-            });
-        }
-
-        loadTheme();
-    });
-</script>
-{% endblock %}
-
-{% block scripts %}
-<script>
-function inviteBot() {
-    const serverId = document.getElementById('server-invite-select').value;
-    if (serverId && serverId !== "Elige un servidor...") {
-        const permissions = 8; // Administrador
-        const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id={{ client_id }}&guild_id=${serverId}&permissions=${permissions}&scope=bot%20applications.commands`;
-        window.open(inviteUrl, '_blank');
-    } else {
-        alert("Por favor, elige un servidor de la lista.");
-    }
-}
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const menuButton = document.querySelector('.mobile-menu-button');
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.mobile-overlay');
-
-    if (menuButton && sidebar && overlay) {
-        const toggleMenu = () => {
-            sidebar.classList.toggle('is-open');
-            overlay.classList.toggle('is-visible');
-        };
-
-        menuButton.addEventListener('click', toggleMenu);
-        overlay.addEventListener('click', toggleMenu);
-    }
-});
-</script>
-{% endblock %}
+        });
+    </script>
+    {% endblock %}
+</body>
+</html>
