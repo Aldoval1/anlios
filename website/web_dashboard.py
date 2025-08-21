@@ -15,6 +15,7 @@ import uuid
 from datetime import datetime
 import google.generativeai as genai
 import re
+from functools import wraps
 
 # --- CONFIGURACIÓN INICIAL ---
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -33,8 +34,13 @@ try:
 except Exception as e:
     app.logger.error(f"No se pudo cargar el archivo de traducciones: {e}")
 
+def get_translation(text_key):
+    """Obtiene una traducción para ser usada dentro de las rutas de Flask."""
+    lang = g.get('lang', 'en')
+    return translations.get(lang, {}).get(text_key, text_key)
+
 @app.before_request
-def before_request():
+def before_request_lang():
     if 'lang' not in session:
         browser_lang = request.headers.get('Accept-Language', 'en')
         if browser_lang.lower().startswith('es'):
@@ -78,6 +84,37 @@ REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_CODES_KEY = "premium_codes"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 REDIS_LOG_KEY = "dashboard_audit_log"
+
+# --- CONFIGURACIÓN DE MANTENIMIENTO ---
+ANLIOS_ADMIN_IDS = ['YOUR_DISCORD_ID_HERE'] # Reemplaza con tu ID de usuario de Discord
+
+# --- DECORADOR Y MIDDLEWARE ---
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'discord_token' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.before_request
+def check_maintenance_mode():
+    if request.endpoint in ['static']:
+        return
+
+    maintenance_enabled = redis_client.get('maintenance:enabled')
+    if maintenance_enabled and maintenance_enabled == 'true':
+        if request.endpoint in ['login', 'callback', 'logout', 'maintenance', 'set_language', 'admin_maintenance']:
+            return
+
+        if 'user' in session:
+            user_id = session['user']['id']
+            if user_id in ANLIOS_ADMIN_IDS:
+                return
+            if session.get('tester_access_granted'):
+                return
+        
+        return redirect(url_for('maintenance'))
 
 # --- FILTRO DE PLANTILLA ---
 @app.template_filter('timestamp_to_date')
@@ -241,8 +278,8 @@ def set_language(lang):
     return redirect(request.referrer or url_for('index'))
 
 @app.route("/dashboard")
+@login_required
 def dashboard_home():
-    if 'discord_token' not in session: return redirect(url_for('login'))
     discord = make_user_session()
     try:
         user_response = discord.get(f'{API_BASE_URL}/users/@me')
@@ -266,8 +303,8 @@ def dashboard_home():
         return redirect(url_for('logout'))
 
 @app.route("/dashboard/profile")
+@login_required
 def profile_page():
-    if 'discord_token' not in session: return redirect(url_for('login'))
     discord = make_user_session()
     try:
         if 'user' not in session:
@@ -306,8 +343,8 @@ def profile_page():
 
 
 @app.route("/dashboard/<guild_id>/<page>", methods=['GET', 'POST'])
+@login_required
 def select_page(guild_id, page):
-    if 'discord_token' not in session: return redirect(url_for('login'))
     session['active_guild_id'] = guild_id
     guild_id_int = int(guild_id)
     
@@ -315,8 +352,6 @@ def select_page(guild_id, page):
         try:
             user_info = session.get('user', {'username': 'Desconocido', 'id': 'Desconocido'})
             
-            # --- INICIO DE LA MODIFICACIÓN: Lógica de POST refactorizada ---
-            # Acciones con ID específico (desde botones con name="action_..."):
             if 'action_remove_warning' in request.form:
                 user_id_to_clear = request.form.get('action_remove_warning')
                 warnings_log = load_warnings_log(guild_id_int)
@@ -341,7 +376,6 @@ def select_page(guild_id, page):
                     flash("No se encontró el backup a eliminar.", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
-            # Acciones generales (desde botones con name="action"):
             action = request.form.get('action')
             if action == 'toggle_module':
                 config = load_module_config()
@@ -470,7 +504,6 @@ def select_page(guild_id, page):
                 except Exception as e:
                     flash(f"Error al procesar la fuente: {e}", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
-            # --- FIN DE LA MODIFICACIÓN ---
         except Exception as e:
             app.logger.error(f"Error al procesar formulario: {e}")
             flash(f"Error al guardar: {e}", "danger")
@@ -532,8 +565,8 @@ def select_page(guild_id, page):
 
 # --- RUTAS DE CONOCIMIENTO ASÍNCRONO ---
 @app.route("/dashboard/<guild_id>/knowledge/add", methods=['POST'])
+@login_required
 def add_knowledge_ajax(guild_id):
-    if 'discord_token' not in session: return jsonify({'success': False, 'error': 'No has iniciado sesión'}), 401
     try:
         data = request.json
         text = data.get('text')
@@ -553,8 +586,8 @@ def add_knowledge_ajax(guild_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route("/dashboard/<guild_id>/knowledge/delete", methods=['POST'])
+@login_required
 def delete_knowledge_ajax(guild_id):
-    if 'discord_token' not in session: return jsonify({'success': False, 'error': 'No has iniciado sesión'}), 401
     try:
         data = request.json
         index = int(data.get('index'))
@@ -574,8 +607,8 @@ def delete_knowledge_ajax(guild_id):
 
 # --- RUTA DE ACCIÓN DE ENTRENAMIENTO ---
 @app.route("/dashboard/<guild_id>/training_action", methods=['POST'])
+@login_required
 def training_action(guild_id):
-    if 'discord_token' not in session: return redirect(url_for('login'))
     guild_id_int = int(guild_id)
     action = request.form.get('action')
     question_id = request.form.get('question_id')
@@ -611,8 +644,8 @@ def training_action(guild_id):
     return redirect(url_for('select_page', guild_id=guild_id, page='training'))
 
 @app.route("/dashboard/<guild_id>/send_panel", methods=['POST'])
+@login_required
 def send_panel(guild_id):
-    if 'discord_token' not in session: return redirect(url_for('login'))
     if not redis_client: return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
     channel_id = int(request.form.get('channel_id'))
     command = {'command': 'send_panel', 'guild_id': int(guild_id), 'channel_id': channel_id}
@@ -666,6 +699,43 @@ def demo_extract_knowledge():
     except Exception as e:
         app.logger.error(f"Error en la extracción de conocimiento para demo: {e}")
         return jsonify({'success': False, 'error': f'Error al procesar la fuente: {e}'}), 500
+
+# ==========================================================================================================================================
+# [NUEVAS RUTAS DE MANTENIMIENTO]
+# ==========================================================================================================================================
+@app.route('/maintenance', methods=['GET', 'POST'])
+def maintenance():
+    if request.method == 'POST':
+        password = request.form.get('password')
+        tester_password = redis_client.get('maintenance:password')
+        if tester_password and password == tester_password:
+            session['tester_access_granted'] = True
+            return redirect(url_for('dashboard_home'))
+        else:
+            flash(get_translation('Incorrect password.'), 'error')
+    return render_template('maintenance.html')
+
+@app.route('/admin/maintenance', methods=['GET', 'POST'])
+@login_required
+def admin_maintenance():
+    if session['user']['id'] not in ANLIOS_ADMIN_IDS:
+        return redirect(url_for('dashboard_home'))
+
+    if request.method == 'POST':
+        enabled = 'enabled' in request.form
+        redis_client.set('maintenance:enabled', 'true' if enabled else 'false')
+        
+        password = request.form.get('password', '')
+        redis_client.set('maintenance:password', password)
+        
+        flash(get_translation('Maintenance settings updated successfully.'), 'success')
+        return redirect(url_for('admin_maintenance'))
+
+    is_enabled = redis_client.get('maintenance:enabled') == 'true'
+    tester_password = redis_client.get('maintenance:password') or ''
+    
+    return render_template('admin_maintenance.html', is_enabled=is_enabled, tester_password=tester_password)
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
