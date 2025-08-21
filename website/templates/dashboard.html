@@ -182,13 +182,13 @@
     document.addEventListener('DOMContentLoaded', () => {
         const designSheets = document.querySelectorAll('link[id^="design-"]');
         const colorSheets = document.querySelectorAll('link[id^="color-"]');
-        const designSelector = document.getElementById('design-selector');
-        const colorSelector = document.getElementById('color-selector');
         const body = document.body;
+        
+        // Selectores actualizados para las tarjetas y círculos
+        const designContainer = document.getElementById('design-selector-container');
+        const colorContainer = document.getElementById('color-selector-container');
 
-        let previewedDesign = null;
-        let previewedColor = null;
-        let toastVisible = false;
+        let currentTheme = { design: 'anlios', color: 'furia-roja' };
 
         function applyTheme(design, color) {
             body.classList.add('theme-transition');
@@ -226,55 +226,49 @@
 
         function loadTheme() {
             const savedTheme = JSON.parse(localStorage.getItem('userTheme')) || { design: 'anlios', color: 'furia-roja' };
-            previewedDesign = savedTheme.design;
-            previewedColor = savedTheme.color;
+            currentTheme = savedTheme;
             applyTheme(savedTheme.design, savedTheme.color);
-            updateSelectors();
+            updateActiveSelectors();
         }
         
-        function updateSelectors() {
-            if(designSelector) {
-                designSelector.value = previewedDesign;
+        function updateActiveSelectors() {
+            if (designContainer) {
+                const designCards = designContainer.querySelectorAll('.theme-card');
+                designCards.forEach(card => {
+                    card.classList.toggle('active', card.dataset.design === currentTheme.design);
+                });
             }
-            if(colorSelector) {
-                colorSelector.value = previewedColor;
+            if (colorContainer) {
+                const colorSwatches = colorContainer.querySelectorAll('.color-swatch');
+                colorSwatches.forEach(swatch => {
+                    swatch.classList.toggle('active', swatch.dataset.color === currentTheme.color);
+                });
             }
         }
-
-        function showThemeToast() {
-            if (toastVisible) return;
-            toastVisible = true;
-            
-            showToast("{{ _('You have unsaved changes!') }}", [
-                { text: "{{ _('Save') }}", className: 'toast-btn-save', onClick: () => { savePreviewedTheme(); toastVisible = false; } },
-                { text: "{{ _('Cancel') }}", className: 'toast-btn-cancel', onClick: () => { revertToSavedTheme(); toastVisible = false; } }
-            ], 10000, () => { 
-                if (toastVisible) { // Solo revertir si el toast no fue cerrado por un botón
-                    revertToSavedTheme();
-                }
-                toastVisible = false; 
-            });
-        }
-
-        window.savePreviewedTheme = () => {
-            saveTheme(previewedDesign, previewedColor);
-        };
         
-        window.revertToSavedTheme = () => {
-            loadTheme();
-        };
+        // Evento para seleccionar un diseño
+        if (designContainer) {
+            designContainer.addEventListener('click', (e) => {
+                const selectedCard = e.target.closest('.theme-card');
+                if (!selectedCard) return;
 
-        if (designSelector && colorSelector) {
-            designSelector.addEventListener('change', e => {
-                previewedDesign = e.target.value;
-                applyTheme(previewedDesign, previewedColor);
-                showThemeToast();
+                currentTheme.design = selectedCard.dataset.design;
+                applyTheme(currentTheme.design, currentTheme.color);
+                saveTheme(currentTheme.design, currentTheme.color);
+                updateActiveSelectors();
             });
+        }
+        
+        // Evento para seleccionar un color
+        if (colorContainer) {
+            colorContainer.addEventListener('click', (e) => {
+                const selectedSwatch = e.target.closest('.color-swatch');
+                if (!selectedSwatch) return;
 
-            colorSelector.addEventListener('change', e => {
-                previewedColor = e.target.value;
-                applyTheme(previewedDesign, previewedColor);
-                showThemeToast();
+                currentTheme.color = selectedSwatch.dataset.color;
+                applyTheme(currentTheme.design, currentTheme.color);
+                saveTheme(currentTheme.design, currentTheme.color);
+                updateActiveSelectors();
             });
         }
 
