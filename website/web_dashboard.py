@@ -85,10 +85,7 @@ REDIS_CODES_KEY = "premium_codes"
 REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 REDIS_LOG_KEY = "dashboard_audit_log"
 
-# --- CONFIGURACIÓN DE MANTENIMIENTO ---
-ANLIOS_ADMIN_IDS = ['YOUR_DISCORD_ID_HERE'] # Reemplaza con tu ID de usuario de Discord
-
-# --- DECORADOR Y MIDDLEWARE ---
+# --- DECORADOR ---
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -96,25 +93,6 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
-
-@app.before_request
-def check_maintenance_mode():
-    if request.endpoint in ['static']:
-        return
-
-    maintenance_enabled = redis_client.get('maintenance:enabled')
-    if maintenance_enabled and maintenance_enabled == 'true':
-        if request.endpoint in ['login', 'callback', 'logout', 'maintenance', 'set_language', 'admin_maintenance']:
-            return
-
-        if 'user' in session:
-            user_id = session['user']['id']
-            if user_id in ANLIOS_ADMIN_IDS:
-                return
-            if session.get('tester_access_granted'):
-                return
-        
-        return redirect(url_for('maintenance'))
 
 # --- FILTRO DE PLANTILLA ---
 @app.template_filter('timestamp_to_date')
@@ -534,7 +512,7 @@ def select_page(guild_id, page):
         "module_status": module_status, "module_statuses": module_statuses
     }
     
-    template_map = {"modules": "module_ticket_ia.html", "membership": "membership.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html"}
+    template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html"}
     template_to_render = template_map.get(page, "under_construction.html")
     
     if page in ['modules', 'training']:
@@ -553,9 +531,6 @@ def select_page(guild_id, page):
         elif page == 'training':
             render_data['pending_questions'] = load_data_from_redis(f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}", [])
     
-    elif page == 'membership':
-        render_data['subscription'] = get_subscription_status(guild_id_int)
-
     elif page == 'moderation':
         render_data['moderation_config'] = load_moderation_config(guild_id_int)
         render_data['warnings_log'] = load_warnings_log(guild_id_int)
@@ -699,43 +674,6 @@ def demo_extract_knowledge():
     except Exception as e:
         app.logger.error(f"Error en la extracción de conocimiento para demo: {e}")
         return jsonify({'success': False, 'error': f'Error al procesar la fuente: {e}'}), 500
-
-# ==========================================================================================================================================
-# [NUEVAS RUTAS DE MANTENIMIENTO]
-# ==========================================================================================================================================
-@app.route('/maintenance', methods=['GET', 'POST'])
-def maintenance():
-    if request.method == 'POST':
-        password = request.form.get('password')
-        tester_password = redis_client.get('maintenance:password')
-        if tester_password and password == tester_password:
-            session['tester_access_granted'] = True
-            return redirect(url_for('dashboard_home'))
-        else:
-            flash(get_translation('Incorrect password.'), 'error')
-    return render_template('maintenance.html')
-
-@app.route('/admin/maintenance', methods=['GET', 'POST'])
-@login_required
-def admin_maintenance():
-    if session['user']['id'] not in ANLIOS_ADMIN_IDS:
-        return redirect(url_for('dashboard_home'))
-
-    if request.method == 'POST':
-        enabled = 'enabled' in request.form
-        redis_client.set('maintenance:enabled', 'true' if enabled else 'false')
-        
-        password = request.form.get('password', '')
-        redis_client.set('maintenance:password', password)
-        
-        flash(get_translation('Maintenance settings updated successfully.'), 'success')
-        return redirect(url_for('admin_maintenance'))
-
-    is_enabled = redis_client.get('maintenance:enabled') == 'true'
-    tester_password = redis_client.get('maintenance:password') or ''
-    
-    return render_template('admin_maintenance.html', is_enabled=is_enabled, tester_password=tester_password)
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
