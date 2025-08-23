@@ -45,6 +45,10 @@
         <div class="menu-category">{{ _('Account') }}</div>
         <nav class="nav flex-column">
             <a class="nav-link {% if page == 'profile' %}active{% endif %}" href="{{ url_for('profile_page') }}">{{ _('Profile') }}</a>
+            <!-- NUEVO: Enlace de Membresía, solo visible si hay un servidor activo -->
+            {% if active_guild_id %}
+            <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('membership', guild_id=active_guild_id) }}">{{ _('Membership') }}</a>
+            {% endif %}
         </nav>
 
         {% if active_guild_id %}

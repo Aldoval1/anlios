@@ -1,0 +1,18 @@
+{% extends "admin_layout.html" %}
+{% block title %}Visor de Servidores{% endblock %}
+{% block content %}
+    <h2>Visor de Configuración de Servidores</h2>
+    <p>Selecciona un servidor para ver sus datos de configuración en vivo desde la base de datos.</p>
+    <div class="list-group">
+        {% for guild_id in guild_ids %}
+            <a href="{{ url_for('view_server_config', guild_id=guild_id) }}" class="list-group-item list-group-item-action">
+                {# CORRECCIÓN: Se usa el filtro |string en vez de la función str() #}
+                <strong>{{ guild_names.get(guild_id | string, "Servidor Desconocido") }}</strong>
+                <br>
+                <small class="text-muted">ID: {{ guild_id }}</small>
+            </a>
+        {% else %}
+            <p class="text-muted">No se encontraron servidores.</p>
+        {% endfor %}
+    </div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "admin_layout.html" %}
+{% block title %}Registro de Auditoría{% endblock %}
+{% block content %}
+    <h2>Registro de Auditoría del Dashboard</h2>
+    <div class="table-responsive">
+        <table class="table table-striped table-sm">
+            <thead><tr><th>Fecha y Hora</th><th>Usuario</th><th>Acción</th><th>Detalles</th></tr></thead>
+            <tbody>
+            {% for log in logs %}
+                <tr>
+                    <td>{{ log.timestamp | from_timestamp }}</td>
+                    <td>{{ log.user.username }} ({{ log.user.id }})</td>
+                    <td>{{ log.action }}</td>
+                    <td><pre style="white-space: pre-wrap; word-break: break-all;">{{ log.details | tojson(indent=2) }}</pre></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

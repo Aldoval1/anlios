@@ -1,0 +1,43 @@
+{% extends "admin_layout.html" %}
+{% block title %}Ver Config: {{ data.guild_id }}{% endblock %}
+{% block content %}
+    <a href="{{ url_for('server_viewer') }}">&larr; Volver a la Lista de Servidores</a>
+    <h2 class="mt-3">Viendo Configuración para el Servidor: {{ data.guild_id }}</h2>
+    <hr>
+    
+    <div class="card mb-4">
+        <div class="card-header">Estado del Módulo</div>
+        <div class="card-body">
+            <p><strong>Módulo de Ticket IA Activado:</strong> {{ data.module_status }}</p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Configuración de Tickets y Logs</div>
+        <div class="card-body">
+            <pre>{{ data.ticket_config | tojson(indent=2) }}</pre>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Configuración de Embeds y Prompt de IA</div>
+        <div class="card-body">
+            <pre>{{ data.embed_config | tojson(indent=2) }}</pre>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Base de Conocimientos</div>
+        <div class="card-body">
+            {% if data.knowledge_base %}
+                <ul>
+                {% for item in data.knowledge_base %}
+                    <li><pre>{{ item }}</pre></li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">La base de conocimientos está vacía.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

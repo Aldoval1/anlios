@@ -1,0 +1,45 @@
+{% extends "admin_layout.html" %}
+{% block title %}Gestionar Códigos{% endblock %}
+{% block content %}
+    <h2>Gestionar Códigos Premium</h2>
+    <div class="row">
+        <div class="col-md-6">
+            <h4>Generar Nuevo Código</h4>
+            <form method="POST">
+                <input type="hidden" name="action" value="generate">
+                <div class="mb-3">
+                    <label for="duration" class="form-label">Duración (días)</label>
+                    <input type="number" class="form-control" id="duration" name="duration" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Generar</button>
+            </form>
+        </div>
+        <div class="col-md-6">
+            <h4>Códigos Existentes</h4>
+            <table class="table">
+                <thead><tr><th>Código</th><th>Duración (Días)</th><th>Estado</th><th>Acción</th></tr></thead>
+                <tbody>
+                {% for code, data in codes.items() %}
+                    {# CORRECCIÓN: Asegurarse de que 'data' es un diccionario antes de acceder a sus claves #}
+                    {% if data is mapping %}
+                    <tr>
+                        <td>{{ code }}</td>
+                        <td>{{ (data.get('duration', 0) / 86400) | int }}</td>
+                        <td>{{ "Activo" if data.get('is_active') else "Usado/Inactivo" }}</td>
+                        <td>
+                            {% if data.get('is_active') %}
+                            <form method="POST" class="d-inline">
+                                <input type="hidden" name="action" value="deactivate">
+                                <input type="hidden" name="code" value="{{ code }}">
+                                <button type="submit" class="btn btn-warning btn-sm">Desactivar</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

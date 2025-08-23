@@ -1,0 +1,17 @@
+{% extends "admin_layout.html" %}
+{% block title %}Suscripciones{% endblock %}
+{% block content %}
+    <h2>Suscripciones Activas</h2>
+    <table class="table">
+        <thead><tr><th>Servidor</th><th>Expira en</th></tr></thead>
+        <tbody>
+        {% for guild_id, data in subscriptions.items() %}
+            <tr>
+                {# Usar el mapa guild_names para obtener el nombre, con fallback al ID #}
+                <td>{{ guild_names.get(guild_id, guild_id) }} (ID: {{ guild_id }})</td>
+                <td>{{ data.expires_at | from_timestamp }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
