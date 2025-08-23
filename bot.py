@@ -50,13 +50,51 @@ REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_GUILD_NAMES_KEY = "guild_names_map"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_TRAINING_QUEUE_KEY = "training_queue"
-REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
-REDIS_CODES_KEY = "premium_codes"
+# Usaremos hashes individuales para mejor rendimiento como en el admin dashboard
+# REDIS_SUBSCRIPTIONS_KEY = "subscriptions" 
+# REDIS_CODES_KEY = "premium_codes"
 REDIS_MODERATION_CONFIG_KEY = "moderation_config:{}"
 REDIS_WARNINGS_LOG_KEY = "warnings_log:{}"
 REDIS_BACKUPS_KEY = "backups:{}"
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
+
+# ===================================================================
+# NUEVO: Función de Verificación de Membresía
+# ===================================================================
+def is_premium(guild_id: int) -> bool:
+    """
+    Verifica si un servidor (guild) tiene una suscripción premium activa.
+    Consulta Redis para obtener el estado de la suscripción.
+    """
+    if not redis_client or not guild_id:
+        return False
+        
+    sub_key = f"subscription:{guild_id}"
+    sub_info = redis_client.hgetall(sub_key)
+    
+    # Si no hay información o el estado no es 'active', no es premium
+    if not sub_info or sub_info.get('status') != 'active':
+        return False
+        
+    try:
+        # Verifica si la fecha de expiración es en el futuro
+        expires_at_str = sub_info.get('expires_at')
+        if not expires_at_str:
+            return False
+            
+        expires_at = datetime.fromisoformat(expires_at_str)
+        if expires_at > datetime.utcnow():
+            return True
+        else:
+            # La suscripción ha expirado, actualizamos el estado en Redis
+            redis_client.hset(sub_key, 'status', 'expired')
+            return False
+    except (ValueError, TypeError):
+        # En caso de que la fecha esté mal formateada o no exista
+        print(f"Error al parsear la fecha de expiración para el guild {guild_id}")
+        return False
+
 def load_data_from_redis(key: str, default_value):
     if not redis_client: return default_value
     try:
@@ -146,10 +184,14 @@ def update_guilds_in_redis():
     print("Actualizando la lista y nombres de servidores en Redis...")
     guilds = bot.guilds
     guild_ids = [guild.id for guild in guilds]
-    guild_names = {str(guild.id): guild.name for guild in guilds}
+    # Usamos guild_name:id para consistencia con el admin dashboard
+    for guild in guilds:
+        redis_client.set(f"guild_name:{guild.id}", guild.name)
+    
+    # Guardamos la lista de IDs para otras operaciones
     save_data_to_redis(REDIS_GUILDS_KEY, guild_ids)
-    save_data_to_redis(REDIS_GUILD_NAMES_KEY, guild_names)
     print(f"El bot está ahora en {len(guild_ids)} servidores. Lista y nombres actualizados en Redis.")
+
 
 def build_embed_from_config(config: dict, user: discord.Member = None) -> discord.Embed:
     color_str = config.get('color', '#000000').lstrip('#')
@@ -281,19 +323,31 @@ async def check_command_queue():
             guild = bot.get_guild(guild_id)
             if not guild: return
 
+            # ===================================================================
+            # NUEVO: Verificación de membresía para crear backups
+            # ===================================================================
+            if not is_premium(guild_id):
+                print(f"Intento de creación de backup bloqueado para el servidor no premium: {guild.name} ({guild_id})")
+                # Opcional: notificar al usuario que lo solicitó si tienes su ID
+                user_id = command_data.get('user_id')
+                if user_id:
+                    user = await bot.fetch_user(user_id)
+                    if user:
+                        await user.send(f"La creación del backup para el servidor **{guild.name}** falló porque no tiene una membresía Premium activa.")
+                return
+            # ===================================================================
+
             icon_url = str(guild.icon.url) if guild.icon else None
             
-            # --- INICIO DE LA MODIFICACIÓN: Corrección del orden de guardado de roles ---
             roles_data = []
             # Guardar roles de menor a mayor posición para recrearlos en el orden correcto
-            for role in guild.roles:
+            for role in sorted(guild.roles, key=lambda r: r.position):
                 if role.is_default(): continue
                 roles_data.append({
                     "name": role.name, "permissions": role.permissions.value,
                     "color": role.color.value, "hoist": role.hoist,
                     "mentionable": role.mentionable
                 })
-            # --- FIN DE LA MODIFICACIÓN ---
 
             channels_data = []
             for category, channels in guild.by_category():
@@ -318,7 +372,7 @@ async def check_command_queue():
                 for channel in channels:
                     channel_overwrites = []
                     for target, perms in channel.overwrites.items():
-                         if isinstance(target, (discord.Role, discord.Member)):
+                        if isinstance(target, (discord.Role, discord.Member)):
                             allow_perms, deny_perms = perms.pair()
                             channel_overwrites.append({
                                 "target_id": target.id,
@@ -546,6 +600,20 @@ backup_commands = app_commands.Group(name="backup", description="Comandos para g
 @backup_commands.command(name="load", description="Carga un backup en el servidor actual. ¡Esto borrará toda la configuración!")
 @app_commands.describe(backup_id="El ID del backup a cargar.")
 async def load_backup(interaction: discord.Interaction, backup_id: str):
+    # ===================================================================
+    # NUEVO: Verificación de membresía para cargar backups
+    # ===================================================================
+    if not is_premium(interaction.guild.id):
+        embed = discord.Embed(
+            title="Función Premium Requerida",
+            description="Lo siento, cargar copias de seguridad es una función exclusiva para servidores con una **membresía Premium** activa.",
+            color=discord.Color.red()
+        )
+        embed.add_field(name="¿Cómo activo la membresía?", value="Visita nuestro dashboard web para canjear un código y activar tu membresía.", inline=False)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    # ===================================================================
+
     if interaction.user.id != interaction.guild.owner_id:
         await interaction.response.send_message(_(interaction.guild.id, "BACKUP_LOAD_NO_PERMISSION"), ephemeral=True)
         return
@@ -605,9 +673,7 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
 
         await interaction.user.send("⏳ " + _(interaction.guild.id, "BACKUP_LOAD_PROGRESS_ROLES"))
         role_map = {}
-        # --- INICIO DE LA MODIFICACIÓN: Corrección del orden de creación de roles ---
         for role_data in backup_data["roles"]:
-        # --- FIN DE LA MODIFICACIÓN ---
             permissions = discord.Permissions(role_data["permissions"])
             color = discord.Color(role_data["color"])
             new_role = await guild.create_role(
