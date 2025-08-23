@@ -48,12 +48,6 @@
         </nav>
 
         {% if active_guild_id %}
-        <!-- Menú del Servidor (solo con servidor seleccionado) -->
-        <div class="menu-category">{{ _('Server') }}</div>
-        <nav class="nav flex-column">
-            <a class="nav-link {% if page == 'membership' %}active{% endif %}" href="{{ url_for('select_page', guild_id=active_guild_id, page='membership') }}">{{ _('Membership') }}</a>
-        </nav>
-
         <!-- Menú de Módulos -->
         <div class="menu-category">{{ _('Modules') }}</div>
         <nav class="nav flex-column">
