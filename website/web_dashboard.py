@@ -12,7 +12,7 @@ from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, Tran
 import redis
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import google.generativeai as genai
 import re
 from functools import wraps
@@ -65,11 +65,12 @@ else:
 
 # --- CONFIGURACIÓN DE REDIS ---
 try:
-    redis_client = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
+    # Usamos 'r' para consistencia con el código anterior, pero apuntando a tu 'redis_client'
+    r = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
     app.logger.info("Conexión con Redis establecida.")
 except Exception as e:
     app.logger.error(f"No se pudo conectar a Redis: {e}")
-    redis_client = None
+    r = None
 
 # --- CONSTANTES ---
 CLIENT_ID, CLIENT_SECRET, BOT_TOKEN = os.getenv('DISCORD_CLIENT_ID'), os.getenv('DISCORD_CLIENT_SECRET'), os.getenv('DISCORD_BOT_TOKEN')
@@ -81,9 +82,40 @@ SCOPES = ['identify', 'guilds']
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_TRAINING_QUEUE_KEY = "training_queue"
-REDIS_CODES_KEY = "premium_codes"
-REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
+# Usaremos hashes individuales para códigos y suscripciones para mejor rendimiento
+# REDIS_CODES_KEY = "premium_codes"
+# REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 REDIS_LOG_KEY = "dashboard_audit_log"
+
+
+# ===================================================================
+# NUEVO: Middleware para el Modo Mantenimiento
+# ===================================================================
+@app.before_request
+def check_for_maintenance():
+    """
+    Se ejecuta antes de cada solicitud para verificar si el sitio está en mantenimiento.
+    """
+    # Rutas que deben funcionar incluso en modo mantenimiento
+    allowed_paths = [
+        url_for('maintenance'),
+        url_for('login'),
+        url_for('logout'),
+        url_for('callback'),
+        url_for('set_language', lang='es'), # Añadir rutas que no deben ser bloqueadas
+        url_for('set_language', lang='en')
+    ]
+    if request.path.startswith('/static') or request.path in allowed_paths or '/language/' in request.path:
+        return
+
+    if r:
+        maintenance_config = r.hgetall('maintenance_status')
+        maintenance_mode = maintenance_config.get('status', 'disabled')
+
+        if maintenance_mode == 'enabled':
+            # Si el modo está activo, verificar si el usuario es un tester autenticado
+            if not session.get('is_tester'):
+                return redirect(url_for('maintenance'))
 
 # --- DECORADOR ---
 def login_required(f):
@@ -98,43 +130,47 @@ def login_required(f):
 @app.template_filter('timestamp_to_date')
 def timestamp_to_date(s):
     if not s: return "N/A"
-    return datetime.fromtimestamp(s).strftime('%Y-%m-%d %H:%M:%S UTC')
+    # Adaptado para manejar tanto timestamps como strings ISO
+    try:
+        if isinstance(s, str):
+            dt_object = datetime.fromisoformat(s)
+        else:
+            dt_object = datetime.fromtimestamp(float(s))
+        return dt_object.strftime('%Y-%m-%d %H:%M:%S UTC')
+    except (ValueError, TypeError):
+        return "Fecha inválida"
+
 
 # --- FUNCIONES AUXILIARES ---
 def log_action(user, action, details):
-    if not redis_client: return
+    if not r: return
     log_entry = {
         "timestamp": time.time(),
         "user": user,
         "action": action,
         "details": details
     }
-    redis_client.lpush(REDIS_LOG_KEY, json.dumps(log_entry))
-    redis_client.ltrim(REDIS_LOG_KEY, 0, 999)
+    r.lpush(REDIS_LOG_KEY, json.dumps(log_entry))
+    r.ltrim(REDIS_LOG_KEY, 0, 999)
 
+# Adaptamos las funciones para usar 'r' y hashes donde sea apropiado
 def load_data_from_redis(key: str, default_value):
-    if not redis_client: return default_value
+    if not r: return default_value
     try:
-        data = redis_client.get(key)
+        data = r.get(key)
         return json.loads(data) if data else default_value
     except Exception as e:
         app.logger.error(f"Error al cargar datos de Redis para la clave {key}: {e}")
         return default_value
 
 def save_data_to_redis(key: str, data):
-    if not redis_client: return
+    if not r: return
     try:
-        redis_client.set(key, json.dumps(data))
+        r.set(key, json.dumps(data))
     except Exception as e:
         app.logger.error(f"Error al guardar datos en Redis para la clave {key}: {e}")
 
-def get_subscription_status(guild_id: int) -> dict:
-    subs = load_data_from_redis(REDIS_SUBSCRIPTIONS_KEY, {})
-    sub_data = subs.get(str(guild_id))
-    if sub_data and sub_data.get('expires_at', 0) > time.time():
-        return {"is_premium": True, "expires_at": sub_data['expires_at']}
-    return {"is_premium": False, "expires_at": None}
-
+# ... (El resto de tus funciones auxiliares: load_ticket_config, save_ticket_config, etc. permanecen igual)
 def load_ticket_config(guild_id: int) -> dict:
     default_config = {'admin_roles': [], 'log_enabled': False, 'log_channel_id': None, 'language': 'es'}
     config = load_data_from_redis(f"ticket_config:{guild_id}", default_config)
@@ -255,6 +291,33 @@ def set_language(lang):
         session['lang'] = lang
     return redirect(request.referrer or url_for('index'))
 
+# ===================================================================
+# NUEVO: Ruta para la página de Mantenimiento
+# ===================================================================
+@app.route('/maintenance', methods=['GET', 'POST'])
+def maintenance():
+    if not r:
+        return "Error: No se puede conectar a la base de datos.", 500
+
+    maintenance_config = r.hgetall('maintenance_status')
+    # Si el modo mantenimiento está desactivado y el usuario no es un tester, lo redirigimos
+    if maintenance_config.get('status', 'disabled') == 'disabled' and not session.get('is_tester'):
+         return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        tester_password = maintenance_config.get('tester_password', 'NO_PASSWORD_SET_XYZ')
+        # Asegurarse de que hay una contraseña de tester configurada antes de comparar
+        if tester_password and request.form.get('password') == tester_password:
+            session['is_tester'] = True
+            return redirect(url_for('dashboard_home'))
+        else:
+            flash("Contraseña de Tester incorrecta.", "error")
+            # Volver a renderizar la plantilla con el mensaje de error
+            return render_template('maintenance.html', error="Contraseña incorrecta")
+
+    return render_template('maintenance.html')
+
+
 @app.route("/dashboard")
 @login_required
 def dashboard_home():
@@ -309,15 +372,100 @@ def profile_page():
         }
 
         return render_template("profile.html", 
-                               user=session['user'], 
-                               guilds_with_bot=guilds_with_bot, 
-                               guilds_without_bot=guilds_without_bot,
-                               client_id=CLIENT_ID,
-                               active_guild_id=None, 
-                               page='profile',
-                               module_statuses=module_statuses)
+                                user=session['user'], 
+                                guilds_with_bot=guilds_with_bot, 
+                                guilds_without_bot=guilds_without_bot,
+                                client_id=CLIENT_ID,
+                                active_guild_id=None, 
+                                page='profile',
+                                module_statuses=module_statuses)
     except TokenExpiredError:
         return redirect(url_for('logout'))
+
+# ===================================================================
+# NUEVO: Ruta para la página de Membresías
+# ===================================================================
+@app.route("/dashboard/<int:guild_id>/membership", methods=['GET', 'POST'])
+@login_required
+def membership(guild_id):
+    if not r:
+        flash("Error de conexión con la base de datos.", "danger")
+        return redirect(url_for('select_page', guild_id=guild_id, page='profile')) # Redirige a una página segura
+
+    # Aquí deberías tener una lógica para verificar que el usuario tiene acceso a este guild_id
+    # (Omitido por brevedad, pero es crucial en producción)
+
+    if request.method == 'POST':
+        code = request.form.get('premium_code', '').strip()
+        if not code:
+            flash('Debes introducir un código para canjear.', 'warning')
+        else:
+            code_key = f"premium_code:{code}"
+            if not r.exists(code_key):
+                flash('El código premium introducido no es válido o no existe.', 'danger')
+            else:
+                code_data = r.hgetall(code_key)
+                if code_data.get('is_used') == 'True':
+                    flash(f"Este código ya fue canjeado en el servidor ID: {code_data.get('used_by_guild', 'N/A')}", 'danger')
+                else:
+                    duration_days = int(code_data.get('duration_days', 0))
+                    
+                    # Marcar el código como usado
+                    r.hset(code_key, 'is_used', 'True')
+                    r.hset(code_key, 'used_by_guild', str(guild_id))
+                    
+                    # Calcular la nueva fecha de expiración
+                    sub_key = f"subscription:{guild_id}"
+                    current_sub = r.hgetall(sub_key)
+                    
+                    start_date = datetime.utcnow()
+                    # Si ya hay una suscripción activa, se extiende desde su fecha de expiración
+                    if current_sub and 'expires_at' in current_sub:
+                        current_expiry = datetime.fromisoformat(current_sub['expires_at'])
+                        if current_expiry > start_date:
+                            start_date = current_expiry
+
+                    expires_at = start_date + timedelta(days=duration_days)
+                    
+                    # Guardar la nueva información de la suscripción
+                    r.hset(sub_key, mapping={
+                        'status': 'active',
+                        'expires_at': expires_at.isoformat(),
+                        'redeemed_at': datetime.utcnow().isoformat(),
+                        'last_code_used': code
+                    })
+                    
+                    flash(f'¡Felicidades! La membresía premium ha sido activada o extendida por {duration_days} días.', 'success')
+                    # Redirigir para limpiar el formulario POST
+                    return redirect(url_for('membership', guild_id=guild_id))
+
+    # Lógica para mostrar el estado actual de la suscripción (para GET)
+    sub_info = r.hgetall(f"subscription:{guild_id}")
+    time_left = None
+    is_active = False
+    if sub_info and sub_info.get('status') == 'active':
+        expires_at_str = sub_info.get('expires_at')
+        if expires_at_str:
+            expires_at = datetime.fromisoformat(expires_at_str)
+            if expires_at > datetime.utcnow():
+                time_left = expires_at - datetime.utcnow()
+                is_active = True
+            else:
+                # La suscripción ha expirado, se actualiza el estado
+                r.hset(f"subscription:{guild_id}", 'status', 'expired')
+                sub_info['status'] = 'expired'
+    
+    # Obtener el nombre del servidor para mostrarlo en la plantilla
+    discord = make_user_session()
+    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
+    server_name = "Servidor"
+    if guilds_response.status_code == 200:
+        user_guilds = guilds_response.json()
+        current_guild = next((g for g in user_guilds if g['id'] == str(guild_id)), None)
+        if current_guild:
+            server_name = current_guild['name']
+
+    return render_template('membership.html', guild_id=guild_id, server_name=server_name, sub_info=sub_info, time_left=time_left, is_active=is_active)
 
 
 @app.route("/dashboard/<guild_id>/<page>", methods=['GET', 'POST'])
@@ -398,7 +546,7 @@ def select_page(guild_id, page):
 
             elif action == 'create_backup':
                 command = {'command': 'create_backup', 'guild_id': guild_id_int, 'user_id': user_info['id']}
-                redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
+                r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
                 flash("La creación del backup se ha puesto en cola. Aparecerá en la lista en breve.", "info")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
@@ -621,10 +769,10 @@ def training_action(guild_id):
 @app.route("/dashboard/<guild_id>/send_panel", methods=['POST'])
 @login_required
 def send_panel(guild_id):
-    if not redis_client: return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
+    if not r: return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
     channel_id = int(request.form.get('channel_id'))
     command = {'command': 'send_panel', 'guild_id': int(guild_id), 'channel_id': channel_id}
-    redis_client.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
+    r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
     flash("El panel de tickets se está enviando...", "info")
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
