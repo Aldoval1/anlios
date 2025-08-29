@@ -312,22 +312,33 @@ def dashboard_home():
     discord = make_user_session()
     try:
         user_response = discord.get(f'{API_BASE_URL}/users/@me')
-        if user_response.status_code != 200: return redirect(url_for('logout'))
+        if user_response.status_code != 200:
+            return redirect(url_for('logout'))
         user_data = user_response.json()
         user_data['avatar_url'] = f"https://cdn.discordapp.com/avatars/{user_data['id']}/{user_data['avatar']}.png" if user_data.get('avatar') else "https://cdn.discordapp.com/embed/avatars/0.png"
         session['user'] = user_data
-        
+
         guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
-        if guilds_response.status_code != 200: return redirect(url_for('logout'))
-        
+        if guilds_response.status_code != 200:
+            return redirect(url_for('logout'))
+
         bot_guild_ids = {str(gid) for gid in load_data_from_redis(REDIS_GUILDS_KEY, [])}
         user_guilds = guilds_response.json()
         admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
-        
+
         guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
-        guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
         
+        # New logic to redirect to the last visited server or the first one
+        last_guild_id = session.get('active_guild_id')
+        if last_guild_id and any(g['id'] == last_guild_id for g in guilds_with_bot):
+            return redirect(url_for('select_page', guild_id=last_guild_id, page='modules'))
+        elif guilds_with_bot:
+            return redirect(url_for('select_page', guild_id=guilds_with_bot[0]['id'], page='modules'))
+        
+        # Fallback to the selection page if no servers are available
+        guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
         return render_template("select_server.html", user=session['user'], guilds_with_bot=guilds_with_bot, guilds_without_bot=guilds_without_bot, client_id=CLIENT_ID, active_guild_id=None, page=None)
+
     except TokenExpiredError:
         return redirect(url_for('logout'))
 
