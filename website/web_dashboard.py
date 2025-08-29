@@ -47,7 +47,7 @@ def before_request_lang():
             session['lang'] = 'es'
         else:
             session['lang'] = 'en'
-    
+
     g.lang = session.get('lang', 'en')
 
 @app.context_processor
@@ -126,6 +126,31 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'discord_token' not in session:
             return redirect(url_for('login'))
+
+        if 'user' not in session:
+            discord = make_user_session()
+            try:
+                user_response = discord.get(f'{API_BASE_URL}/users/@me')
+                if user_response.status_code == 401:
+                    session.clear()
+                    flash("Tu sesión ha caducado. Por favor, inicia sesión de nuevo.", "warning")
+                    return redirect(url_for('login'))
+
+                user_response.raise_for_status()
+                user_data = user_response.json()
+                user_data['avatar_url'] = f"https://cdn.discordapp.com/avatars/{user_data['id']}/{user_data['avatar']}.png" if user_data.get('avatar') else "https://cdn.discordapp.com/embed/avatars/0.png"
+                session['user'] = user_data
+
+            except TokenExpiredError:
+                session.clear()
+                flash("Tu sesión ha caducado. Por favor, inicia sesión de nuevo.", "warning")
+                return redirect(url_for('login'))
+
+            except requests.exceptions.RequestException as e:
+                app.logger.error(f"Error al obtener datos del usuario durante la comprobación de login_required: {e}")
+                flash("No se pudo conectar con Discord. Por favor, inténtalo de nuevo más tarde.", "danger")
+                return redirect(url_for('logout'))
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -198,7 +223,7 @@ def load_embed_config(guild_id: int) -> dict:
         'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'welcome': {'title': '¡Bienvenido, {user}!', 'description': 'Un asistente te atenderá pronto.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'ai_prompt': default_prompt_template.format(personality=default_personality, knowledge="{knowledge}"),
-        'ai_personality': default_personality 
+        'ai_personality': default_personality
     }
 
     config = load_data_from_redis(f"embed_config:{guild_id}", {})
@@ -320,73 +345,73 @@ def maintenance():
 def dashboard_home():
     discord = make_user_session()
     try:
-        user_response = discord.get(f'{API_BASE_URL}/users/@me')
-        if user_response.status_code != 200:
-            return redirect(url_for('logout'))
-        user_data = user_response.json()
-        user_data['avatar_url'] = f"https://cdn.discordapp.com/avatars/{user_data['id']}/{user_data['avatar']}.png" if user_data.get('avatar') else "https://cdn.discordapp.com/embed/avatars/0.png"
-        session['user'] = user_data
-
         guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
-        if guilds_response.status_code != 200:
+        if guilds_response.status_code in [401, 403]:
             return redirect(url_for('logout'))
+        guilds_response.raise_for_status()
 
         bot_guild_ids = {str(gid) for gid in load_data_from_redis(REDIS_GUILDS_KEY, [])}
         user_guilds = guilds_response.json()
         admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
 
         guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
-        
+
         last_guild_id = session.get('active_guild_id')
         if last_guild_id and any(g['id'] == last_guild_id for g in guilds_with_bot):
             return redirect(url_for('select_page', guild_id=last_guild_id, page='modules'))
         elif guilds_with_bot:
             return redirect(url_for('select_page', guild_id=guilds_with_bot[0]['id'], page='modules'))
-        
+
         guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
         return render_template("select_server.html", user=session['user'], guilds_with_bot=guilds_with_bot, guilds_without_bot=guilds_without_bot, client_id=CLIENT_ID, active_guild_id=None, page=None)
 
     except TokenExpiredError:
         return redirect(url_for('logout'))
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Error al obtener los servidores de Discord: {e}")
+        flash("No se pudieron obtener tus servidores de Discord. Por favor, inténtalo de nuevo más tarde.", "warning")
+        return render_template("select_server.html", user=session['user'], guilds_with_bot=[], guilds_without_bot=[], client_id=CLIENT_ID, active_guild_id=None, page=None)
 
 @app.route("/dashboard/profile")
 @login_required
 def profile_page():
     discord = make_user_session()
-    try:
-        if 'user' not in session:
-            user_response = discord.get(f'{API_BASE_URL}/users/@me')
-            if user_response.status_code != 200: return redirect(url_for('logout'))
-            user_data = user_response.json()
-            user_data['avatar_url'] = f"https://cdn.discordapp.com/avatars/{user_data['id']}/{user_data['avatar']}.png" if user_data.get('avatar') else "https://cdn.discordapp.com/embed/avatars/0.png"
-            session['user'] = user_data
+    guilds_with_bot = []
+    guilds_without_bot = []
 
+    try:
         guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
-        if guilds_response.status_code != 200: return redirect(url_for('logout'))
-        
+        if guilds_response.status_code in [401, 403]:
+            return redirect(url_for('logout'))
+        guilds_response.raise_for_status()
+
         bot_guild_ids = {str(gid) for gid in load_data_from_redis(REDIS_GUILDS_KEY, [])}
         user_guilds = guilds_response.json()
         admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
-        
+
         guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
         guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
 
-        module_config = load_module_config()
-        module_statuses = {
-            'ticket_ia': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('ticket_ia', False),
-            'moderation': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('moderation', False)
-        }
-
-        return render_template("profile.html", 
-                                 user=session['user'], 
-                                 guilds_with_bot=guilds_with_bot, 
-                                 guilds_without_bot=guilds_without_bot,
-                                 client_id=CLIENT_ID,
-                                 active_guild_id=None, 
-                                 page='profile',
-                                 module_statuses=module_statuses)
     except TokenExpiredError:
         return redirect(url_for('logout'))
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Error al obtener los servidores de Discord en la página de perfil: {e}")
+        flash("No se pudieron obtener tus servidores de Discord. Por favor, inténtalo de nuevo más tarde.", "warning")
+
+    module_config = load_module_config()
+    module_statuses = {
+        'ticket_ia': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('ticket_ia', False),
+        'moderation': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('moderation', False)
+    }
+
+    return render_template("profile.html",
+                             user=session['user'],
+                             guilds_with_bot=guilds_with_bot,
+                             guilds_without_bot=guilds_without_bot,
+                             client_id=CLIENT_ID,
+                             active_guild_id=None,
+                             page='profile',
+                             module_statuses=module_statuses)
 
 # ===================================================================
 # Ruta para la página de Membresías
@@ -404,19 +429,19 @@ def membership(guild_id):
         if guilds_response.status_code != 200:
             flash("No se pudo obtener la lista de servidores de Discord.", "danger")
             return redirect(url_for('dashboard_home'))
-        
+
         user_guilds = guilds_response.json()
         bot_guild_ids = {str(gid) for gid in load_data_from_redis(REDIS_GUILDS_KEY, [])}
         admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
         guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
         guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
-        
+
         current_guild = next((g for g in user_guilds if g['id'] == str(guild_id)), None)
 
         if not current_guild:
             flash("Servidor no encontrado o no tienes permisos.", "danger")
             return redirect(url_for('dashboard_home'))
-        
+
         if request.method == 'POST':
             code = request.form.get('premium_code', '').strip()
             if not code:
@@ -431,25 +456,25 @@ def membership(guild_id):
                         flash(f"Este código ya fue canjeado en el servidor ID: {code_data.get('used_by_guild', 'N/A')}", 'danger')
                     else:
                         duration_days = int(code_data.get('duration_days', 0))
-                        
+
                         r.hset(code_key, mapping={'is_used': 'True', 'used_by_guild': str(guild_id)})
-                        
+
                         sub_key = f"subscription:{guild_id}"
                         current_sub = r.hgetall(sub_key)
                         start_date = datetime.utcnow()
-                        
+
                         if current_sub and 'expires_at' in current_sub:
                             current_expiry = datetime.fromisoformat(current_sub['expires_at'])
                             if current_expiry > start_date:
                                 start_date = current_expiry
 
                         expires_at = start_date + timedelta(days=duration_days)
-                        
+
                         r.hset(sub_key, mapping={
                             'status': 'active', 'expires_at': expires_at.isoformat(),
                             'redeemed_at': datetime.utcnow().isoformat(), 'last_code_used': code
                         })
-                        
+
                         flash(f'¡Felicidades! La membresía premium ha sido activada o extendida por {duration_days} días.', 'success')
                         return redirect(url_for('membership', guild_id=guild_id))
 
@@ -465,17 +490,17 @@ def membership(guild_id):
                 else:
                     r.hset(f"subscription:{guild_id}", 'status', 'expired')
                     sub_info['status'] = 'expired'
-        
-        return render_template('membership.html', 
+
+        return render_template('membership.html',
                                user=session.get('user'),
                                guilds_with_bot=guilds_with_bot,
                                guilds_without_bot=guilds_without_bot,
                                client_id=CLIENT_ID,
                                active_guild_id=str(guild_id),
                                guild=current_guild,
-                               sub_info=sub_info, 
-                               time_left=time_left, 
-                               is_active=is_active, 
+                               sub_info=sub_info,
+                               time_left=time_left,
+                               is_active=is_active,
                                page='membership')
 
     except TokenExpiredError:
@@ -491,11 +516,11 @@ def membership(guild_id):
 def select_page(guild_id, page):
     session['active_guild_id'] = guild_id
     guild_id_int = int(guild_id)
-    
+
     if request.method == 'POST':
         try:
             user_info = session.get('user', {'username': 'Desconocido', 'id': 'Desconocido'})
-            
+
             if 'action_remove_warning' in request.form:
                 user_id_to_clear = request.form.get('action_remove_warning')
                 warnings_log = load_warnings_log(guild_id_int)
@@ -540,7 +565,7 @@ def select_page(guild_id, page):
                 log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "moderation", "enabled": is_enabled})
                 flash("Módulo de Moderación actualizado.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
-            
+
             elif action == 'save_moderation':
                 config = load_moderation_config(guild_id_int)
                 config['automod']['enabled'] = 'automod_enabled' in request.form
@@ -581,7 +606,7 @@ def select_page(guild_id, page):
                     for embed_type in ['panel', 'welcome']:
                         for key in current_config[embed_type]:
                             current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}', current_config[embed_type][key])
-                    
+
                     personality = request.form.get('ai_personality', "Eres Anlios, un amigable y servicial asistente de IA.")
                     prompt_template = (
                         "{personality}\n\n"
@@ -592,7 +617,7 @@ def select_page(guild_id, page):
                         "--- BASE DE CONOCIMIENTOS ---\n{knowledge}"
                     )
                     full_prompt = prompt_template.format(personality=personality, knowledge="{knowledge}")
-                    
+
                     current_config['ai_personality'] = personality
                     current_config['ai_prompt'] = full_prompt
 
@@ -604,12 +629,12 @@ def select_page(guild_id, page):
                     ticket_config['log_channel_id'] = log_channel_id
                     ticket_config['language'] = request.form.get('bot_language', 'es')
                     save_ticket_config(guild_id_int, ticket_config)
-                    
+
                     flash("Configuración guardada con éxito.", "success")
-            
+
             elif action in ['knowledge_web', 'knowledge_youtube', 'knowledge_pdf']:
                 try:
-                    knowledge_item = {} 
+                    knowledge_item = {}
                     if action == 'knowledge_web':
                         url = request.form.get('web_url')
                         if not url: raise ValueError("La URL no puede estar vacía.")
@@ -639,7 +664,7 @@ def select_page(guild_id, page):
                         reader = PyPDF2.PdfReader(file.stream)
                         pdf_text = ''.join(page.extract_text() for page in reader.pages)
                         knowledge_item = {"type": "pdf", "filename": file.filename, "content": pdf_text}
-                    
+
                     if knowledge_item:
                         knowledge = load_knowledge(guild_id_int)
                         knowledge.append(knowledge_item)
@@ -655,39 +680,39 @@ def select_page(guild_id, page):
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
     if guilds_response.status_code != 200: return redirect(url_for('logout'))
-    
+
     user_guilds = guilds_response.json()
     bot_guild_ids = {str(gid) for gid in load_data_from_redis(REDIS_GUILDS_KEY, [])}
     admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
-    
+
     guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
     guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
 
     module_config = load_module_config()
-    
+
     module_statuses = {
         'ticket_ia': module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False),
         'moderation': module_config.get(guild_id, {}).get('modules', {}).get('moderation', False)
     }
-    
+
     module_status = module_statuses.get('moderation' if page == 'moderation' else 'ticket_ia', False)
-    
+
     current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
 
     render_data = {
         "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot,
-        "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page, 
+        "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page,
         "module_status": module_status, "module_statuses": module_statuses, "guild": current_guild
     }
-    
+
     template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html"}
     template_to_render = template_map.get(page, "under_construction.html")
-    
+
     if page in ['modules', 'training']:
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
         channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/channels', headers=bot_headers)
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
-        
+
         if page == 'modules':
             roles_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/roles', headers=bot_headers)
             all_roles = roles_response.json() if roles_response.status_code == 200 else []
@@ -695,15 +720,15 @@ def select_page(guild_id, page):
             render_data['embed_config'] = load_embed_config(guild_id_int)
             render_data['knowledge_base'] = load_knowledge(guild_id_int)
             render_data['ticket_config'] = load_ticket_config(guild_id_int)
-        
+
         elif page == 'training':
             render_data['pending_questions'] = load_data_from_redis(f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}", [])
-    
+
     elif page == 'moderation':
         render_data['moderation_config'] = load_moderation_config(guild_id_int)
         render_data['warnings_log'] = load_warnings_log(guild_id_int)
         render_data['backups'] = load_backups(guild_id_int)
-        
+
     return render_template(template_to_render, **render_data)
 
 # --- RUTAS DE CONOCIMIENTO ASÍNCRONO ---
@@ -714,14 +739,14 @@ def add_knowledge_ajax(guild_id):
         data = request.json
         text = data.get('text')
         if not text: return jsonify({'success': False, 'error': 'El texto no puede estar vacío'}), 400
-        
+
         knowledge = load_knowledge(int(guild_id))
         new_item = {"type": "text", "content": text}
         knowledge.append(new_item)
         save_knowledge(int(guild_id), knowledge)
-        
+
         log_action(session.get('user'), "Añadido Conocimiento", {"guild_id": guild_id, "text": text})
-        
+
         new_item_response = {'type': 'text', 'content': text, 'index': len(knowledge) - 1}
         return jsonify({'success': True, 'newItem': new_item_response})
     except Exception as e:
@@ -738,9 +763,9 @@ def delete_knowledge_ajax(guild_id):
         if 0 <= index < len(knowledge):
             deleted_item = knowledge.pop(index)
             save_knowledge(int(guild_id), knowledge)
-            
+
             log_action(session.get('user'), "Eliminado Conocimiento", {"guild_id": guild_id, "deleted_text": deleted_item, "index": index})
-            
+
             return jsonify({'success': True})
         else:
             return jsonify({'success': False, 'error': 'Índice inválido'}), 400
@@ -758,7 +783,7 @@ def training_action(guild_id):
     training_queue_key = f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}"
     pending_questions = load_data_from_redis(training_queue_key, [])
     question_to_process = next((q for q in pending_questions if q['id'] == question_id), None)
-    
+
     if not question_to_process:
         flash("La pregunta ya no existe o fue procesada.", "warning")
         return redirect(url_for('select_page', guild_id=guild_id, page='training'))
