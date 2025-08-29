@@ -85,31 +85,40 @@ REDIS_LOG_KEY = "dashboard_audit_log"
 
 
 # ===================================================================
-# Middleware para el Modo Mantenimiento
+# Middleware para el Modo Mantenimiento (CORREGIDO)
 # ===================================================================
 @app.before_request
 def check_for_maintenance():
-    """
-    Se ejecuta antes de cada solicitud para verificar si el sitio está en mantenimiento.
-    """
+    # Rutas que nunca deben ser comprobadas
+    if request.path.startswith('/static'):
+        return
+
+    if not r:
+        return
+
+    maintenance_config = r.hgetall('maintenance_status')
+    maintenance_mode = maintenance_config.get('status', 'disabled')
+
+    # Si el modo mantenimiento no está activado, no hacer nada.
+    if maintenance_mode != 'enabled':
+        return
+
+    # Si el modo está activado, los testers tienen acceso a todo.
+    if session.get('is_tester'):
+        return
+
+    # Si no es tester, solo puede acceder a páginas específicas.
     allowed_paths = [
         url_for('maintenance'),
         url_for('login'),
         url_for('logout'),
-        url_for('callback'),
-        url_for('set_language', lang='es'), 
-        url_for('set_language', lang='en')
+        url_for('callback')
     ]
-    if request.path.startswith('/static') or request.path in allowed_paths or '/language/' in request.path:
+    if request.path in allowed_paths or '/language/' in request.path:
         return
 
-    if r:
-        maintenance_config = r.hgetall('maintenance_status')
-        maintenance_mode = maintenance_config.get('status', 'disabled')
-
-        if maintenance_mode == 'enabled':
-            if not session.get('is_tester'):
-                return redirect(url_for('maintenance'))
+    # Para todo lo demás, redirigir a mantenimiento.
+    return redirect(url_for('maintenance'))
 
 # --- DECORADOR ---
 def login_required(f):
@@ -328,14 +337,12 @@ def dashboard_home():
 
         guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
         
-        # New logic to redirect to the last visited server or the first one
         last_guild_id = session.get('active_guild_id')
         if last_guild_id and any(g['id'] == last_guild_id for g in guilds_with_bot):
             return redirect(url_for('select_page', guild_id=last_guild_id, page='modules'))
         elif guilds_with_bot:
             return redirect(url_for('select_page', guild_id=guilds_with_bot[0]['id'], page='modules'))
         
-        # Fallback to the selection page if no servers are available
         guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
         return render_template("select_server.html", user=session['user'], guilds_with_bot=guilds_with_bot, guilds_without_bot=guilds_without_bot, client_id=CLIENT_ID, active_guild_id=None, page=None)
 
@@ -382,7 +389,7 @@ def profile_page():
         return redirect(url_for('logout'))
 
 # ===================================================================
-# CORREGIDO: Ruta para la página de Membresías
+# Ruta para la página de Membresías
 # ===================================================================
 @app.route("/dashboard/<int:guild_id>/membership", methods=['GET', 'POST'])
 @login_required
@@ -393,7 +400,6 @@ def membership(guild_id):
 
     discord = make_user_session()
     try:
-        # Obtener la información completa de todos los servidores para el layout
         guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
         if guilds_response.status_code != 200:
             flash("No se pudo obtener la lista de servidores de Discord.", "danger")
@@ -405,14 +411,12 @@ def membership(guild_id):
         guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
         guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
         
-        # Encontrar el servidor actual
         current_guild = next((g for g in user_guilds if g['id'] == str(guild_id)), None)
 
         if not current_guild:
             flash("Servidor no encontrado o no tienes permisos.", "danger")
             return redirect(url_for('dashboard_home'))
         
-        # Lógica para canjear código
         if request.method == 'POST':
             code = request.form.get('premium_code', '').strip()
             if not code:
@@ -449,7 +453,6 @@ def membership(guild_id):
                         flash(f'¡Felicidades! La membresía premium ha sido activada o extendida por {duration_days} días.', 'success')
                         return redirect(url_for('membership', guild_id=guild_id))
 
-        # Lógica para mostrar el estado actual de la suscripción
         sub_info = r.hgetall(f"subscription:{guild_id}")
         time_left, is_active = None, False
         if sub_info and sub_info.get('status') == 'active':
