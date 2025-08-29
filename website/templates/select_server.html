@@ -7,3 +7,20 @@
         <p class="prompt-text">{{ _('Select a server, add one, or go to your user profile') }}</p>
     </div>
 {% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // This script will redirect the user to the last visited server or the first available one.
+    document.addEventListener('DOMContentLoaded', () => {
+        const lastGuildId = '{{ session.get("active_guild_id") }}';
+        const firstGuildId = '{{ guilds_with_bot[0].id if guilds_with_bot else "" }}';
+
+        if (lastGuildId && lastGuildId !== 'None') {
+            window.location.href = `{{ url_for('select_page', guild_id=123, page='modules') }}`.replace('123', lastGuildId);
+        } else if (firstGuildId) {
+            window.location.href = `{{ url_for('select_page', guild_id=123, page='modules') }}`.replace('123', firstGuildId);
+        }
+    });
+</script>
+{% endblock %}
