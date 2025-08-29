@@ -157,17 +157,15 @@ def login_required(f):
 # --- FILTRO DE PLANTILLA ---
 @app.template_filter('timestamp_to_date')
 def timestamp_to_date(s):
-    if not s:
-        return "N/A"
+    if not s: return "N/A"
     try:
-        # Prioriza el formato ISO, que es el nuevo estándar
-        return datetime.fromisoformat(s).strftime('%Y-%m-%d %H:%M:%S UTC')
+        if isinstance(s, str):
+            dt_object = datetime.fromisoformat(s)
+        else:
+            dt_object = datetime.fromtimestamp(float(s))
+        return dt_object.strftime('%Y-%m-%d %H:%M:%S UTC')
     except (ValueError, TypeError):
-        try:
-            # Intenta con el formato de timestamp si falla el ISO
-            return datetime.fromtimestamp(float(s)).strftime('%Y-%m-%d %H:%M:%S UTC')
-        except (ValueError, TypeError):
-            return "Fecha inválida"
+        return "Fecha inválida"
 
 
 # --- FUNCIONES AUXILIARES ---
@@ -485,19 +483,11 @@ def membership(guild_id):
         if sub_info and sub_info.get('status') == 'active':
             expires_at_str = sub_info.get('expires_at')
             if expires_at_str:
-                expires_at = None
-                try:
-                    expires_at = datetime.fromisoformat(expires_at_str)
-                except (ValueError, TypeError):
-                    try:
-                        expires_at = datetime.fromtimestamp(float(expires_at_str))
-                    except (ValueError, TypeError):
-                        app.logger.warning(f"No se pudo parsear la fecha de expiración '{expires_at_str}' para el servidor {guild_id}.")
-
-                if expires_at and expires_at > datetime.utcnow():
+                expires_at = datetime.fromisoformat(expires_at_str)
+                if expires_at > datetime.utcnow():
                     time_left = expires_at - datetime.utcnow()
                     is_active = True
-                elif expires_at:
+                else:
                     r.hset(f"subscription:{guild_id}", 'status', 'expired')
                     sub_info['status'] = 'expired'
 
