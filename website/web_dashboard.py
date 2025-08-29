@@ -65,7 +65,6 @@ else:
 
 # --- CONFIGURACIÓN DE REDIS ---
 try:
-    # Usamos 'r' para consistencia con el código anterior, pero apuntando a tu 'redis_client'
     r = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
     app.logger.info("Conexión con Redis establecida.")
 except Exception as e:
@@ -82,40 +81,44 @@ SCOPES = ['identify', 'guilds']
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_TRAINING_QUEUE_KEY = "training_queue"
-# Usaremos hashes individuales para códigos y suscripciones para mejor rendimiento
-# REDIS_CODES_KEY = "premium_codes"
-# REDIS_SUBSCRIPTIONS_KEY = "subscriptions"
 REDIS_LOG_KEY = "dashboard_audit_log"
 
 
 # ===================================================================
-# NUEVO: Middleware para el Modo Mantenimiento
+# Middleware para el Modo Mantenimiento (CORREGIDO)
 # ===================================================================
 @app.before_request
 def check_for_maintenance():
-    """
-    Se ejecuta antes de cada solicitud para verificar si el sitio está en mantenimiento.
-    """
-    # Rutas que deben funcionar incluso en modo mantenimiento
+    # Rutas que nunca deben ser comprobadas
+    if request.path.startswith('/static'):
+        return
+
+    if not r:
+        return
+
+    maintenance_config = r.hgetall('maintenance_status')
+    maintenance_mode = maintenance_config.get('status', 'disabled')
+
+    # Si el modo mantenimiento no está activado, no hacer nada.
+    if maintenance_mode != 'enabled':
+        return
+
+    # Si el modo está activado, los testers tienen acceso a todo.
+    if session.get('is_tester'):
+        return
+
+    # Si no es tester, solo puede acceder a páginas específicas.
     allowed_paths = [
         url_for('maintenance'),
         url_for('login'),
         url_for('logout'),
-        url_for('callback'),
-        url_for('set_language', lang='es'), # Añadir rutas que no deben ser bloqueadas
-        url_for('set_language', lang='en')
+        url_for('callback')
     ]
-    if request.path.startswith('/static') or request.path in allowed_paths or '/language/' in request.path:
+    if request.path in allowed_paths or '/language/' in request.path:
         return
 
-    if r:
-        maintenance_config = r.hgetall('maintenance_status')
-        maintenance_mode = maintenance_config.get('status', 'disabled')
-
-        if maintenance_mode == 'enabled':
-            # Si el modo está activo, verificar si el usuario es un tester autenticado
-            if not session.get('is_tester'):
-                return redirect(url_for('maintenance'))
+    # Para todo lo demás, redirigir a mantenimiento.
+    return redirect(url_for('maintenance'))
 
 # --- DECORADOR ---
 def login_required(f):
@@ -130,7 +133,6 @@ def login_required(f):
 @app.template_filter('timestamp_to_date')
 def timestamp_to_date(s):
     if not s: return "N/A"
-    # Adaptado para manejar tanto timestamps como strings ISO
     try:
         if isinstance(s, str):
             dt_object = datetime.fromisoformat(s)
@@ -153,7 +155,6 @@ def log_action(user, action, details):
     r.lpush(REDIS_LOG_KEY, json.dumps(log_entry))
     r.ltrim(REDIS_LOG_KEY, 0, 999)
 
-# Adaptamos las funciones para usar 'r' y hashes donde sea apropiado
 def load_data_from_redis(key: str, default_value):
     if not r: return default_value
     try:
@@ -170,7 +171,6 @@ def save_data_to_redis(key: str, data):
     except Exception as e:
         app.logger.error(f"Error al guardar datos en Redis para la clave {key}: {e}")
 
-# ... (El resto de tus funciones auxiliares: load_ticket_config, save_ticket_config, etc. permanecen igual)
 def load_ticket_config(guild_id: int) -> dict:
     default_config = {'admin_roles': [], 'log_enabled': False, 'log_channel_id': None, 'language': 'es'}
     config = load_data_from_redis(f"ticket_config:{guild_id}", default_config)
@@ -292,7 +292,7 @@ def set_language(lang):
     return redirect(request.referrer or url_for('index'))
 
 # ===================================================================
-# NUEVO: Ruta para la página de Mantenimiento
+# Ruta para la página de Mantenimiento
 # ===================================================================
 @app.route('/maintenance', methods=['GET', 'POST'])
 def maintenance():
@@ -300,19 +300,16 @@ def maintenance():
         return "Error: No se puede conectar a la base de datos.", 500
 
     maintenance_config = r.hgetall('maintenance_status')
-    # Si el modo mantenimiento está desactivado y el usuario no es un tester, lo redirigimos
     if maintenance_config.get('status', 'disabled') == 'disabled' and not session.get('is_tester'):
-         return redirect(url_for('index'))
+        return redirect(url_for('index'))
 
     if request.method == 'POST':
         tester_password = maintenance_config.get('tester_password', 'NO_PASSWORD_SET_XYZ')
-        # Asegurarse de que hay una contraseña de tester configurada antes de comparar
         if tester_password and request.form.get('password') == tester_password:
             session['is_tester'] = True
             return redirect(url_for('dashboard_home'))
         else:
             flash("Contraseña de Tester incorrecta.", "error")
-            # Volver a renderizar la plantilla con el mensaje de error
             return render_template('maintenance.html', error="Contraseña incorrecta")
 
     return render_template('maintenance.html')
@@ -324,22 +321,31 @@ def dashboard_home():
     discord = make_user_session()
     try:
         user_response = discord.get(f'{API_BASE_URL}/users/@me')
-        if user_response.status_code != 200: return redirect(url_for('logout'))
+        if user_response.status_code != 200:
+            return redirect(url_for('logout'))
         user_data = user_response.json()
         user_data['avatar_url'] = f"https://cdn.discordapp.com/avatars/{user_data['id']}/{user_data['avatar']}.png" if user_data.get('avatar') else "https://cdn.discordapp.com/embed/avatars/0.png"
         session['user'] = user_data
-        
+
         guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
-        if guilds_response.status_code != 200: return redirect(url_for('logout'))
-        
+        if guilds_response.status_code != 200:
+            return redirect(url_for('logout'))
+
         bot_guild_ids = {str(gid) for gid in load_data_from_redis(REDIS_GUILDS_KEY, [])}
         user_guilds = guilds_response.json()
         admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
-        
+
         guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
-        guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
         
+        last_guild_id = session.get('active_guild_id')
+        if last_guild_id and any(g['id'] == last_guild_id for g in guilds_with_bot):
+            return redirect(url_for('select_page', guild_id=last_guild_id, page='modules'))
+        elif guilds_with_bot:
+            return redirect(url_for('select_page', guild_id=guilds_with_bot[0]['id'], page='modules'))
+        
+        guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
         return render_template("select_server.html", user=session['user'], guilds_with_bot=guilds_with_bot, guilds_without_bot=guilds_without_bot, client_id=CLIENT_ID, active_guild_id=None, page=None)
+
     except TokenExpiredError:
         return redirect(url_for('logout'))
 
@@ -372,100 +378,112 @@ def profile_page():
         }
 
         return render_template("profile.html", 
-                                user=session['user'], 
-                                guilds_with_bot=guilds_with_bot, 
-                                guilds_without_bot=guilds_without_bot,
-                                client_id=CLIENT_ID,
-                                active_guild_id=None, 
-                                page='profile',
-                                module_statuses=module_statuses)
+                                 user=session['user'], 
+                                 guilds_with_bot=guilds_with_bot, 
+                                 guilds_without_bot=guilds_without_bot,
+                                 client_id=CLIENT_ID,
+                                 active_guild_id=None, 
+                                 page='profile',
+                                 module_statuses=module_statuses)
     except TokenExpiredError:
         return redirect(url_for('logout'))
 
 # ===================================================================
-# NUEVO: Ruta para la página de Membresías
+# Ruta para la página de Membresías
 # ===================================================================
 @app.route("/dashboard/<int:guild_id>/membership", methods=['GET', 'POST'])
 @login_required
 def membership(guild_id):
     if not r:
         flash("Error de conexión con la base de datos.", "danger")
-        return redirect(url_for('select_page', guild_id=guild_id, page='profile')) # Redirige a una página segura
+        return redirect(url_for('dashboard_home'))
 
-    # Aquí deberías tener una lógica para verificar que el usuario tiene acceso a este guild_id
-    # (Omitido por brevedad, pero es crucial en producción)
-
-    if request.method == 'POST':
-        code = request.form.get('premium_code', '').strip()
-        if not code:
-            flash('Debes introducir un código para canjear.', 'warning')
-        else:
-            code_key = f"premium_code:{code}"
-            if not r.exists(code_key):
-                flash('El código premium introducido no es válido o no existe.', 'danger')
-            else:
-                code_data = r.hgetall(code_key)
-                if code_data.get('is_used') == 'True':
-                    flash(f"Este código ya fue canjeado en el servidor ID: {code_data.get('used_by_guild', 'N/A')}", 'danger')
-                else:
-                    duration_days = int(code_data.get('duration_days', 0))
-                    
-                    # Marcar el código como usado
-                    r.hset(code_key, 'is_used', 'True')
-                    r.hset(code_key, 'used_by_guild', str(guild_id))
-                    
-                    # Calcular la nueva fecha de expiración
-                    sub_key = f"subscription:{guild_id}"
-                    current_sub = r.hgetall(sub_key)
-                    
-                    start_date = datetime.utcnow()
-                    # Si ya hay una suscripción activa, se extiende desde su fecha de expiración
-                    if current_sub and 'expires_at' in current_sub:
-                        current_expiry = datetime.fromisoformat(current_sub['expires_at'])
-                        if current_expiry > start_date:
-                            start_date = current_expiry
-
-                    expires_at = start_date + timedelta(days=duration_days)
-                    
-                    # Guardar la nueva información de la suscripción
-                    r.hset(sub_key, mapping={
-                        'status': 'active',
-                        'expires_at': expires_at.isoformat(),
-                        'redeemed_at': datetime.utcnow().isoformat(),
-                        'last_code_used': code
-                    })
-                    
-                    flash(f'¡Felicidades! La membresía premium ha sido activada o extendida por {duration_days} días.', 'success')
-                    # Redirigir para limpiar el formulario POST
-                    return redirect(url_for('membership', guild_id=guild_id))
-
-    # Lógica para mostrar el estado actual de la suscripción (para GET)
-    sub_info = r.hgetall(f"subscription:{guild_id}")
-    time_left = None
-    is_active = False
-    if sub_info and sub_info.get('status') == 'active':
-        expires_at_str = sub_info.get('expires_at')
-        if expires_at_str:
-            expires_at = datetime.fromisoformat(expires_at_str)
-            if expires_at > datetime.utcnow():
-                time_left = expires_at - datetime.utcnow()
-                is_active = True
-            else:
-                # La suscripción ha expirado, se actualiza el estado
-                r.hset(f"subscription:{guild_id}", 'status', 'expired')
-                sub_info['status'] = 'expired'
-    
-    # Obtener el nombre del servidor para mostrarlo en la plantilla
     discord = make_user_session()
-    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
-    server_name = "Servidor"
-    if guilds_response.status_code == 200:
+    try:
+        guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
+        if guilds_response.status_code != 200:
+            flash("No se pudo obtener la lista de servidores de Discord.", "danger")
+            return redirect(url_for('dashboard_home'))
+        
         user_guilds = guilds_response.json()
+        bot_guild_ids = {str(gid) for gid in load_data_from_redis(REDIS_GUILDS_KEY, [])}
+        admin_guilds = [g for g in user_guilds if isinstance(g, dict) and (int(g.get('permissions', 0)) & 0x8) == 0x8]
+        guilds_with_bot = [g for g in admin_guilds if g['id'] in bot_guild_ids]
+        guilds_without_bot = [g for g in admin_guilds if g['id'] not in bot_guild_ids]
+        
         current_guild = next((g for g in user_guilds if g['id'] == str(guild_id)), None)
-        if current_guild:
-            server_name = current_guild['name']
 
-    return render_template('membership.html', guild_id=guild_id, server_name=server_name, sub_info=sub_info, time_left=time_left, is_active=is_active)
+        if not current_guild:
+            flash("Servidor no encontrado o no tienes permisos.", "danger")
+            return redirect(url_for('dashboard_home'))
+        
+        if request.method == 'POST':
+            code = request.form.get('premium_code', '').strip()
+            if not code:
+                flash('Debes introducir un código para canjear.', 'warning')
+            else:
+                code_key = f"premium_code:{code}"
+                if not r.exists(code_key):
+                    flash('El código premium introducido no es válido o no existe.', 'danger')
+                else:
+                    code_data = r.hgetall(code_key)
+                    if code_data.get('is_used') == 'True':
+                        flash(f"Este código ya fue canjeado en el servidor ID: {code_data.get('used_by_guild', 'N/A')}", 'danger')
+                    else:
+                        duration_days = int(code_data.get('duration_days', 0))
+                        
+                        r.hset(code_key, mapping={'is_used': 'True', 'used_by_guild': str(guild_id)})
+                        
+                        sub_key = f"subscription:{guild_id}"
+                        current_sub = r.hgetall(sub_key)
+                        start_date = datetime.utcnow()
+                        
+                        if current_sub and 'expires_at' in current_sub:
+                            current_expiry = datetime.fromisoformat(current_sub['expires_at'])
+                            if current_expiry > start_date:
+                                start_date = current_expiry
+
+                        expires_at = start_date + timedelta(days=duration_days)
+                        
+                        r.hset(sub_key, mapping={
+                            'status': 'active', 'expires_at': expires_at.isoformat(),
+                            'redeemed_at': datetime.utcnow().isoformat(), 'last_code_used': code
+                        })
+                        
+                        flash(f'¡Felicidades! La membresía premium ha sido activada o extendida por {duration_days} días.', 'success')
+                        return redirect(url_for('membership', guild_id=guild_id))
+
+        sub_info = r.hgetall(f"subscription:{guild_id}")
+        time_left, is_active = None, False
+        if sub_info and sub_info.get('status') == 'active':
+            expires_at_str = sub_info.get('expires_at')
+            if expires_at_str:
+                expires_at = datetime.fromisoformat(expires_at_str)
+                if expires_at > datetime.utcnow():
+                    time_left = expires_at - datetime.utcnow()
+                    is_active = True
+                else:
+                    r.hset(f"subscription:{guild_id}", 'status', 'expired')
+                    sub_info['status'] = 'expired'
+        
+        return render_template('membership.html', 
+                               user=session.get('user'),
+                               guilds_with_bot=guilds_with_bot,
+                               guilds_without_bot=guilds_without_bot,
+                               client_id=CLIENT_ID,
+                               active_guild_id=str(guild_id),
+                               guild=current_guild,
+                               sub_info=sub_info, 
+                               time_left=time_left, 
+                               is_active=is_active, 
+                               page='membership')
+
+    except TokenExpiredError:
+        return redirect(url_for('logout'))
+    except Exception as e:
+        app.logger.error(f"Error en la página de membresía: {e}")
+        flash("Ocurrió un error inesperado.", "danger")
+        return redirect(url_for('dashboard_home'))
 
 
 @app.route("/dashboard/<guild_id>/<page>", methods=['GET', 'POST'])
@@ -653,11 +671,13 @@ def select_page(guild_id, page):
     }
     
     module_status = module_statuses.get('moderation' if page == 'moderation' else 'ticket_ia', False)
+    
+    current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
 
     render_data = {
         "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot,
         "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page, 
-        "module_status": module_status, "module_statuses": module_statuses
+        "module_status": module_status, "module_statuses": module_statuses, "guild": current_guild
     }
     
     template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html"}
