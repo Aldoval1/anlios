@@ -3,7 +3,12 @@
 
 {% block dashboard_content %}
     <div class="initial-prompt-wrapper">
-        <img src="{{ url_for('static', filename='images/loading.gif') }}" alt="Selecciona un servidor" class="prompt-gif">
-        <p class="prompt-text">{{ _('Select a server, add one, or go to your user profile') }}</p>
+        <img src="{{ url_for('static', filename='images/loading.gif') }}" alt="{{ _('Loading...') }}" class="prompt-gif">
+        <p class="prompt-text">{{ _('Loading servers...') }}</p>
     </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{# El script de redirección ha sido eliminado y su lógica movida al backend (ruta /dashboard) #}
 {% endblock %}
