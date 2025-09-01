@@ -74,7 +74,13 @@ except Exception as e:
 # --- CONSTANTES ---
 CLIENT_ID, CLIENT_SECRET, BOT_TOKEN = os.getenv('DISCORD_CLIENT_ID'), os.getenv('DISCORD_CLIENT_SECRET'), os.getenv('DISCORD_BOT_TOKEN')
 DOMAIN = os.getenv('DOMAIN_URL', 'http://127.0.0.1:5000')
-REDIRECT_URI = f'{DOMAIN}/callback'
+
+# CORRECCIÓN: Definir la URL de redirección de forma dinámica.
+# Esto es crucial para manejar servidores proxy como Heroku, que usan HTTPS.
+def get_redirect_uri():
+    protocol = 'https' if request.headers.get('X-Forwarded-Proto') == 'https' or request.is_secure else 'http'
+    return f"{protocol}://{request.host}/callback"
+
 API_BASE_URL = 'https://discord.com/api'
 AUTHORIZATION_BASE_URL, TOKEN_URL = f'{API_BASE_URL}/oauth2/authorize', f'{API_BASE_URL}/oauth2/token'
 SCOPES = ['identify', 'guilds']
@@ -273,7 +279,7 @@ def save_backups(guild_id: int, data: list):
 def make_user_session(token=None):
     def token_updater(new_token): session['discord_token'] = new_token
     if token is None: token = session.get('discord_token')
-    return OAuth2Session(CLIENT_ID, token=token, redirect_uri=REDIRECT_URI, scope=SCOPES,
+    return OAuth2Session(CLIENT_ID, token=token, redirect_uri=get_redirect_uri(), scope=SCOPES,
                          auto_refresh_kwargs={'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET},
                          auto_refresh_url=TOKEN_URL, token_updater=token_updater)
 
@@ -296,15 +302,11 @@ def login():
 @app.route("/callback")
 def callback():
     if request.values.get('error'): return request.values['error']
-    discord = OAuth2Session(CLIENT_ID, state=session.get('oauth2_state'), redirect_uri=REDIRECT_URI)
+    redirect_uri = get_redirect_uri()
+    discord = OAuth2Session(CLIENT_ID, state=session.get('oauth2_state'), redirect_uri=redirect_uri)
     
-    # CORRECCIÓN: Usar la URL completa con https para evitar problemas de redirección.
-    token_url_to_use = request.url
-    if not token_url_to_use.startswith("https"):
-        token_url_to_use = token_url_to_use.replace("http://", "https://", 1)
-
     try:
-        token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=token_url_to_use)
+        token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=request.url)
         session['discord_token'] = token
     except Exception as e:
         app.logger.error(f"Error al obtener token de Discord: {e}")
@@ -709,10 +711,10 @@ def select_page(guild_id, page):
         "module_status": module_status, "module_statuses": module_statuses, "guild": current_guild
     }
 
-    template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html"}
+    template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html", "membership": "membership.html"}
     template_to_render = template_map.get(page, "under_construction.html")
 
-    if page in ['modules', 'training']:
+    if page in ['modules', 'training', 'membership']:
         bot_headers = {'Authorization': f'Bot {BOT_TOKEN}'}
         channels_response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/channels', headers=bot_headers)
         render_data['channels'] = [c for c in channels_response.json() if c['type'] == 0] if channels_response.status_code == 200 else []
@@ -727,6 +729,24 @@ def select_page(guild_id, page):
 
         elif page == 'training':
             render_data['pending_questions'] = load_data_from_redis(f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}", [])
+        
+        elif page == 'membership':
+            sub_info = r.hgetall(f"subscription:{guild_id}")
+            time_left, is_active = None, False
+            if sub_info and sub_info.get('status') == 'active':
+                expires_at_str = sub_info.get('expires_at')
+                if expires_at_str:
+                    expires_at = datetime.fromisoformat(expires_at_str)
+                    if expires_at > datetime.utcnow():
+                        time_left = expires_at - datetime.utcnow()
+                        is_active = True
+                    else:
+                        r.hset(f"subscription:{guild_id}", 'status', 'expired')
+                        sub_info['status'] = 'expired'
+
+            render_data['sub_info'] = sub_info
+            render_data['time_left'] = time_left
+            render_data['is_active'] = is_active
 
     elif page == 'moderation':
         render_data['moderation_config'] = load_moderation_config(guild_id_int)
