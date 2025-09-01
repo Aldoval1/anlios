@@ -496,6 +496,13 @@ def membership(guild_id):
                 else:
                     r.hset(f"subscription:{guild_id}", 'status', 'expired')
                     sub_info['status'] = 'expired'
+        
+        # FIX: Define module_statuses for the template
+        module_config = load_module_config()
+        module_statuses = {
+            'ticket_ia': module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False),
+            'moderation': module_config.get(str(guild_id), {}).get('modules', {}).get('moderation', False)
+        }
 
         return render_template('membership.html',
                                user=session.get('user'),
@@ -507,7 +514,8 @@ def membership(guild_id):
                                sub_info=sub_info,
                                time_left=time_left,
                                is_active=is_active,
-                               page='membership')
+                               page='membership',
+                               module_statuses=module_statuses)
 
     except TokenExpiredError:
         return redirect(url_for('logout'))
@@ -665,7 +673,7 @@ def select_page(guild_id, page):
                             raise ValueError("No se pudieron obtener los subtítulos para este video.")
                     elif action == 'knowledge_pdf':
                         if 'pdf_file' not in request.files: raise ValueError("No se encontró el archivo PDF.")
-                        file = request.files['pdf_file']
+                        file = request.files['file']
                         if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
                         reader = PyPDF2.PdfReader(file.stream)
                         pdf_text = ''.join(page.extract_text() for page in reader.pages)
@@ -743,10 +751,18 @@ def select_page(guild_id, page):
                     else:
                         r.hset(f"subscription:{guild_id}", 'status', 'expired')
                         sub_info['status'] = 'expired'
+            
+            # FIX: Define module_statuses for the template
+            module_config = load_module_config()
+            module_statuses = {
+                'ticket_ia': module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False),
+                'moderation': module_config.get(str(guild_id), {}).get('modules', {}).get('moderation', False)
+            }
 
             render_data['sub_info'] = sub_info
             render_data['time_left'] = time_left
             render_data['is_active'] = is_active
+            render_data['module_statuses'] = module_statuses
 
     elif page == 'moderation':
         render_data['moderation_config'] = load_moderation_config(guild_id_int)
