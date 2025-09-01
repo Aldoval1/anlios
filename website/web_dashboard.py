@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, g
 from requests_oauthlib import OAuth2Session
-from oauthlib.oauth2 import TokenExpiredError, OAuth2Error
+from oauthlib.oauth2 import TokenExpiredError
 import os
 import json
 import logging
@@ -84,9 +84,7 @@ REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_LOG_KEY = "dashboard_audit_log"
 
 
-# ===================================================================
 # Middleware para el Modo Mantenimiento (CORREGIDO)
-# ===================================================================
 @app.before_request
 def check_for_maintenance():
     # Rutas que nunca deben ser comprobadas
@@ -125,17 +123,13 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'discord_token' not in session:
+            flash("Tu sesión ha caducado. Por favor, inicia sesión de nuevo.", "warning")
             return redirect(url_for('login'))
 
         if 'user' not in session:
             discord = make_user_session()
             try:
                 user_response = discord.get(f'{API_BASE_URL}/users/@me')
-                if user_response.status_code == 401:
-                    session.clear()
-                    flash("Tu sesión ha caducado. Por favor, inicia sesión de nuevo.", "warning")
-                    return redirect(url_for('login'))
-
                 user_response.raise_for_status()
                 user_data = user_response.json()
                 user_data['avatar_url'] = f"https://cdn.discordapp.com/avatars/{user_data['id']}/{user_data['avatar']}.png" if user_data.get('avatar') else "https://cdn.discordapp.com/embed/avatars/0.png"
@@ -147,9 +141,10 @@ def login_required(f):
                 return redirect(url_for('login'))
 
             except requests.exceptions.RequestException as e:
+                session.clear() # Limpia la sesión si la validación falla
                 app.logger.error(f"Error al obtener datos del usuario durante la comprobación de login_required: {e}")
                 flash("No se pudo conectar con Discord. Por favor, inténtalo de nuevo más tarde.", "danger")
-                return redirect(url_for('logout'))
+                return redirect(url_for('login')) # Redirige a login para evitar un bucle
 
         return f(*args, **kwargs)
     return decorated_function
@@ -285,8 +280,6 @@ def make_user_session(token=None):
 # --- RUTAS DE LA APLICACIÓN WEB ---
 @app.route("/")
 def index():
-    if 'discord_token' in session:
-        return redirect(url_for('dashboard_home'))
     bot_guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
     stats = { "servers": len(bot_guild_ids), "users": "1K+", "uptime": "99.9%" }
     return render_template("login.html", stats=stats)
@@ -302,17 +295,22 @@ def login():
 
 @app.route("/callback")
 def callback():
-    if request.values.get('error'):
-        return request.values['error']
+    if request.values.get('error'): return request.values['error']
     discord = OAuth2Session(CLIENT_ID, state=session.get('oauth2_state'), redirect_uri=REDIRECT_URI)
+    
+    # CORRECCIÓN: Usar la URL completa con https para evitar problemas de redirección.
+    token_url_to_use = request.url
+    if not token_url_to_use.startswith("https"):
+        token_url_to_use = token_url_to_use.replace("http://", "https://", 1)
+
     try:
-        token_url_to_use = request.url.replace('http://', 'https://', 1) if DOMAIN.startswith('http://') else request.url
         token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=token_url_to_use)
         session['discord_token'] = token
-    except OAuth2Error as e:
-        app.logger.error(f"Error en el callback de OAuth: {e}")
-        flash("Hubo un error durante la autenticación con Discord. Puede ser un problema temporal, por favor intenta de nuevo.", "danger")
-        return redirect(url_for('index'))
+    except Exception as e:
+        app.logger.error(f"Error al obtener token de Discord: {e}")
+        flash("Error de autenticación. Por favor, inténtalo de nuevo.", "danger")
+        return redirect(url_for('login'))
+        
     return redirect(url_for('dashboard_home'))
 
 @app.route("/logout")
@@ -326,9 +324,7 @@ def set_language(lang):
         session['lang'] = lang
     return redirect(request.referrer or url_for('index'))
 
-# ===================================================================
 # Ruta para la página de Mantenimiento
-# ===================================================================
 @app.route('/maintenance', methods=['GET', 'POST'])
 def maintenance():
     if not r:
@@ -423,9 +419,7 @@ def profile_page():
                              page='profile',
                              module_statuses=module_statuses)
 
-# ===================================================================
 # Ruta para la página de Membresías
-# ===================================================================
 @app.route("/dashboard/<int:guild_id>/membership", methods=['GET', 'POST'])
 @login_required
 def membership(guild_id):
@@ -501,12 +495,6 @@ def membership(guild_id):
                     r.hset(f"subscription:{guild_id}", 'status', 'expired')
                     sub_info['status'] = 'expired'
 
-        module_config = load_module_config()
-        module_statuses = {
-            'ticket_ia': module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False),
-            'moderation': module_config.get(str(guild_id), {}).get('modules', {}).get('moderation', False)
-        }
-
         return render_template('membership.html',
                                user=session.get('user'),
                                guilds_with_bot=guilds_with_bot,
@@ -517,8 +505,7 @@ def membership(guild_id):
                                sub_info=sub_info,
                                time_left=time_left,
                                is_active=is_active,
-                               page='membership',
-                               module_statuses=module_statuses)
+                               page='membership')
 
     except TokenExpiredError:
         return redirect(url_for('logout'))
