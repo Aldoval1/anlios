@@ -291,6 +291,8 @@ def index():
 
 @app.route("/login")
 def login():
+    if 'discord_token' in session:
+        return redirect(url_for('dashboard_home'))
     discord = make_user_session()
     authorization_url, state = discord.authorization_url(AUTHORIZATION_BASE_URL)
     session['oauth2_state'] = state
