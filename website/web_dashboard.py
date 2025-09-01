@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, g
 from requests_oauthlib import OAuth2Session
-from oauthlib.oauth2 import TokenExpiredError
+from oauthlib.oauth2 import TokenExpiredError, OAuth2Error
 import os
 import json
 import logging
@@ -285,6 +285,8 @@ def make_user_session(token=None):
 # --- RUTAS DE LA APLICACIÓN WEB ---
 @app.route("/")
 def index():
+    if 'discord_token' in session:
+        return redirect(url_for('dashboard_home'))
     bot_guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
     stats = { "servers": len(bot_guild_ids), "users": "1K+", "uptime": "99.9%" }
     return render_template("login.html", stats=stats)
@@ -300,11 +302,17 @@ def login():
 
 @app.route("/callback")
 def callback():
-    if request.values.get('error'): return request.values['error']
+    if request.values.get('error'):
+        return request.values['error']
     discord = OAuth2Session(CLIENT_ID, state=session.get('oauth2_state'), redirect_uri=REDIRECT_URI)
-    token_url_to_use = request.url.replace('http://', 'https://', 1) if DOMAIN.startswith('http://') else request.url
-    token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=token_url_to_use)
-    session['discord_token'] = token
+    try:
+        token_url_to_use = request.url.replace('http://', 'https://', 1) if DOMAIN.startswith('http://') else request.url
+        token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=token_url_to_use)
+        session['discord_token'] = token
+    except OAuth2Error as e:
+        app.logger.error(f"Error en el callback de OAuth: {e}")
+        flash("Hubo un error durante la autenticación con Discord. Puede ser un problema temporal, por favor intenta de nuevo.", "danger")
+        return redirect(url_for('index'))
     return redirect(url_for('dashboard_home'))
 
 @app.route("/logout")
@@ -493,6 +501,12 @@ def membership(guild_id):
                     r.hset(f"subscription:{guild_id}", 'status', 'expired')
                     sub_info['status'] = 'expired'
 
+        module_config = load_module_config()
+        module_statuses = {
+            'ticket_ia': module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False),
+            'moderation': module_config.get(str(guild_id), {}).get('modules', {}).get('moderation', False)
+        }
+
         return render_template('membership.html',
                                user=session.get('user'),
                                guilds_with_bot=guilds_with_bot,
@@ -503,7 +517,8 @@ def membership(guild_id):
                                sub_info=sub_info,
                                time_left=time_left,
                                is_active=is_active,
-                               page='membership')
+                               page='membership',
+                               module_statuses=module_statuses)
 
     except TokenExpiredError:
         return redirect(url_for('logout'))
