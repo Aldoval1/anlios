@@ -285,6 +285,8 @@ def make_user_session(token=None):
 # --- RUTAS DE LA APLICACIÓN WEB ---
 @app.route("/")
 def index():
+    if 'discord_token' in session:
+        return redirect(url_for('dashboard_home'))
     bot_guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
     stats = { "servers": len(bot_guild_ids), "users": "1K+", "uptime": "99.9%" }
     return render_template("login.html", stats=stats)
