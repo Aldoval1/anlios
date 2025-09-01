@@ -751,7 +751,7 @@ def select_page(guild_id, page):
                     else:
                         r.hset(f"subscription:{guild_id}", 'status', 'expired')
                         sub_info['status'] = 'expired'
-            
+        
             # FIX: Define module_statuses for the template
             module_config = load_module_config()
             module_statuses = {
