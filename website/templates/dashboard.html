@@ -182,38 +182,40 @@
         const colorSheets = document.querySelectorAll('link[id^="color-"]');
         const body = document.body;
         
-        // Selectores actualizados para las tarjetas y círculos
         const designContainer = document.getElementById('design-selector-container');
         const colorContainer = document.getElementById('color-selector-container');
 
         let currentTheme = { design: 'anlios', color: 'furia-roja' };
 
         function applyTheme(design, color) {
+            // Add a class to the body to smoothly transition visual changes.
             body.classList.add('theme-transition');
+            
+            // Set a data attribute on the body. This is useful for CSS rules
+            // that need to be specific to a certain design.
             body.dataset.design = design;
 
+            // Enable the selected design and color stylesheets and disable the rest.
             designSheets.forEach(sheet => sheet.disabled = (sheet.id !== `design-${design}`));
             colorSheets.forEach(sheet => sheet.disabled = (sheet.id !== `color-${color}`));
 
+            // The browser will automatically apply the new styles from the enabled
+            // stylesheets. We need to update the toast notifications to match the new theme.
             setTimeout(() => {
                 const computedStyle = getComputedStyle(body);
-                const pixelFont = computedStyle.getPropertyValue('--font-pixel').trim();
-                const sansFont = computedStyle.getPropertyValue('--font-sans').trim();
                 const toastContainer = document.getElementById('toast-container');
                 
-                body.style.fontFamily = sansFont; 
-                document.querySelectorAll('h1, h2, h3, h4, h5, h6, .btn, .form-label, .menu-category, .nav-link, .form-select, .page-footer, .topbar .logo, .nav-link-with-toggle .nav-link-text').forEach(el => {
-                    el.style.fontFamily = pixelFont;
-                });
-                
                 if (toastContainer) {
-                    toastContainer.style.setProperty('--toast-font-family', pixelFont);
+                    // Update CSS variables for the toast notifications using the new theme's colors.
+                    toastContainer.style.setProperty('--toast-font-family', computedStyle.getPropertyValue('--font-pixel').trim());
                     toastContainer.style.setProperty('--toast-bg', computedStyle.getPropertyValue('--bg-tertiary').trim());
                     toastContainer.style.setProperty('--toast-border', computedStyle.getPropertyValue('--accent-main').trim());
                     toastContainer.style.setProperty('--toast-progress-bg', computedStyle.getPropertyValue('--bg-secondary').trim());
                     toastContainer.style.setProperty('--toast-progress-fill', computedStyle.getPropertyValue('--accent-main').trim());
                 }
-
+                
+                // Remove the transition class after a short delay to ensure
+                // future changes (like hover effects) are instant.
                 body.classList.remove('theme-transition');
             }, 50); 
         }
@@ -244,7 +246,7 @@
             }
         }
         
-        // Evento para seleccionar un diseño
+        // Event listener for selecting a design
         if (designContainer) {
             designContainer.addEventListener('click', (e) => {
                 const selectedCard = e.target.closest('.theme-card');
@@ -257,7 +259,7 @@
             });
         }
         
-        // Evento para seleccionar un color
+        // Event listener for selecting a color
         if (colorContainer) {
             colorContainer.addEventListener('click', (e) => {
                 const selectedSwatch = e.target.closest('.color-swatch');
@@ -270,6 +272,7 @@
             });
         }
 
+        // Load the saved theme when the page loads
         loadTheme();
     });
 </script>
@@ -280,7 +283,7 @@
 function inviteBot() {
     const serverId = document.getElementById('server-invite-select').value;
     if (serverId && serverId !== "Elige un servidor...") {
-        const permissions = 8; // Administrador
+        const permissions = 8; // Administrator
         const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id={{ client_id }}&guild_id=${serverId}&permissions=${permissions}&scope=bot%20applications.commands`;
         window.open(inviteUrl, '_blank');
     } else {
