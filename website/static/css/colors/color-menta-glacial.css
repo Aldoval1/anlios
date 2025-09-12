@@ -1,9 +1,7 @@
 :root {
-    --bg-gradient: linear-gradient(to bottom right, #f0f8ff, #e0ffff);
-    --bg-secondary: #d4f0f0;
-    --bg-tertiary: #c1e7e7; /* Añadido */
-    --accent-gradient: linear-gradient(to right, #7fffd4, #40e0d0);
-    --text-main: #004d40;
-    --text-muted: #00695c;
-    --accent-main: #40e0d0;
+    /* MODIFICADO: Colores aclarados para un look más fresco y brillante */
+    --accent-main: #98DBC6; /* Un menta más claro y vibrante */
+    --accent-secondary: #C1E8E1; /* Un menta pastel muy claro */
+    --accent-gradient: linear-gradient(135deg, #98DBC6, #C1E8E1);
+    --bg-tertiary: #4A7C85; /* Mantenido oscuro para contraste, pero ajustado ligeramente */
 }
