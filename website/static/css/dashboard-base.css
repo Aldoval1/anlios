@@ -83,8 +83,9 @@ a, button, .btn, .theme-card, .color-swatch, .form-select, input[type="button"],
     border-radius: var(--border-radius, 5px); 
     font-size: 1.1rem; /* Aumentado para mejor legibilidad */
 }
+/* MODIFICACIÓN: Se añade un degradado blanco semitransparente para aclarar el color */
 .sidebar .nav-link:hover, .sidebar .nav-link.active { 
-    background: var(--accent-gradient); 
+    background: linear-gradient(rgba(255,255,255,0.2), rgba(255,255,255,0.2)), var(--accent-gradient); 
     color: var(--btn-primary-text, #1a0000); 
     text-shadow: none; 
 }
@@ -137,8 +138,9 @@ a, button, .btn, .theme-card, .color-swatch, .form-select, input[type="button"],
 }
 
 /* --- Formularios y Tarjetas --- */
+/* MODIFICACIÓN: Se cambia a un degradado para un look más dinámico */
 .card { 
-    background-color: var(--bg-secondary);
+    background: linear-gradient(145deg, var(--bg-tertiary), var(--bg-secondary));
     border: var(--border-secondary-width, 2px) solid var(--accent-main); 
     border-radius: var(--border-radius, 0); 
     box-shadow: var(--card-shadow, none); 
@@ -277,7 +279,7 @@ a, button, .btn, .theme-card, .color-swatch, .form-select, input[type="button"],
     font-size: 1.1rem; 
 }
 .nav-link-with-toggle:hover, .nav-link-with-toggle.active { 
-    background: var(--accent-gradient); 
+    background: linear-gradient(rgba(255,255,255,0.2), rgba(255,255,255,0.2)), var(--accent-gradient);
     color: var(--btn-primary-text, #1a0000); 
     text-shadow: none; 
 }
