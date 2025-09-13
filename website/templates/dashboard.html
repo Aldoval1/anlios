@@ -74,7 +74,7 @@
                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#vault-section">Anlios Vault</a>
                 </div>
             </div>
-            
+
             <div class="nav-link nav-link-with-toggle {% if page == 'modules' or page == 'training' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
                     <input type="hidden" name="action" value="toggle_module">
@@ -117,7 +117,7 @@
                 <img id="topbar-mustache" src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Mustache">
                 <div class="logo">{{ _('Anlios') }}</div>
             </div>
-            
+
             <div class="dropdown ms-auto">
                 <button class="btn btn-secondary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                     🌐 {{ g.lang.upper() }}
@@ -181,16 +181,20 @@
         const designSheets = document.querySelectorAll('link[id^="design-"]');
         const colorSheets = document.querySelectorAll('link[id^="color-"]');
         const body = document.body;
-        
+
         const designContainer = document.getElementById('design-selector-container');
         const colorContainer = document.getElementById('color-selector-container');
 
         let currentTheme = { design: 'anlios', color: 'furia-roja' };
+        let themeChangeTimeout; // MODIFICACIÓN: Para gestionar el temporizador del cambio de tema
 
         function applyTheme(design, color) {
+            // MODIFICACIÓN: Limpiar el temporizador anterior para evitar ejecuciones múltiples
+            clearTimeout(themeChangeTimeout);
+
             // Add a class to the body to smoothly transition visual changes.
             body.classList.add('theme-transition');
-            
+
             // Set a data attribute on the body. This is useful for CSS rules
             // that need to be specific to a certain design.
             body.dataset.design = design;
@@ -201,10 +205,10 @@
 
             // The browser will automatically apply the new styles from the enabled
             // stylesheets. We need to update the toast notifications to match the new theme.
-            setTimeout(() => {
+            themeChangeTimeout = setTimeout(() => {
                 const computedStyle = getComputedStyle(body);
                 const toastContainer = document.getElementById('toast-container');
-                
+
                 if (toastContainer) {
                     // Update CSS variables for the toast notifications using the new theme's colors.
                     toastContainer.style.setProperty('--toast-font-family', computedStyle.getPropertyValue('--font-pixel').trim());
@@ -213,11 +217,11 @@
                     toastContainer.style.setProperty('--toast-progress-bg', computedStyle.getPropertyValue('--bg-secondary').trim());
                     toastContainer.style.setProperty('--toast-progress-fill', computedStyle.getPropertyValue('--accent-main').trim());
                 }
-                
+
                 // Remove the transition class after a short delay to ensure
                 // future changes (like hover effects) are instant.
                 body.classList.remove('theme-transition');
-            }, 50); 
+            }, 50);
         }
 
         function saveTheme(design, color) {
@@ -230,7 +234,7 @@
             applyTheme(savedTheme.design, savedTheme.color);
             updateActiveSelectors();
         }
-        
+
         function updateActiveSelectors() {
             if (designContainer) {
                 const designCards = designContainer.querySelectorAll('.theme-card');
@@ -245,7 +249,7 @@
                 });
             }
         }
-        
+
         // Event listener for selecting a design
         if (designContainer) {
             designContainer.addEventListener('click', (e) => {
@@ -258,7 +262,7 @@
                 updateActiveSelectors();
             });
         }
-        
+
         // Event listener for selecting a color
         if (colorContainer) {
             colorContainer.addEventListener('click', (e) => {
