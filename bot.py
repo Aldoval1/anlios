@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import io
 import aiohttp
 
-# --- CONFIGURACIÓN INICIAL ---
+# --- INITIAL CONFIGURATION ---
 load_dotenv()
 intents = discord.Intents.default()
 intents.guilds = True
@@ -21,30 +21,30 @@ intents.message_content = True
 intents.members = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- Cargar traducciones del bot ---
+# --- Load bot translations ---
 bot_translations = {}
 try:
     with open('bot_translations.json', 'r', encoding='utf-8') as f:
         bot_translations = json.load(f)
 except Exception as e:
-    print(f"ERROR: No se pudo cargar el archivo de traducciones del bot: {e}")
+    print(f"ERROR: Could not load bot translations file: {e}")
 
-# --- CONFIGURACIÓN DE REDIS ---
+# --- REDIS CONFIGURATION ---
 try:
     redis_client = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
-    print("Conexión con Redis establecida.")
+    print("Connection with Redis established.")
 except Exception as e:
-    print(f"ERROR: No se pudo conectar a Redis. Error: {e}")
+    print(f"ERROR: Could not connect to Redis. Error: {e}")
     redis_client = None
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 else:
-    print("⚠️ ADVERTENCIA: No se encontró la clave de API de Gemini.")
+    print("⚠️ WARNING: Gemini API key not found.")
 
-# --- Nombres de Claves de Redis y Constantes ---
-CLAIMED_TAG = "-reclamado"
+# --- Redis Key Names and Constants ---
+CLAIMED_TAG = "-claimed"
 NO_KNOWLEDGE_TAG = "[NO_KNOWLEDGE]"
 REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_GUILD_NAMES_KEY = "guild_names_map"
@@ -54,7 +54,7 @@ REDIS_MODERATION_CONFIG_KEY = "moderation_config:{}"
 REDIS_WARNINGS_LOG_KEY = "warnings_log:{}"
 REDIS_BACKUPS_KEY = "backups:{}"
 
-# --- FUNCIONES AUXILIARES CON REDIS ---
+# --- HELPER FUNCTIONS WITH REDIS ---
 def is_premium(guild_id: int) -> bool:
     if not redis_client or not guild_id:
         return False
@@ -72,7 +72,7 @@ def is_premium(guild_id: int) -> bool:
             redis_client.hset(sub_key, 'status', 'expired')
             return False
     except (ValueError, TypeError):
-        print(f"Error al parsear la fecha de expiración para el guild {guild_id}")
+        print(f"Error parsing expiration date for guild {guild_id}")
         return False
 
 def load_data_from_redis(key: str, default_value):
@@ -81,7 +81,7 @@ def load_data_from_redis(key: str, default_value):
         data = redis_client.get(key)
         return json.loads(data) if data else default_value
     except Exception as e:
-        print(f"Error cargando datos de Redis para la clave {key}: {e}")
+        print(f"Error loading data from Redis for key {key}: {e}")
         return default_value
 
 def save_data_to_redis(key: str, data):
@@ -89,7 +89,7 @@ def save_data_to_redis(key: str, data):
     try:
         redis_client.set(key, json.dumps(data))
     except Exception as e:
-        print(f"Error guardando datos en Redis para la clave {key}: {e}")
+        print(f"Error saving data to Redis for key {key}: {e}")
 
 def load_ticket_config(guild_id: int) -> dict:
     default_config = {'admin_roles': [], 'log_enabled': False, 'log_channel_id': None, 'language': 'es'}
@@ -129,9 +129,9 @@ def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowled
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
 def load_embed_config(guild_id: int) -> dict:
     default_config = {
-        'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
-        'welcome': {'title': '¡Bienvenido, {user}!', 'description': 'Un asistente te atenderá pronto.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
-        'ai_prompt': "Eres Anlios, un amigable y servicial asistente de IA. Tu propósito es ayudar a los usuarios con su conocimiento base. Si no encuentras la respuesta en tu base de conocimientos, DEBES empezar tu respuesta única y exclusivamente con la etiqueta [NO_KNOWLEDGE] y nada más."
+        'panel': {'title': 'Ticket System', 'description': 'Click to open a ticket.', 'color': '#ff4141', 'button_label': 'Create Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
+        'welcome': {'title': 'Welcome, {user}!', 'description': 'An assistant will be with you shortly.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
+        'ai_prompt': "You are Anlios, a friendly and helpful AI assistant. Your purpose is to help users with their knowledge base. If you don't find the answer in your knowledge base, you MUST start your response exclusively with the tag [NO_KNOWLEDGE] and nothing else."
     }
     config = load_data_from_redis(f"embed_config:{guild_id}", {})
     for key, value in default_config.items():
@@ -147,22 +147,22 @@ async def send_ticket_log(guild: discord.Guild, title: str, description: str, co
     if not config.get('log_enabled') or not config.get('log_channel_id'): return
     log_channel = guild.get_channel(int(config['log_channel_id']))
     if not log_channel:
-        print(f"Error de Log: Canal {config['log_channel_id']} no encontrado en el servidor {guild.name}.")
+        print(f"Log Error: Channel {config['log_channel_id']} not found in server {guild.name}.")
         return
     embed = discord.Embed(title=title, description=description, color=color, timestamp=datetime.utcnow())
     embed.set_author(name=str(author), icon_url=author.display_avatar.url)
-    embed.set_footer(text=f"ID de Usuario: {author.id}")
+    embed.set_footer(text=f"User ID: {author.id}")
     await log_channel.send(embed=embed, file=file)
 
 def update_guilds_in_redis():
     if not redis_client: return
-    print("Actualizando la lista y nombres de servidores en Redis...")
+    print("Updating server list and names in Redis...")
     guilds = bot.guilds
     guild_ids = [guild.id for guild in guilds]
     for guild in guilds:
         redis_client.set(f"guild_name:{guild.id}", guild.name)
     save_data_to_redis(REDIS_GUILDS_KEY, guild_ids)
-    print(f"El bot está ahora en {len(guild_ids)} servidores. Lista y nombres actualizados en Redis.")
+    print(f"Bot is now in {len(guild_ids)} servers. List and names updated in Redis.")
 
 def build_embed_from_config(config: dict, user: discord.Member = None) -> discord.Embed:
     color_str = config.get('color', '#000000').lstrip('#')
@@ -176,13 +176,13 @@ def build_embed_from_config(config: dict, user: discord.Member = None) -> discor
     if text := config.get('footer_text'): embed.set_footer(text=text, icon_url=config.get('footer_icon') or None)
     return embed
 
-# --- VISTAS DE BOTONES ---
+# --- BUTTON VIEWS ---
 class TicketActionsView(discord.ui.View):
     def __init__(self, guild_id: int): 
         super().__init__(timeout=None)
         self.guild_id = guild_id
-        self.claim_button.label = _(guild_id, "Reclamar Ticket")
-        self.close_button.label = _(guild_id, "Cerrar Ticket")
+        self.claim_button.label = _(guild_id, "Claim Ticket")
+        self.close_button.label = _(guild_id, "Close Ticket")
 
     async def check_permissions(self, interaction: discord.Interaction) -> bool:
         if interaction.user.guild_permissions.manage_channels: return True
@@ -191,7 +191,7 @@ class TicketActionsView(discord.ui.View):
         user_role_ids = {str(role.id) for role in interaction.user.roles}
         return not admin_role_ids.isdisjoint(user_role_ids)
 
-    @discord.ui.button(label="Reclamar Ticket", style=discord.ButtonStyle.primary, custom_id="ticket_actions:claim")
+    @discord.ui.button(label="Claim Ticket", style=discord.ButtonStyle.primary, custom_id="ticket_actions:claim")
     async def claim_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.check_permissions(interaction):
             return await interaction.response.send_message(_(interaction.guild.id, "NO_PERMISSION"), ephemeral=True)
@@ -206,7 +206,7 @@ class TicketActionsView(discord.ui.View):
         else:
             await interaction.response.send_message(_(interaction.guild.id, "TICKET_ALREADY_CLAIMED"), ephemeral=True)
 
-    @discord.ui.button(label="Cerrar Ticket", style=discord.ButtonStyle.danger, custom_id="ticket_actions:close")
+    @discord.ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, custom_id="ticket_actions:close")
     async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.check_permissions(interaction):
             return await interaction.response.send_message(_(interaction.guild.id, "NO_PERMISSION"), ephemeral=True)
@@ -218,7 +218,7 @@ class TicketActionsView(discord.ui.View):
             timestamp = message.created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
             transcript_content += f"[{timestamp}] {message.author.name}: {message.content}\n"
             for attachment in message.attachments:
-                transcript_content += f"  [Archivo Adjunto: {attachment.url}]\n"
+                transcript_content += f"  [Attachment: {attachment.url}]\n"
 
         transcript_file = None
         if transcript_content:
@@ -229,7 +229,7 @@ class TicketActionsView(discord.ui.View):
         await send_ticket_log(interaction.guild, _(interaction.guild.id, "LOG_TICKET_CLOSED_TITLE"), log_description, discord.Color.red(), interaction.user, file=transcript_file)
         
         await asyncio.sleep(5)
-        await interaction.channel.delete(reason=f"Ticket cerrado por {interaction.user}")
+        await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
 
 class TicketCreateView(discord.ui.View):
     def __init__(self, button_label: str):
@@ -269,8 +269,8 @@ class TicketCreateView(discord.ui.View):
         log_description = _(interaction.guild.id, "LOG_TICKET_CREATED_DESC", channel_name=ticket_channel.name, user_mention=interaction.user.mention)
         await send_ticket_log(interaction.guild, _(interaction.guild.id, "LOG_TICKET_CREATED_TITLE"), log_description, discord.Color.green(), interaction.user)
 
-# --- TAREAS EN SEGUNDO PLANO ---
-@tasks.loop(seconds=5.0)
+# --- BACKGROUND TASKS ---
+@tasks.loop(seconds=1.0)
 async def check_command_queue():
     await bot.wait_until_ready()
     if not redis_client: return
@@ -284,10 +284,10 @@ async def check_command_queue():
         payload = command_data.get('payload', {})
 
         if not guild:
-            print(f"Error: No se encontró el servidor con ID {guild_id} para el comando '{command}'")
+            print(f"Error: Server with ID {guild_id} not found for command '{command}'")
             return
             
-        print(f"Procesando comando: {command} para el servidor: {guild.name} | Payload: {payload}")
+        print(f"Processing command: {command} for server: {guild.name} | Payload: {payload}")
         
         if command == 'send_panel':
             channel_id = command_data.get('channel_id')
@@ -295,17 +295,17 @@ async def check_command_queue():
             if guild and isinstance(channel, discord.TextChannel):
                 panel_config = load_embed_config(guild_id).get('panel', {})
                 panel_embed = build_embed_from_config(panel_config)
-                view = TicketCreateView(button_label=panel_config.get('button_label', 'Crear Ticket'))
+                view = TicketCreateView(button_label=panel_config.get('button_label', 'Create Ticket'))
                 await channel.send(embed=panel_embed, view=view)
         
         elif command == 'create_backup':
             if not is_premium(guild_id):
-                print(f"Intento de creación de backup bloqueado para el servidor no premium: {guild.name} ({guild_id})")
+                print(f"Backup creation attempt blocked for non-premium server: {guild.name} ({guild_id})")
                 user_id = command_data.get('user_id')
                 if user_id:
                     user = await bot.fetch_user(user_id)
                     if user:
-                        await user.send(f"La creación del backup para el servidor **{guild.name}** falló porque no tiene una membresía Premium activa.")
+                        await user.send(f"Backup creation for server **{guild.name}** failed because it does not have an active Premium membership.")
                 return
 
             icon_url = str(guild.icon.url) if guild.icon else None
@@ -367,18 +367,18 @@ async def check_command_queue():
             backups = load_backups(guild_id)
             backups.append(backup)
             save_backups(guild_id, backups)
-            print(f"Backup creado para el servidor {guild.name} (ID: {backup['id']})")
+            print(f"Backup created for server {guild.name} (ID: {backup['id']})")
             
-        # --- INICIO: MANEJADORES MEJORADOS PARA EL DISEÑADOR ---
+        # --- START: IMPROVED DESIGNER HANDLERS ---
         elif command == 'CREATE_ROLE':
             try:
                 await guild.create_role(
                     name=payload.get('name'),
                     permissions=discord.Permissions(int(payload.get('permissions', 0))),
                     color=discord.Color(int(payload.get('color', 0))),
-                    reason="Acción desde el Módulo Diseñador"
+                    reason="Action from Designer Module"
                 )
-            except Exception as e: print(f"Error al crear rol: {e}")
+            except Exception as e: print(f"Error creating role: {e}")
 
         elif command == 'UPDATE_ROLE':
             role = guild.get_role(int(payload['id']))
@@ -388,67 +388,67 @@ async def check_command_queue():
                         name=payload.get('name'),
                         permissions=discord.Permissions(int(payload.get('permissions', 0))),
                         color=discord.Color(int(payload.get('color', 0))),
-                        reason="Acción desde el Módulo Diseñador"
+                        reason="Action from Designer Module"
                     )
-                except Exception as e: print(f"Error al actualizar rol {payload['id']}: {e}")
+                except Exception as e: print(f"Error updating role {payload['id']}: {e}")
 
         elif command == 'DELETE_ROLE':
             role = guild.get_role(int(payload['id']))
             if role:
                 try:
-                    await role.delete(reason="Acción desde el Módulo Diseñador")
-                except Exception as e: print(f"Error al eliminar rol {payload['id']}: {e}")
+                    await role.delete(reason="Action from Designer Module")
+                except Exception as e: print(f"Error deleting role {payload['id']}: {e}")
 
         elif command == 'CREATE_CATEGORY':
-            await guild.create_category(name=payload.get('name'), reason="Acción desde el Módulo Diseñador")
+            await guild.create_category(name=payload.get('name'), reason="Action from Designer Module")
         
         elif command == 'CREATE_TEXT_CHANNEL':
-            category_id = payload.get('category_id') # Aún no implementado en el cálculo
-            category = guild.get_channel(category_id) if category_id else None
-            await guild.create_text_channel(name=payload.get('name'), category=category, reason="Acción desde el Módulo Diseñador")
+            category_name = payload.get('category_name')
+            category = discord.utils.get(guild.categories, name=category_name) if category_name else None
+            await guild.create_text_channel(name=payload.get('name'), category=category, reason="Action from Designer Module")
 
         elif command == 'CREATE_VOICE_CHANNEL':
-            category_id = payload.get('category_id') # Aún no implementado en el cálculo
-            category = guild.get_channel(category_id) if category_id else None
-            await guild.create_voice_channel(name=payload.get('name'), category=category, reason="Acción desde el Módulo Diseñador")
+            category_name = payload.get('category_name')
+            category = discord.utils.get(guild.categories, name=category_name) if category_name else None
+            await guild.create_voice_channel(name=payload.get('name'), category=category, reason="Action from Designer Module")
             
-        elif command == 'DELETE_CHANNEL': # Funciona para canales y categorías
+        elif command == 'DELETE_CHANNEL': # Works for channels and categories
             channel = guild.get_channel(int(payload['id']))
             if channel:
                 try:
-                    await channel.delete(reason="Acción desde el Módulo Diseñador")
-                except Exception as e: print(f"Error al eliminar canal/categoría {payload['id']}: {e}")
+                    await channel.delete(reason="Action from Designer Module")
+                except Exception as e: print(f"Error deleting channel/category {payload['id']}: {e}")
 
-        # --- FIN: MANEJADORES MEJORADOS ---
+        # --- END: IMPROVED HANDLERS ---
             
-    except Exception as e: print(f"[TAREA] ERROR: {e}")
+    except Exception as e: print(f"[TASK] ERROR: {e}")
 
-# --- EVENTOS DEL BOT ---
+# --- BOT EVENTS ---
 @bot.event
 async def on_ready():
-    print(f'✅ ¡Bot conectado como {bot.user}!')
+    print(f'✅ Bot connected as {bot.user}!')
     guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
     for guild_id in guild_ids:
         config = load_embed_config(guild_id)
-        button_label = config.get('panel', {}).get('button_label', 'Crear Ticket')
+        button_label = config.get('panel', {}).get('button_label', 'Create Ticket')
         bot.add_view(TicketCreateView(button_label=button_label))
         bot.add_view(TicketActionsView(guild_id=guild_id))
     update_guilds_in_redis()
     check_command_queue.start()
     try:
         synced = await bot.tree.sync()
-        print(f"Sincronizados {len(synced)} comandos slash.")
+        print(f"Synced {len(synced)} slash commands.")
     except Exception as e:
-        print(f"Error al sincronizar comandos: {e}")
+        print(f"Error syncing commands: {e}")
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
-    print(f"Bot añadido al servidor: {guild.name}")
+    print(f"Bot added to server: {guild.name}")
     update_guilds_in_redis()
 
 @bot.event
 async def on_guild_remove(guild: discord.Guild):
-    print(f"Bot eliminado del servidor: {guild.name}")
+    print(f"Bot removed from server: {guild.name}")
     update_guilds_in_redis()
 
 @bot.event
@@ -502,22 +502,22 @@ async def on_message(message: discord.Message):
         for item in knowledge:
             if isinstance(item, dict):
                 content, item_type = item.get('content', ''), item.get('type')
-                if item_type == 'pdf': knowledge_parts.append(f"Contenido del PDF '{item.get('filename', 'N/A')}':\n{content}")
-                elif item_type == 'web': knowledge_parts.append(f"Contenido de la web {item.get('source', 'N/A')}:\n{content}")
-                elif item_type == 'youtube': knowledge_parts.append(f"Transcripción de YouTube {item.get('source', 'N/A')}:\n{content}")
+                if item_type == 'pdf': knowledge_parts.append(f"Content of PDF '{item.get('filename', 'N/A')}':\n{content}")
+                elif item_type == 'web': knowledge_parts.append(f"Content of web {item.get('source', 'N/A')}:\n{content}")
+                elif item_type == 'youtube': knowledge_parts.append(f"YouTube Transcript {item.get('source', 'N/A')}:\n{content}")
                 else: knowledge_parts.append(content)
             else: knowledge_parts.append(str(item)) 
 
-        knowledge_text = "\n\n".join(f"- {part}" for part in knowledge_parts) if knowledge_parts else "No hay información específica proporcionada."
+        knowledge_text = "\n\n".join(f"- {part}" for part in knowledge_parts) if knowledge_parts else "No specific information provided."
 
         history_log = ""
         async for msg in message.channel.history(limit=10, oldest_first=False):
             if msg.embeds and msg.author == bot.user: continue
-            speaker = "Usuario" if msg.author != bot.user else "Anlios"
+            speaker = "User" if msg.author != bot.user else "Anlios"
             history_log = f"{speaker}: {msg.content}\n" + history_log
         
         system_prompt = config.get('ai_prompt').replace('{knowledge}', knowledge_text)
-        final_prompt = f"{system_prompt}\n\n--- CONVERSACIÓN RECIENTE ---\n{history_log}--- FIN ---\n\nResponde al último mensaje del usuario."
+        final_prompt = f"{system_prompt}\n\n--- RECENT CONVERSATION ---\n{history_log}--- END ---\n\nRespond to the last user message."
         
         try:
             model = genai.GenerativeModel('gemini-1.5-flash')
@@ -534,10 +534,10 @@ async def on_message(message: discord.Message):
             else:
                 await message.reply(response_text)
         except Exception as e:
-            print(f"Error en Gemini: {e}")
+            print(f"Error in Gemini: {e}")
             await message.reply(_(message.guild.id, "AI_ERROR"))
 
-# --- COMANDOS SLASH DE MODERACIÓN ---
+# --- MODERATION SLASH COMMANDS ---
 async def warn_user(member: discord.Member, guild: discord.Guild, reason: str):
     mod_config = load_moderation_config(guild.id)
     if not mod_config['warnings']['enabled']: return
@@ -566,14 +566,14 @@ async def warn_user(member: discord.Member, guild: discord.Guild, reason: str):
     save_warnings_log(guild.id, warnings_log)
     return current_warnings, limit
 
-@bot.tree.command(name="warn", description="Advierte a un usuario.")
-@app_commands.describe(member="El miembro a advertir", reason="La razón de la advertencia")
+@bot.tree.command(name="warn", description="Warn a user.")
+@app_commands.describe(member="The member to warn", reason="The reason for the warning")
 @app_commands.checks.has_permissions(kick_members=True)
 async def warn(interaction: discord.Interaction, member: discord.Member, reason: str):
     current_warnings, limit = await warn_user(member, interaction.guild, reason)
     await interaction.response.send_message(_(interaction.guild.id, "WARN_SUCCESS", member_name=member.name, reason=reason, current_warnings=current_warnings, limit=limit), ephemeral=True)
 
-@bot.tree.command(name="cleanc", description="Borra y recrea el canal actual.")
+@bot.tree.command(name="cleanc", description="Deletes and recreates the current channel.")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def cleanc(interaction: discord.Interaction):
     class ConfirmationView(discord.ui.View):
@@ -581,12 +581,12 @@ async def cleanc(interaction: discord.Interaction):
             super().__init__(timeout=30)
             self.value = None
         
-        @discord.ui.button(label="Confirmar", style=discord.ButtonStyle.danger)
+        @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
         async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
             self.value = True
             self.stop()
         
-        @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.grey)
+        @discord.ui.button(label="Cancel", style=discord.ButtonStyle.grey)
         async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
             self.value = False
             self.stop()
@@ -598,37 +598,37 @@ async def cleanc(interaction: discord.Interaction):
     if view.value is True:
         channel = interaction.channel
         try:
-            new_channel = await channel.clone(reason=f"Clonado por {interaction.user}")
-            await channel.delete(reason=f"Canal limpiado por {interaction.user}")
+            new_channel = await channel.clone(reason=f"Cloned by {interaction.user}")
+            await channel.delete(reason=f"Channel cleaned by {interaction.user}")
             await new_channel.send(_(interaction.guild.id, "CLEANC_SUCCESS"))
         except discord.HTTPException as e:
             await interaction.followup.send(f"Error: {e}", ephemeral=True)
 
-@bot.tree.command(name="lock", description="Bloquea el canal actual.")
+@bot.tree.command(name="lock", description="Locks the current channel.")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def lock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
     await interaction.response.send_message(_(interaction.guild.id, "LOCK_SUCCESS"))
 
-@bot.tree.command(name="unlock", description="Desbloquea el canal actual.")
+@bot.tree.command(name="unlock", description="Unlocks the current channel.")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def unlock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=None)
     await interaction.response.send_message(_(interaction.guild.id, "UNLOCK_SUCCESS"))
 
-# --- Comandos de Backup ---
-backup_commands = app_commands.Group(name="backup", description="Comandos para gestionar backups del servidor.")
+# --- Backup Commands ---
+backup_commands = app_commands.Group(name="backup", description="Commands for managing server backups.")
 
-@backup_commands.command(name="load", description="Carga un backup en el servidor actual. ¡Esto borrará toda la configuración!")
-@app_commands.describe(backup_id="El ID del backup a cargar.")
+@backup_commands.command(name="load", description="Loads a backup into the current server. This will delete all current settings!")
+@app_commands.describe(backup_id="The ID of the backup to load.")
 async def load_backup(interaction: discord.Interaction, backup_id: str):
     if not is_premium(interaction.guild.id):
         embed = discord.Embed(
-            title="Función Premium Requerida",
-            description="Lo siento, cargar copias de seguridad es una función exclusiva para servidores con una **membresía Premium** activa.",
+            title="Premium Feature Required",
+            description="Sorry, loading backups is an exclusive feature for servers with an active **Premium membership**.",
             color=discord.Color.red()
         )
-        embed.add_field(name="¿Cómo activo la membresía?", value="Visita nuestro dashboard web para canjear un código y activar tu membresía.", inline=False)
+        embed.add_field(name="How do I activate the membership?", value="Visit our web dashboard to redeem a code and activate your membership.", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
@@ -640,11 +640,11 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
         def __init__(self):
             super().__init__(timeout=30)
             self.value = None
-        @discord.ui.button(label="Confirmar Carga", style=discord.ButtonStyle.danger)
+        @discord.ui.button(label="Confirm Load", style=discord.ButtonStyle.danger)
         async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
             self.value = True
             self.stop()
-        @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.grey)
+        @discord.ui.button(label="Cancel", style=discord.ButtonStyle.grey)
         async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
             self.value = False
             self.stop()
@@ -674,11 +674,11 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
 
     guild = interaction.guild
     try:
-        for channel in guild.channels: await channel.delete(reason="Cargando backup")
+        for channel in guild.channels: await channel.delete(reason="Loading backup")
         for role in guild.roles:
             if role.is_default() or role.is_bot_managed(): continue
             try:
-                await role.delete(reason="Cargando backup")
+                await role.delete(reason="Loading backup")
             except discord.HTTPException:
                 pass 
 
@@ -697,7 +697,7 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
             new_role = await guild.create_role(
                 name=role_data["name"], permissions=permissions, color=color,
                 hoist=role_data["hoist"], mentionable=role_data["mentionable"],
-                reason="Cargando backup"
+                reason="Loading backup"
             )
             role_map[role_data["name"]] = new_role
 
@@ -741,11 +741,12 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
 
 bot.tree.add_command(backup_commands)
 
-# --- EJECUCIÓN DEL BOT ---
+# --- BOT EXECUTION ---
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 if not BOT_TOKEN: 
-    print("❌ ERROR: No se encontró el token del bot.")
+    print("❌ ERROR: Bot token not found.")
 else: 
     bot.run(BOT_TOKEN)
+
 
 
