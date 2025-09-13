@@ -18,7 +18,7 @@
                     </div>
                 </div>
                 <div class="card-body" id="server-simulation-container">
-                    <!-- La simulación del servidor se renderizará aquí con JavaScript -->
+                    <p class="text-muted">{{ _('Loading server structure...') }}</p>
                 </div>
             </div>
         </div>
@@ -81,6 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- RENDER FUNCTIONS ---
     function renderServer(structure) {
+        // CORRECCIÓN: Verificar que la estructura y sus componentes existan antes de renderizar
+        if (!structure || !structure.roles || !structure.categories || !structure.channels_no_category) {
+            simulationContainer.innerHTML = '<p class="text-danger">Error: Invalid server structure received.</p>';
+            return;
+        }
+
         simulationContainer.innerHTML = ''; // Clear previous state
 
         const serverHeader = document.createElement('div');
@@ -117,13 +123,16 @@ document.addEventListener('DOMContentLoaded', () => {
             categoryDiv.innerHTML = `<span>${category.name.toUpperCase()}</span>`;
             simulationContainer.appendChild(categoryDiv);
 
-            category.channels.forEach(channel => {
-                const channelDiv = document.createElement('div');
-                channelDiv.className = 'sim-channel';
-                const icon = channel.type === 'text' ? '#' : '🔊';
-                channelDiv.innerHTML = `<span class="sim-channel-icon">${icon}</span> ${channel.name}`;
-                simulationContainer.appendChild(channelDiv);
-            });
+            // CORRECCIÓN: Asegurarse de que category.channels sea un array
+            if (Array.isArray(category.channels)) {
+                category.channels.forEach(channel => {
+                    const channelDiv = document.createElement('div');
+                    channelDiv.className = 'sim-channel';
+                    const icon = channel.type === 'text' ? '#' : '🔊';
+                    channelDiv.innerHTML = `<span class="sim-channel-icon">${icon}</span> ${channel.name}`;
+                    simulationContainer.appendChild(channelDiv);
+                });
+            }
         });
 
         structure.channels_no_category.forEach(channel => {
@@ -145,7 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- STATE & HISTORY MANAGEMENT ---
     function updateHistory(newStructure) {
-        // If we undo and then make a new change, truncate the "future" history
         if (historyIndex < history.length - 1) {
             history = history.slice(0, historyIndex + 1);
         }
@@ -222,8 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt: prompt, structure: currentStructure })
             });
-            if (!response.ok) throw new Error('The AI assistant failed to process the request.');
+
             const newStructure = await response.json();
+            if (!response.ok) throw new Error(newStructure.error || 'The AI assistant failed to process the request.');
+
 
             currentStructure = newStructure;
             updateHistory(currentStructure);
@@ -253,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(result.error || 'An unknown error occurred.');
 
             addChatMessage(result.message, 'ai');
-            // Reset state after saving
             fetchServerStructure();
         } catch (error) {
             addChatMessage(`Error applying changes: ${error.message}`, 'ai');
