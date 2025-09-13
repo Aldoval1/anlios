@@ -17,7 +17,7 @@ import google.generativeai as genai
 import re
 from functools import wraps
 
-# --- CONFIGURACIÓN INICIAL ---
+# --- INITIAL CONFIGURATION ---
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'super-secret-key-for-dev')
@@ -26,16 +26,16 @@ logging.basicConfig(level=logging.INFO)
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(dotenv_path=env_path)
 
-# --- Lógica de Traducción ---
+# --- Translation Logic ---
 translations = {}
 try:
     with open(os.path.join(os.path.dirname(__file__), 'translations.json'), 'r', encoding='utf-8') as f:
         translations = json.load(f)
 except Exception as e:
-    app.logger.error(f"No se pudo cargar el archivo de traducciones: {e}")
+    app.logger.error(f"Could not load translations file: {e}")
 
 def get_translation(text_key):
-    """Obtiene una traducción para ser usada dentro de las rutas de Flask."""
+    """Gets a translation to be used within Flask routes."""
     lang = g.get('lang', 'en')
     return translations.get(lang, {}).get(text_key, text_key)
 
@@ -56,22 +56,22 @@ def inject_translations():
         return translations.get(g.lang, {}).get(text_key, text_key)
     return dict(_=_)
 
-# --- CONFIGURACIÓN DE IA DE GEMINI ---
+# --- GEMINI AI CONFIGURATION ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 else:
-    app.logger.warning("No se encontró la clave de API de Gemini. La demo de chat no funcionará.")
+    app.logger.warning("Gemini API key not found. Chat demo will not work.")
 
-# --- CONFIGURACIÓN DE REDIS ---
+# --- REDIS CONFIGURATION ---
 try:
     r = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
-    app.logger.info("Conexión con Redis establecida.")
+    app.logger.info("Connection with Redis established.")
 except Exception as e:
-    app.logger.error(f"No se pudo conectar a Redis: {e}")
+    app.logger.error(f"Could not connect to Redis: {e}")
     r = None
 
-# --- CONSTANTES ---
+# --- CONSTANTS ---
 CLIENT_ID, CLIENT_SECRET, BOT_TOKEN = os.getenv('DISCORD_CLIENT_ID'), os.getenv('DISCORD_CLIENT_SECRET'), os.getenv('DISCORD_BOT_TOKEN')
 DOMAIN = os.getenv('DOMAIN_URL', 'http://127.0.0.1:5000')
 
@@ -88,7 +88,7 @@ REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_LOG_KEY = "dashboard_audit_log"
 
 
-# Middleware para el Modo Mantenimiento
+# Maintenance Mode Middleware
 @app.before_request
 def check_for_maintenance():
     if request.path.startswith('/static'):
@@ -117,12 +117,12 @@ def check_for_maintenance():
 
     return redirect(url_for('maintenance'))
 
-# --- DECORADOR ---
+# --- DECORATOR ---
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'discord_token' not in session:
-            flash("Tu sesión ha caducado. Por favor, inicia sesión de nuevo.", "warning")
+            flash("Your session has expired. Please log in again.", "warning")
             return redirect(url_for('login'))
 
         if 'user' not in session:
@@ -136,19 +136,19 @@ def login_required(f):
 
             except TokenExpiredError:
                 session.clear()
-                flash("Tu sesión ha caducado. Por favor, inicia sesión de nuevo.", "warning")
+                flash("Your session has expired. Please log in again.", "warning")
                 return redirect(url_for('login'))
 
             except requests.exceptions.RequestException as e:
                 session.clear() 
-                app.logger.error(f"Error al obtener datos del usuario durante la comprobación de login_required: {e}")
-                flash("No se pudo conectar con Discord. Por favor, inténtalo de nuevo más tarde.", "danger")
+                app.logger.error(f"Error fetching user data during login_required check: {e}")
+                flash("Could not connect to Discord. Please try again later.", "danger")
                 return redirect(url_for('login')) 
 
         return f(*args, **kwargs)
     return decorated_function
 
-# --- FILTRO DE PLANTILLA ---
+# --- TEMPLATE FILTER ---
 @app.template_filter('timestamp_to_date')
 def timestamp_to_date(s):
     if not s: return "N/A"
@@ -159,10 +159,10 @@ def timestamp_to_date(s):
             dt_object = datetime.fromtimestamp(float(s))
         return dt_object.strftime('%Y-%m-%d %H:%M:%S UTC')
     except (ValueError, TypeError):
-        return "Fecha inválida"
+        return "Invalid date"
 
 
-# --- FUNCIONES AUXILIARES ---
+# --- HELPER FUNCTIONS ---
 def log_action(user, action, details):
     if not r: return
     log_entry = {
@@ -180,7 +180,7 @@ def load_data_from_redis(key: str, default_value):
         data = r.get(key)
         return json.loads(data) if data else default_value
     except Exception as e:
-        app.logger.error(f"Error al cargar datos de Redis para la clave {key}: {e}")
+        app.logger.error(f"Error loading data from Redis for key {key}: {e}")
         return default_value
 
 def save_data_to_redis(key: str, data):
@@ -188,7 +188,7 @@ def save_data_to_redis(key: str, data):
     try:
         r.set(key, json.dumps(data))
     except Exception as e:
-        app.logger.error(f"Error al guardar datos en Redis para la clave {key}: {e}")
+        app.logger.error(f"Error saving data to Redis for key {key}: {e}")
 
 def get_guild_data_bot(guild_id):
     headers = {'Authorization': f'Bot {BOT_TOKEN}'}
@@ -222,19 +222,19 @@ def load_knowledge(guild_id: int) -> list: return load_data_from_redis(f"knowled
 def save_knowledge(guild_id: int, data: list): save_data_to_redis(f"knowledge:{guild_id}", data)
 
 def load_embed_config(guild_id: int) -> dict:
-    default_personality = "Eres Anlios, un amigable y servicial asistente de IA."
+    default_personality = "You are Anlios, a friendly and helpful AI assistant."
     default_prompt_template = (
         "{personality}\n\n"
-        "Tu propósito es ayudar a los usuarios y responder sus preguntas. "
-        "Para preguntas específicas sobre el servidor, consulta la siguiente 'Base de Conocimientos'. "
-        "Si la respuesta no está ahí, DEBES empezar tu respuesta única y exclusivamente con la etiqueta [NO_KNOWLEDGE] y nada más. "
-        "Para preguntas generales o conversacionales (como 'hola', 'cómo estás', 'quién eres'), responde de forma natural y amigable.\n\n"
-        "--- BASE DE CONOCIMIENTOS ---\n{knowledge}"
+        "Your purpose is to help users and answer their questions. "
+        "For specific questions about the server, consult the following 'Knowledge Base'. "
+        "If the answer is not there, you MUST start your response ONLY with the tag [NO_KNOWLEDGE] and nothing else. "
+        "For general or conversational questions (like 'hello', 'how are you', 'who are you'), respond naturally and friendly.\n\n"
+        "--- KNOWLEDGE BASE ---\n{knowledge}"
     )
 
     default_config = {
-        'panel': {'title': 'Sistema de Tickets', 'description': 'Haz clic para abrir un ticket.', 'color': '#ff4141', 'button_label': 'Crear Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
-        'welcome': {'title': '¡Bienvenido, {user}!', 'description': 'Un asistente te atenderá pronto.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
+        'panel': {'title': 'Ticket System', 'description': 'Click to open a ticket.', 'color': '#ff4141', 'button_label': 'Create Ticket', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
+        'welcome': {'title': 'Welcome, {user}!', 'description': 'An assistant will be with you shortly.', 'color': '#ff8282', 'author_name': '', 'author_icon': '', 'image': '', 'thumbnail': '', 'footer_text': '', 'footer_icon': ''},
         'ai_prompt': default_prompt_template.format(personality=default_personality, knowledge="{knowledge}"),
         'ai_personality': default_personality
     }
@@ -295,7 +295,7 @@ def make_user_session(token=None):
                          auto_refresh_kwargs={'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET},
                          auto_refresh_url=TOKEN_URL, token_updater=token_updater)
 
-# --- RUTAS DE LA APLICACIÓN WEB ---
+# --- WEB APPLICATION ROUTES ---
 @app.route("/")
 def index():
     bot_guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
@@ -320,8 +320,8 @@ def callback():
     state = session.get('oauth2_state')
 
     if state is None:
-        app.logger.warning("oauth2_state no encontrado en la sesión durante el callback. El usuario podría tener las cookies desactivadas o la sesión expiró.")
-        flash("Tu sesión de autenticación ha expirado o es inválida. Por favor, intenta iniciar sesión de nuevo.", "warning")
+        app.logger.warning("oauth2_state not found in session during callback. User might have cookies disabled or session expired.")
+        flash("Your authentication session has expired or is invalid. Please try logging in again.", "warning")
         return redirect(url_for('login'))
 
     discord = OAuth2Session(CLIENT_ID, state=state, redirect_uri=redirect_uri)
@@ -333,10 +333,10 @@ def callback():
             authorization_response=request.url
         )
         session['discord_token'] = token
-        session.pop('oauth2_state', None) # Limpiar el estado de la sesión
+        session.pop('oauth2_state', None) # Clean up the state from the session
     except Exception as e:
-        app.logger.error(f"Error al obtener token de Discord: {e}")
-        flash("Error de autenticación. Por favor, inténtalo de nuevo.", "danger")
+        app.logger.error(f"Error fetching token from Discord: {e}")
+        flash("Authentication error. Please try again.", "danger")
         return redirect(url_for('login'))
         
     return redirect(url_for('dashboard_home'))
@@ -355,7 +355,7 @@ def set_language(lang):
 @app.route('/maintenance', methods=['GET', 'POST'])
 def maintenance():
     if not r:
-        return "Error: No se puede conectar a la base de datos.", 500
+        return "Error: Cannot connect to the database.", 500
 
     maintenance_config = r.hgetall('maintenance_status')
     if maintenance_config.get('status', 'disabled') == 'disabled' and not session.get('is_tester'):
@@ -367,8 +367,8 @@ def maintenance():
             session['is_tester'] = True
             return redirect(url_for('dashboard_home'))
         else:
-            flash("Contraseña de Tester incorrecta.", "error")
-            return render_template('maintenance.html', error="Contraseña incorrecta")
+            flash("Incorrect Tester password.", "error")
+            return render_template('maintenance.html', error="Incorrect password")
 
     return render_template('maintenance.html')
 
@@ -401,8 +401,8 @@ def dashboard_home():
     except TokenExpiredError:
         return redirect(url_for('logout'))
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"Error al obtener los servidores de Discord: {e}")
-        flash("No se pudieron obtener tus servidores de Discord. Por favor, inténtalo de nuevo más tarde.", "warning")
+        app.logger.error(f"Error fetching Discord servers: {e}")
+        flash("Could not fetch your Discord servers. Please try again later.", "warning")
         return render_template("select_server.html", user=session['user'], guilds_with_bot=[], guilds_without_bot=[], client_id=CLIENT_ID, active_guild_id=None, page=None)
 
 @app.route("/dashboard/profile")
@@ -428,8 +428,8 @@ def profile_page():
     except TokenExpiredError:
         return redirect(url_for('logout'))
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"Error al obtener los servidores de Discord en la página de perfil: {e}")
-        flash("No se pudieron obtener tus servidores de Discord. Por favor, inténtalo de nuevo más tarde.", "warning")
+        app.logger.error(f"Error fetching Discord servers on profile page: {e}")
+        flash("Could not fetch your Discord servers. Please try again later.", "warning")
 
     module_config = load_module_config()
     module_statuses = {
@@ -451,14 +451,14 @@ def profile_page():
 @login_required
 def membership(guild_id):
     if not r:
-        flash("Error de conexión con la base de datos.", "danger")
+        flash("Database connection error.", "danger")
         return redirect(url_for('dashboard_home'))
 
     discord = make_user_session()
     try:
         guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
         if guilds_response.status_code != 200:
-            flash("No se pudo obtener la lista de servidores de Discord.", "danger")
+            flash("Could not fetch the list of Discord servers.", "danger")
             return redirect(url_for('dashboard_home'))
 
         user_guilds = guilds_response.json()
@@ -470,21 +470,21 @@ def membership(guild_id):
         current_guild = next((g for g in user_guilds if g['id'] == str(guild_id)), None)
 
         if not current_guild:
-            flash("Servidor no encontrado o no tienes permisos.", "danger")
+            flash("Server not found or you don't have permissions.", "danger")
             return redirect(url_for('dashboard_home'))
 
         if request.method == 'POST':
             code = request.form.get('premium_code', '').strip()
             if not code:
-                flash('Debes introducir un código para canjear.', 'warning')
+                flash('You must enter a code to redeem.', 'warning')
             else:
                 code_key = f"premium_code:{code}"
                 if not r.exists(code_key):
-                    flash('El código premium introducido no es válido o no existe.', 'danger')
+                    flash('The entered premium code is not valid or does not exist.', 'danger')
                 else:
                     code_data = r.hgetall(code_key)
                     if code_data.get('is_used') == 'True':
-                        flash(f"Este código ya fue canjeado en el servidor ID: {code_data.get('used_by_guild', 'N/A')}", 'danger')
+                        flash(f"This code has already been redeemed on server ID: {code_data.get('used_by_guild', 'N/A')}", 'danger')
                     else:
                         duration_days = int(code_data.get('duration_days', 0))
 
@@ -506,7 +506,7 @@ def membership(guild_id):
                             'redeemed_at': datetime.utcnow().isoformat(), 'last_code_used': code
                         })
 
-                        flash(f'¡Felicidades! La membresía premium ha sido activada o extendida por {duration_days} días.', 'success')
+                        flash(f'Congratulations! The premium membership has been activated or extended for {duration_days} days.', 'success')
                         return redirect(url_for('membership', guild_id=guild_id))
 
         sub_info = r.hgetall(f"subscription:{guild_id}")
@@ -545,8 +545,8 @@ def membership(guild_id):
     except TokenExpiredError:
         return redirect(url_for('logout'))
     except Exception as e:
-        app.logger.error(f"Error en la página de membresía: {e}")
-        flash("Ocurrió un error inesperado.", "danger")
+        app.logger.error(f"Error on membership page: {e}")
+        flash("An unexpected error occurred.", "danger")
         return redirect(url_for('dashboard_home'))
 
 
@@ -558,7 +558,7 @@ def select_page(guild_id, page):
 
     if request.method == 'POST':
         try:
-            user_info = session.get('user', {'username': 'Desconocido', 'id': 'Desconocido'})
+            user_info = session.get('user', {'username': 'Unknown', 'id': 'Unknown'})
 
             if 'action_remove_warning' in request.form:
                 user_id_to_clear = request.form.get('action_remove_warning')
@@ -568,9 +568,9 @@ def select_page(guild_id, page):
                     if not warnings_log[user_id_to_clear]['warnings']:
                         del warnings_log[user_id_to_clear]
                     save_warnings_log(guild_id_int, warnings_log)
-                    flash("Última advertencia eliminada.", "success")
+                    flash("Last warning removed.", "success")
                 else:
-                    flash("El usuario no tiene advertencias para eliminar.", "warning")
+                    flash("The user has no warnings to remove.", "warning")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
             elif 'action_delete_backup' in request.form:
@@ -579,9 +579,9 @@ def select_page(guild_id, page):
                 new_backups = [b for b in backups if b['id'] != backup_id_to_delete]
                 if len(new_backups) < len(backups):
                     save_backups(guild_id_int, new_backups)
-                    flash("Backup eliminado.", "success")
+                    flash("Backup deleted.", "success")
                 else:
-                    flash("No se encontró el backup a eliminar.", "danger")
+                    flash("Could not find the backup to delete.", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
             action = request.form.get('action')
@@ -591,8 +591,8 @@ def select_page(guild_id, page):
                 is_enabled = 'enabled' in request.form
                 config[guild_id]['modules']['ticket_ia'] = is_enabled
                 save_module_config(config)
-                log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "ticket_ia", "enabled": is_enabled})
-                flash("Módulo Ticket I.A actualizado.", "success")
+                log_action(user_info, "Module Enabled/Disabled", {"guild_id": guild_id, "module": "ticket_ia", "enabled": is_enabled})
+                flash("Ticket AI Module updated.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
             elif action == 'toggle_moderation_module':
@@ -601,8 +601,8 @@ def select_page(guild_id, page):
                 is_enabled = 'enabled' in request.form
                 config[guild_id]['modules']['moderation'] = is_enabled
                 save_module_config(config)
-                log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "moderation", "enabled": is_enabled})
-                flash("Módulo de Moderación actualizado.", "success")
+                log_action(user_info, "Module Enabled/Disabled", {"guild_id": guild_id, "module": "moderation", "enabled": is_enabled})
+                flash("Moderation Module updated.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
             elif action == 'toggle_designer_module':
@@ -611,8 +611,8 @@ def select_page(guild_id, page):
                 is_enabled = 'enabled' in request.form
                 config[guild_id]['modules']['designer'] = is_enabled
                 save_module_config(config)
-                log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "designer", "enabled": is_enabled})
-                flash("Módulo Diseñador actualizado.", "success")
+                log_action(user_info, "Module Enabled/Disabled", {"guild_id": guild_id, "module": "designer", "enabled": is_enabled})
+                flash("Designer Module updated.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='designer'))
 
             elif action == 'save_moderation':
@@ -632,38 +632,38 @@ def select_page(guild_id, page):
                 config['commands']['lock'] = 'command_lock_enabled' in request.form
                 config['vault']['enabled'] = 'vault_enabled' in request.form
                 save_moderation_config(guild_id_int, config)
-                log_action(user_info, "Guardada Configuración de Moderación", {"guild_id": guild_id})
-                flash("Configuración de moderación guardada con éxito.", "success")
+                log_action(user_info, "Saved Moderation Configuration", {"guild_id": guild_id})
+                flash("Moderation settings saved successfully.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
             elif action == 'create_backup':
                 command = {'command': 'create_backup', 'guild_id': guild_id_int, 'user_id': user_info['id']}
                 r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
-                flash("La creación del backup se ha puesto en cola. Aparecerá en la lista en breve.", "info")
+                flash("Backup creation has been queued. It will appear in the list shortly.", "info")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
             elif action == 'save_all':
-                log_action(user_info, "Guardada Configuración Completa", {"guild_id": guild_id, "form_data": request.form.to_dict()})
+                log_action(user_info, "Saved Full Configuration", {"guild_id": guild_id, "form_data": request.form.to_dict()})
                 ticket_config = load_ticket_config(guild_id_int)
                 log_enabled = 'log_enabled' in request.form
                 log_channel_id = request.form.get('log_channel_id')
 
                 if log_enabled and not log_channel_id:
-                    flash("Debes seleccionar un canal de logs si la opción está activada.", "log_error")
+                    flash("You must select a log channel if the option is enabled.", "log_error")
                 else:
                     current_config = load_embed_config(guild_id_int)
                     for embed_type in ['panel', 'welcome']:
                         for key in current_config[embed_type]:
                             current_config[embed_type][key] = request.form.get(f'{embed_type}_{key}', current_config[embed_type][key])
 
-                    personality = request.form.get('ai_personality', "Eres Anlios, un amigable y servicial asistente de IA.")
+                    personality = request.form.get('ai_personality', "You are Anlios, a friendly and helpful AI assistant.")
                     prompt_template = (
                         "{personality}\n\n"
-                        "Tu propósito es ayudar a los usuarios y responder sus preguntas. "
-                        "Para preguntas específicas sobre el servidor, consulta la siguiente 'Base de Conocimientos'. "
-                        "Si la respuesta no está ahí, DEBES empezar tu respuesta única y exclusivamente con la etiqueta [NO_KNOWLEDGE] y nada más. "
-                        "Para preguntas generales o conversacionales (como 'hola', 'cómo estás', o 'quién eres'), responde de forma natural y amigable.\n\n"
-                        "--- BASE DE CONOCIMIENTOS ---\n{knowledge}"
+                        "Your purpose is to help users and answer their questions. "
+                        "For specific questions about the server, consult the following 'Knowledge Base'. "
+                        "If the answer is not there, you MUST start your response ONLY with the tag [NO_KNOWLEDGE] and nothing else. "
+                        "For general or conversational questions (like 'hello', 'how are you', or 'who are you'), respond naturally and friendly.\n\n"
+                        "--- KNOWLEDGE BASE ---\n{knowledge}"
                     )
                     full_prompt = prompt_template.format(personality=personality, knowledge="{knowledge}")
 
@@ -679,14 +679,14 @@ def select_page(guild_id, page):
                     ticket_config['language'] = request.form.get('bot_language', 'es')
                     save_ticket_config(guild_id_int, ticket_config)
 
-                    flash("Configuración guardada con éxito.", "success")
+                    flash("Settings saved successfully.", "success")
 
             elif action in ['knowledge_web', 'knowledge_youtube', 'knowledge_pdf']:
                 try:
                     knowledge_item = {}
                     if action == 'knowledge_web':
                         url = request.form.get('web_url')
-                        if not url: raise ValueError("La URL no puede estar vacía.")
+                        if not url: raise ValueError("URL cannot be empty.")
                         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
                         page_req = requests.get(url, timeout=30, headers=headers)
                         page_req.raise_for_status()
@@ -694,9 +694,9 @@ def select_page(guild_id, page):
                         knowledge_item = {"type": "web", "source": url, "content": soup.get_text(separator=' ', strip=True)}
                     elif action == 'knowledge_youtube':
                         url = request.form.get('youtube_url')
-                        if not url: raise ValueError("La URL no puede estar vacía.")
+                        if not url: raise ValueError("URL cannot be empty.")
                         video_id_match = re.search(r'(?:v=|\/|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})', url)
-                        if not video_id_match: raise ValueError("URL de YouTube no válida o ID no encontrado.")
+                        if not video_id_match: raise ValueError("Invalid YouTube URL or ID not found.")
                         video_id = video_id_match.group(1)
                         try:
                             transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
@@ -705,11 +705,11 @@ def select_page(guild_id, page):
                             transcript_text = ' '.join([t['text'] for t in transcript_data])
                             knowledge_item = {"type": "youtube", "source": url, "content": transcript_text}
                         except (NoTranscriptFound, TranscriptsDisabled):
-                            raise ValueError("No se pudieron obtener los subtítulos para este video.")
+                            raise ValueError("Could not get subtitles for this video.")
                     elif action == 'knowledge_pdf':
-                        if 'pdf_file' not in request.files: raise ValueError("No se encontró el archivo PDF.")
+                        if 'pdf_file' not in request.files: raise ValueError("PDF file not found.")
                         file = request.files['file']
-                        if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
+                        if file.filename == '': raise ValueError("No file selected.")
                         reader = PyPDF2.PdfReader(file.stream)
                         pdf_text = ''.join(page.extract_text() for page in reader.pages)
                         knowledge_item = {"type": "pdf", "filename": file.filename, "content": pdf_text}
@@ -718,13 +718,13 @@ def select_page(guild_id, page):
                         knowledge = load_knowledge(guild_id_int)
                         knowledge.append(knowledge_item)
                         save_knowledge(guild_id_int, knowledge)
-                        flash("Conocimiento añadido con éxito desde la fuente externa.", "success")
+                        flash("Knowledge added successfully from the external source.", "success")
                 except Exception as e:
-                    flash(f"Error al procesar la fuente: {e}", "danger")
+                    flash(f"Error processing the source: {e}", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
         except Exception as e:
-            app.logger.error(f"Error al procesar formulario: {e}")
-            flash(f"Error al guardar: {e}", "danger")
+            app.logger.error(f"Error processing form: {e}")
+            flash(f"Error saving: {e}", "danger")
 
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
@@ -807,26 +807,26 @@ def select_page(guild_id, page):
     
     return render_template(template_to_render, **render_data)
 
-# --- RUTAS DE CONOCIMIENTO ASÍNCRONO ---
+# --- ASYNCHRONOUS KNOWLEDGE ROUTES ---
 @app.route("/dashboard/<guild_id>/knowledge/add", methods=['POST'])
 @login_required
 def add_knowledge_ajax(guild_id):
     try:
         data = request.json
         text = data.get('text')
-        if not text: return jsonify({'success': False, 'error': 'El texto no puede estar vacío'}), 400
+        if not text: return jsonify({'success': False, 'error': 'Text cannot be empty'}), 400
 
         knowledge = load_knowledge(int(guild_id))
         new_item = {"type": "text", "content": text}
         knowledge.append(new_item)
         save_knowledge(int(guild_id), knowledge)
 
-        log_action(session.get('user'), "Añadido Conocimiento", {"guild_id": guild_id, "text": text})
+        log_action(session.get('user'), "Added Knowledge", {"guild_id": guild_id, "text": text})
 
         new_item_response = {'type': 'text', 'content': text, 'index': len(knowledge) - 1}
         return jsonify({'success': True, 'newItem': new_item_response})
     except Exception as e:
-        app.logger.error(f"Error al añadir conocimiento: {e}")
+        app.logger.error(f"Error adding knowledge: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route("/dashboard/<guild_id>/knowledge/delete", methods=['POST'])
@@ -840,16 +840,16 @@ def delete_knowledge_ajax(guild_id):
             deleted_item = knowledge.pop(index)
             save_knowledge(int(guild_id), knowledge)
 
-            log_action(session.get('user'), "Eliminado Conocimiento", {"guild_id": guild_id, "deleted_text": deleted_item, "index": index})
+            log_action(session.get('user'), "Deleted Knowledge", {"guild_id": guild_id, "deleted_text": deleted_item, "index": index})
 
             return jsonify({'success': True})
         else:
-            return jsonify({'success': False, 'error': 'Índice inválido'}), 400
+            return jsonify({'success': False, 'error': 'Invalid index'}), 400
     except Exception as e:
-        app.logger.error(f"Error al eliminar conocimiento: {e}")
+        app.logger.error(f"Error deleting knowledge: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# --- RUTA DE ACCIÓN DE ENTRENAMIENTO ---
+# --- TRAINING ACTION ROUTE ---
 @app.route("/dashboard/<guild_id>/training_action", methods=['POST'])
 @login_required
 def training_action(guild_id):
@@ -861,29 +861,29 @@ def training_action(guild_id):
     question_to_process = next((q for q in pending_questions if q['id'] == question_id), None)
 
     if not question_to_process:
-        flash("La pregunta ya no existe o fue procesada.", "warning")
+        flash("The question no longer exists or has been processed.", "warning")
         return redirect(url_for('select_page', guild_id=guild_id, page='training'))
 
-    user_info = session.get('user', {'username': 'Desconocido', 'id': 'Desconocido'})
+    user_info = session.get('user', {'username': 'Unknown', 'id': 'Unknown'})
     if action == 'train':
         answer = request.form.get('answer_text')
         if not answer:
-            flash("La respuesta no puede estar vacía.", "danger")
+            flash("The answer cannot be empty.", "danger")
         else:
             knowledge = load_knowledge(guild_id_int)
             new_knowledge_entry = {"type": "text", "content": answer}
             knowledge.append(new_knowledge_entry)
             save_knowledge(guild_id_int, knowledge)
-            log_action(user_info, "IA Entrenada", {"guild_id": guild_id, "question": question_to_process['question'], "answer": answer})
+            log_action(user_info, "Trained AI", {"guild_id": guild_id, "question": question_to_process['question'], "answer": answer})
             pending_questions = [q for q in pending_questions if q['id'] != question_id]
             save_data_to_redis(training_queue_key, pending_questions)
-            flash("¡IA entrenada con éxito!", "success")
+            flash("AI trained successfully!", "success")
 
     elif action == 'discard':
-        log_action(user_info, "Pregunta Descartada", {"guild_id": guild_id, "question": question_to_process})
+        log_action(user_info, "Discarded Question", {"guild_id": guild_id, "question": question_to_process})
         pending_questions = [q for q in pending_questions if q['id'] != question_id]
         save_data_to_redis(training_queue_key, pending_questions)
-        flash("Pregunta descartada.", "info")
+        flash("Question discarded.", "info")
 
     return redirect(url_for('select_page', guild_id=guild_id, page='training'))
 
@@ -894,10 +894,10 @@ def send_panel(guild_id):
     channel_id = int(request.form.get('channel_id'))
     command = {'command': 'send_panel', 'guild_id': int(guild_id), 'channel_id': channel_id}
     r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
-    flash("El panel de tickets se está enviando...", "info")
+    flash("The ticket panel is being sent...", "info")
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
-# --- NUEVAS RUTAS PARA EL MÓDULO DISEÑADOR ---
+# --- NEW ROUTES FOR DESIGNER MODULE ---
 def check_admin_permissions(f):
     @wraps(f)
     def decorated_function(guild_id, *args, **kwargs):
@@ -905,20 +905,20 @@ def check_admin_permissions(f):
         try:
             guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
             if guilds_response.status_code != 200:
-                return jsonify({"error": "No se pudieron obtener los servidores del usuario"}), 401
+                return jsonify({"error": "Could not fetch user's servers"}), 401
             
             user_guilds = guilds_response.json()
             current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
             
             if not current_guild or (int(current_guild.get('permissions', 0)) & 0x8) != 0x8:
-                return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
+                return jsonify({"error": "You do not have permission to manage this server."}), 403
 
             return f(guild_id, *args, **kwargs)
         except TokenExpiredError:
-            return jsonify({"error": "Sesión expirada"}), 401
+            return jsonify({"error": "Session expired"}), 401
         except Exception as e:
-            app.logger.error(f"Error en la comprobación de permisos: {e}")
-            return jsonify({"error": "Error interno del servidor"}), 500
+            app.logger.error(f"Error in permission check: {e}")
+            return jsonify({"error": "Internal server error"}), 500
     return decorated_function
 
 @app.route('/api/designer/<guild_id>/structure')
@@ -930,7 +930,7 @@ def get_server_structure(guild_id):
     guild_info = get_guild_data_bot(guild_id)
 
     if guild_info is None:
-        return jsonify({"error": "No se pudo obtener la información del servidor."}), 500
+        return jsonify({"error": "Could not fetch server information."}), 500
 
     server_structure = {
         "id": guild_info.get('id'),
@@ -942,7 +942,7 @@ def get_server_structure(guild_id):
     }
 
     for role in roles:
-        if role['name'] == '@everyone': continue # Omitir el rol @everyone
+        if role['name'] == '@everyone': continue # Skip the @everyone role
         server_structure["roles"].append({
             "id": role.get('id'), "name": role.get('name'),
             "color": f"#{role.get('color'):06x}" if role.get('color') else "#99aab5",
@@ -951,28 +951,28 @@ def get_server_structure(guild_id):
 
     for channel in channels:
         channel_type = channel.get('type')
-        if channel_type == 4: # Es una categoría
+        if channel_type == 4: # It's a category
             if channel['id'] not in server_structure["categories"]:
                 server_structure["categories"][channel['id']] = {
                     "id": channel.get('id'), "name": channel.get('name'),
                     "position": channel.get('position'), "channels": []
                 }
-        elif channel.get('parent_id'): # Es un canal dentro de una categoría
+        elif channel.get('parent_id'): # It's a channel inside a category
             parent_id = channel['parent_id']
             if parent_id not in server_structure["categories"]:
-                 server_structure["categories"][parent_id] = {"id": parent_id, "name": "Categoría Desconocida", "position": 999, "channels": []}
+                 server_structure["categories"][parent_id] = {"id": parent_id, "name": "Unknown Category", "position": 999, "channels": []}
             
             server_structure["categories"][parent_id]['channels'].append({
                 "id": channel.get('id'), "name": channel.get('name'),
                 "type": "text" if channel_type == 0 else "voice", "position": channel.get('position')
             })
-        else: # Canal sin categoría
+        else: # Channel without a category
             server_structure["channels_no_category"].append({
                 "id": channel.get('id'), "name": channel.get('name'),
                 "type": "text" if channel_type == 0 else "voice", "position": channel.get('position')
             })
 
-    # Ordenar canales dentro de cada categoría
+    # Sort channels within each category
     for cat_id in server_structure["categories"]:
         server_structure["categories"][cat_id]['channels'].sort(key=lambda x: x.get('position', 0))
 
@@ -987,29 +987,29 @@ def get_server_structure(guild_id):
 @check_admin_permissions
 def process_designer_prompt(guild_id):
     if not GEMINI_API_KEY:
-        return jsonify({"error": "La API de IA no está configurada en el servidor."}), 503
+        return jsonify({"error": "AI API is not configured on the server."}), 503
         
     data = request.json
     user_prompt = data.get('prompt')
     current_structure_json = json.dumps(data.get('structure'), indent=2)
 
     if not user_prompt or not current_structure_json:
-        return jsonify({"error": "Faltan datos en la petición."}), 400
+        return jsonify({"error": "Missing data in the request."}), 400
     
     system_prompt = """
-    Eres un experto arquitecto de servidores de Discord. Tu tarea es analizar la petición del usuario y devolver ÚNICAMENTE un objeto JSON modificado que represente la nueva estructura del servidor.
+    You are an expert Discord server architect. Your task is to analyze the user's request and return ONLY a modified JSON object representing the new server structure.
 
-    REGLAS IMPORTANTES:
-    1.  **SALIDA SOLO JSON:** Tu respuesta debe ser solo el objeto JSON, sin explicaciones, comentarios, ni texto como "```json".
-    2.  **MANTENER ESTRUCTURA:** La estructura del JSON de salida debe ser idéntica a la de entrada.
-    3.  **ELIMINAR:** Si el usuario pide eliminar algo (canales, roles, categorías), DEBES quitarlos del JSON. Si pide "eliminar todo", vacía las listas de 'roles', 'categories' y 'channels_no_category'.
-    4.  **CREAR CON LÓGICA:** Si el usuario pide crear una categoría nueva (ej. "Crea categoría de Staff"), DEBES añadir también canales básicos dentro de ella, como un canal de texto '# staff-chat' y un canal de voz '🔊 Staff'.
-    5.  **PERMISOS:** Infiere permisos comunes. Un rol "Admin" debe tener el permiso de administrador (8). Un rol "Mod" debe poder gestionar mensajes, expulsar, etc.
-    6.  **IDs:** Mantén los IDs existentes. Para elementos nuevos, omite el campo 'id' o déjalo como null.
-    7.  **SER CREATIVO:** Si la petición es temática (ej. "servidor de Skyrim"), crea roles y canales que tengan sentido con ese tema ('# misiones', 'Compañeros').
+    IMPORTANT RULES:
+    1.  **JSON ONLY OUTPUT:** Your response must be only the JSON object, without explanations, comments, or text like "```json".
+    2.  **MAINTAIN STRUCTURE:** The output JSON structure must be identical to the input.
+    3.  **DELETE:** If the user asks to delete something (channels, roles, categories), you MUST remove them from the JSON. If they ask to "delete everything", empty the 'roles', 'categories', and 'channels_no_category' lists.
+    4.  **CREATE WITH LOGIC:** If the user asks to create a new category (e.g., "Create a Staff category"), you MUST also add basic channels within it, like a text channel '# staff-chat' and a voice channel '🔊 Staff'.
+    5.  **PERMISSIONS:** Infer common permissions. An "Admin" role should have the administrator permission (8). A "Mod" role should be able to manage messages, kick, etc.
+    6.  **IDs:** Keep existing IDs. For new elements, omit the 'id' field or leave it as null.
+    7.  **BE CREATIVE:** If the request is thematic (e.g., "Skyrim server"), create roles and channels that make sense with that theme ('# quests', 'Companions').
     """
     
-    final_prompt = f"{system_prompt}\n\n--- ESTRUCTURA ACTUAL DEL SERVIDOR ---\n{current_structure_json}\n\n--- PETICIÓN DEL USUARIO ---\n{user_prompt}\n\n--- NUEVO JSON DE ESTRUCTURA ---\n"
+    final_prompt = f"{system_prompt}\n\n--- CURRENT SERVER STRUCTURE ---\n{current_structure_json}\n\n--- USER REQUEST ---\n{user_prompt}\n\n--- NEW STRUCTURE JSON ---\n"
 
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
@@ -1021,85 +1021,83 @@ def process_designer_prompt(guild_id):
         return jsonify(new_structure)
         
     except Exception as e:
-        app.logger.error(f"Error en la API de Gemini para el diseñador: {e}. Respuesta recibida: {response.text}")
-        return jsonify({'error': f'La IA no pudo procesar la petición: {str(e)}'}), 500
+        app.logger.error(f"Error in Gemini API for designer: {e}. Response received: {response.text}")
+        return jsonify({'error': f'The AI could not process the request: {str(e)}'}), 500
 
 def calculate_changes(initial, final):
-    """Calcula la diferencia entre dos estructuras de servidor y genera comandos para el bot."""
+    """Calculates the difference between two server structures and generates commands for the bot."""
     changes = []
     
-    # --- Detección de Cambios en ROLES ---
+    # --- Dictionaries for quick lookups ---
     initial_roles = {role['id']: role for role in initial.get('roles', []) if 'id' in role}
-    final_roles = {role.get('id'): role for role in final.get('roles', [])}
+    initial_channels = {ch['id']: ch for cat in initial.get('categories', []) for ch in cat.get('channels', [])}
+    initial_channels.update({ch['id']: ch for ch in initial.get('channels_no_category', [])})
+    initial_categories = {cat['id']: cat for cat in initial.get('categories', [])}
+    all_initial_elements = {**initial_roles, **initial_channels, **initial_categories}
 
-    # Roles a eliminar
-    for role_id, role in initial_roles.items():
-        if role_id not in final_roles:
-            changes.append({'command': 'DELETE_ROLE', 'payload': {'id': role_id}})
-            
-    # Roles a crear o actualizar
+    final_roles = {role.get('id'): role for role in final.get('roles', [])}
+    final_channels = {ch.get('id'): ch for cat in final.get('categories', []) for ch in cat.get('channels', [])}
+    final_channels.update({ch.get('id'): ch for ch in final.get('channels_no_category', [])})
+    final_categories = {cat.get('id'): cat for cat in final.get('categories', [])}
+    
+    # --- Step 1: Handle Creations ---
+    # Create new roles
     for role_id, role_data in final_roles.items():
-        if role_id is None: # Crear rol nuevo
+        if role_id is None:
             changes.append({
                 'command': 'CREATE_ROLE',
                 'payload': {
                     'name': role_data.get('name', 'new-role'),
                     'permissions': str(role_data.get('permissions', '0')),
-                    'color': int(str(role_data.get('color', '#000000')).lstrip('#'), 16)
+                    'color': int(str(role_data.get('color', '#000000')).lstrip('#'), 16),
+                    'temp_id': f"role_{role_data.get('name')}" # Temporary ID for reference
                 }
             })
-        elif role_id in initial_roles: # Actualizar rol existente
-            initial_role = initial_roles[role_id]
-            if initial_role.get('name') != role_data.get('name') or \
-               initial_role.get('permissions') != role_data.get('permissions') or \
-               int(str(initial_role.get('color', '#000000')).lstrip('#'), 16) != int(str(role_data.get('color', '#000000')).lstrip('#'), 16):
-                changes.append({
-                    'command': 'UPDATE_ROLE',
-                    'payload': {
-                        'id': role_id,
-                        'name': role_data.get('name'),
-                        'permissions': str(role_data.get('permissions')),
-                        'color': int(str(role_data.get('color')).lstrip('#'), 16)
-                    }
-                })
 
-    # --- Detección de Cambios en CANALES Y CATEGORÍAS ---
-    initial_channels = {ch['id']: ch for cat in initial.get('categories', []) for ch in cat.get('channels', [])}
-    initial_channels.update({ch['id']: ch for ch in initial.get('channels_no_category', [])})
-    initial_categories = {cat['id']: cat for cat in initial.get('categories', [])}
-
-    final_channels = {ch.get('id'): ch for cat in final.get('categories', []) for ch in cat.get('channels', [])}
-    final_channels.update({ch.get('id'): ch for ch in final.get('channels_no_category', [])})
-    final_categories = {cat.get('id'): cat for cat in final.get('categories', [])}
-
-    # Canales y categorías a eliminar
-    all_initial_ids = set(initial_channels.keys()) | set(initial_categories.keys())
-    all_final_ids = set(final_channels.keys()) | set(final_categories.keys())
-    
-    for item_id in all_initial_ids - all_final_ids:
-        changes.append({'command': 'DELETE_CHANNEL', 'payload': {'id': item_id}})
-
-    # Categorías a crear
+    # Create new categories
     for cat_id, cat_data in final_categories.items():
         if cat_id is None:
             changes.append({
                 'command': 'CREATE_CATEGORY',
-                'payload': {'name': cat_data.get('name', 'new-category')}
+                'payload': {
+                    'name': cat_data.get('name', 'new-category'),
+                    'temp_id': f"cat_{cat_data.get('name')}"
+                }
             })
-            # La creación de canales dentro de esta nueva categoría se manejará por separado
 
-    # Canales a crear (asumiendo que las categorías ya existen o se crearán)
-    for ch_id, ch_data in final_channels.items():
-        if ch_id is None:
-            command = 'CREATE_TEXT_CHANNEL' if ch_data.get('type') == 'text' else 'CREATE_VOICE_CHANNEL'
-            # Nota: La lógica para asignar a la categoría correcta necesitaría un paso intermedio
-            # o una referencia temporal. Por ahora, se crearán sin categoría si la categoría es nueva.
-            changes.append({
-                'command': command,
-                'payload': {'name': ch_data.get('name', 'new-channel')}
-            })
-            
-    return changes
+    # Create new channels
+    all_final_channels = list(final_channels.values())
+    for cat in final.get('categories', []):
+        for ch in cat.get('channels', []):
+            if ch.get('id') is None:
+                command = 'CREATE_TEXT_CHANNEL' if ch.get('type') == 'text' else 'CREATE_VOICE_CHANNEL'
+                changes.append({
+                    'command': command,
+                    'payload': {
+                        'name': ch.get('name', 'new-channel'),
+                        'category_name': cat.get('name') # Reference category by name
+                    }
+                })
+
+    # --- Step 2: Handle Deletions ---
+    all_final_ids = set(final_roles.keys()) | set(final_channels.keys()) | set(final_categories.keys())
+    
+    for element_id in all_initial_elements:
+        if element_id not in all_final_ids:
+            # Determine if it's a role or channel/category
+            if element_id in initial_roles:
+                changes.append({'command': 'DELETE_ROLE', 'payload': {'id': element_id}})
+            else:
+                changes.append({'command': 'DELETE_CHANNEL', 'payload': {'id': element_id}})
+                
+    # --- Step 3: Handle Updates (for a future version) ---
+    # This section would compare existing elements and generate UPDATE commands.
+    
+    # Prioritize creations by putting them at the beginning
+    creations = [c for c in changes if c['command'].startswith('CREATE')]
+    deletions = [c for c in changes if c['command'].startswith('DELETE')]
+    
+    return creations + deletions
 
 
 @app.route('/api/designer/<guild_id>/apply_changes', methods=['POST'])
@@ -1111,35 +1109,35 @@ def apply_designer_changes(guild_id):
     final_structure = data.get('final_structure')
     
     if not initial_structure or not final_structure:
-        return jsonify({"error": "Faltan datos de estructura inicial o final."}), 400
+        return jsonify({"error": "Missing initial or final structure data."}), 400
         
     changes = calculate_changes(initial_structure, final_structure)
     
     if not changes:
-        return jsonify({"status": "no_changes", "message": "No se detectaron cambios para aplicar."})
+        return jsonify({"status": "no_changes", "message": "No changes were detected to apply."})
 
     for change in changes:
         change['guild_id'] = int(guild_id)
         r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(change))
 
-    log_action(session.get('user'), "Aplicados Cambios del Diseñador", {"guild_id": guild_id, "changes_count": len(changes)})
+    log_action(session.get('user'), "Applied Designer Changes", {"guild_id": guild_id, "changes_count": len(changes)})
     
-    return jsonify({"status": "success", "message": f"{len(changes)} cambios han sido encolados y se están aplicando en tu servidor."})
+    return jsonify({"status": "success", "message": f"{len(changes)} changes have been queued and are being applied to your server."})
 
-# --- RUTAS DE DEMO ---
+# --- DEMO ROUTES ---
 @app.route("/demo_chat", methods=['POST'])
 def demo_chat():
-    if not GEMINI_API_KEY: return jsonify({'reply': 'Error: La API de IA no está configurada en el servidor.'}), 500
+    if not GEMINI_API_KEY: return jsonify({'reply': 'Error: AI API is not configured on the server.'}), 500
     data = request.json
     try:
-        knowledge_text = "\n".join(f"- {item}" for item in data['knowledge'].splitlines() if item) if data.get('knowledge') else "No hay información."
-        final_prompt = f"{data['prompt'].replace('{knowledge}', knowledge_text)}\n\n--- CONVERSACIÓN ---\nUsuario: {data['message']}\nAnlios:"
+        knowledge_text = "\n".join(f"- {item}" for item in data['knowledge'].splitlines() if item) if data.get('knowledge') else "No information."
+        final_prompt = f"{data['prompt'].replace('{knowledge}', knowledge_text)}\n\n--- CONVERSATION ---\nUser: {data['message']}\nAnlios:"
         model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(final_prompt)
         return jsonify({'reply': response.text})
     except Exception as e:
-        app.logger.error(f"Error en la API de Gemini durante la demo: {e}")
-        return jsonify({'reply': 'Ocurrió un error al procesar la respuesta de la IA.'}), 500
+        app.logger.error(f"Error in Gemini API during demo: {e}")
+        return jsonify({'reply': 'An error occurred while processing the AI response.'}), 500
 
 @app.route("/demo_extract_knowledge", methods=['POST'])
 def demo_extract_knowledge():
@@ -1151,28 +1149,28 @@ def demo_extract_knowledge():
             page_req = requests.get(url, timeout=10)
             page_req.raise_for_status()
             soup = BeautifulSoup(page_req.content, 'html.parser')
-            text = f"Contenido de {url}:\n{soup.get_text(separator=' ', strip=True)}"
+            text = f"Content of {url}:\n{soup.get_text(separator=' ', strip=True)}"
         elif source_type == 'youtube':
             url = request.form.get('url')
-            if 'v=' not in url: raise ValueError("URL de YouTube no válida.")
+            if 'v=' not in url: raise ValueError("Invalid YouTube URL.")
             video_id = url.split('v=')[1].split('&')[0]
             transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-            text = f"Transcripción de YouTube {url}:\n{' '.join([t['text'] for t in transcript])}"
+            text = f"YouTube Transcription {url}:\n{' '.join([t['text'] for t in transcript])}"
         elif source_type == 'pdf':
-            if 'file' not in request.files: raise ValueError("No se encontró el archivo PDF.")
+            if 'file' not in request.files: raise ValueError("PDF file not found.")
             file = request.files['file']
-            if file.filename == '': raise ValueError("No se seleccionó ningún archivo.")
+            if file.filename == '': raise ValueError("No file selected.")
             reader = PyPDF2.PdfReader(file.stream)
             pdf_text = ''.join(page.extract_text() for page in reader.pages)
-            text = f"Contenido del PDF {file.filename}:\n{pdf_text}"
+            text = f"Content of PDF {file.filename}:\n{pdf_text}"
         else:
-            return jsonify({'success': False, 'error': 'Tipo de fuente no válido.'}), 400
+            return jsonify({'success': False, 'error': 'Invalid source type.'}), 400
         return jsonify({'success': True, 'text': text})
     except (NoTranscriptFound, TranscriptsDisabled):
-        return jsonify({'success': False, 'error': 'No se encontraron transcripciones o están desactivadas para este video.'}), 400
+        return jsonify({'success': False, 'error': 'No transcriptions found or they are disabled for this video.'}), 400
     except Exception as e:
-        app.logger.error(f"Error en la extracción de conocimiento para demo: {e}")
-        return jsonify({'success': False, 'error': f'Error al procesar la fuente: {e}'}), 500
+        app.logger.error(f"Error in knowledge extraction for demo: {e}")
+        return jsonify({'success': False, 'error': f'Error processing source: {e}'}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
