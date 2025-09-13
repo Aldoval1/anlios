@@ -1,7 +1,7 @@
 :root {
     /* MODIFICADO: Colores aclarados para un look más fresco y brillante */
-    --accent-main: #98DBC6; /* Un menta más claro y vibrante */
-    --accent-secondary: #C1E8E1; /* Un menta pastel muy claro */
-    --accent-gradient: linear-gradient(135deg, #98DBC6, #C1E8E1);
-    --bg-tertiary: #4A7C85; /* Mantenido oscuro para contraste, pero ajustado ligeramente */
+    --accent-main: #A8E6CF; /* Un menta más claro y vibrante */
+    --accent-secondary: #D1F2EB; /* Un menta pastel muy claro */
+    --accent-gradient: linear-gradient(135deg, #A8E6CF, #D1F2EB);
+    --bg-tertiary: #87C1C8; /* Mantenido oscuro para contraste, pero ajustado ligeramente */
 }
