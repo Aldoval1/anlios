@@ -308,10 +308,19 @@ async def check_command_queue():
         if not command_json: return
         command_data = json.loads(command_json)
         command = command_data.get('command')
+        guild_id = command_data.get('guild_id')
+        guild = bot.get_guild(guild_id)
+        payload = command_data.get('payload', {})
+
+        if not guild:
+            print(f"Error: No se encontró el servidor con ID {guild_id} para el comando '{command}'")
+            return
+            
+        print(f"Procesando comando: {command} para el servidor: {guild.name}")
         
         if command == 'send_panel':
-            guild_id, channel_id = command_data.get('guild_id'), command_data.get('channel_id')
-            guild, channel = bot.get_guild(guild_id), bot.get_channel(channel_id)
+            channel_id = command_data.get('channel_id')
+            channel = bot.get_channel(channel_id)
             if guild and isinstance(channel, discord.TextChannel):
                 panel_config = load_embed_config(guild_id).get('panel', {})
                 panel_embed = build_embed_from_config(panel_config)
@@ -319,28 +328,18 @@ async def check_command_queue():
                 await channel.send(embed=panel_embed, view=view)
         
         elif command == 'create_backup':
-            guild_id = command_data.get('guild_id')
-            guild = bot.get_guild(guild_id)
-            if not guild: return
-
-            # ===================================================================
-            # NUEVO: Verificación de membresía para crear backups
-            # ===================================================================
             if not is_premium(guild_id):
                 print(f"Intento de creación de backup bloqueado para el servidor no premium: {guild.name} ({guild_id})")
-                # Opcional: notificar al usuario que lo solicitó si tienes su ID
                 user_id = command_data.get('user_id')
                 if user_id:
                     user = await bot.fetch_user(user_id)
                     if user:
                         await user.send(f"La creación del backup para el servidor **{guild.name}** falló porque no tiene una membresía Premium activa.")
                 return
-            # ===================================================================
 
             icon_url = str(guild.icon.url) if guild.icon else None
             
             roles_data = []
-            # Guardar roles de menor a mayor posición para recrearlos en el orden correcto
             for role in sorted(guild.roles, key=lambda r: r.position):
                 if role.is_default(): continue
                 roles_data.append({
@@ -398,7 +397,50 @@ async def check_command_queue():
             backups.append(backup)
             save_backups(guild_id, backups)
             print(f"Backup creado para el servidor {guild.name} (ID: {backup['id']})")
+            
+        # --- INICIO: NUEVOS MANEJADORES PARA EL DISEÑADOR ---
+        elif command == 'CREATE_CATEGORY':
+            print(f"Recibido comando para crear categoría: {payload}")
+            # await guild.create_category(name=payload.get('name'))
+        
+        elif command == 'CREATE_TEXT_CHANNEL':
+            print(f"Recibido comando para crear canal de texto: {payload}")
+            # category_id = payload.get('category_id')
+            # category = guild.get_channel(category_id) if category_id else None
+            # await guild.create_text_channel(name=payload.get('name'), category=category)
 
+        elif command == 'CREATE_VOICE_CHANNEL':
+            print(f"Recibido comando para crear canal de voz: {payload}")
+            # category_id = payload.get('category_id')
+            # category = guild.get_channel(category_id) if category_id else None
+            # await guild.create_voice_channel(name=payload.get('name'), category=category)
+
+        elif command == 'CREATE_ROLE':
+            print(f"Recibido comando para crear rol: {payload}")
+            # await guild.create_role(name=payload.get('name'), permissions=discord.Permissions(int(payload.get('permissions', 0))), color=discord.Color(int(payload.get('color', 0))))
+
+        elif command == 'UPDATE_ROLE_PERMISSIONS':
+            print(f"Recibido comando para actualizar permisos de rol: {payload}")
+            # role = guild.get_role(int(payload.get('role_id')))
+            # if role:
+            #     await role.edit(permissions=discord.Permissions(int(payload.get('permissions'))))
+
+        elif command == 'DELETE_ROLE':
+            print(f"Recibido comando para eliminar rol: {payload}")
+            # role = guild.get_role(int(payload.get('role_id')))
+            # if role:
+            #     await role.delete()
+
+        elif command == 'REORDER_CHANNELS':
+            print(f"Recibido comando para reordenar canales: {payload}")
+            # await guild.edit_channel_positions(positions=payload.get('positions'))
+
+        elif command == 'REORDER_ROLES':
+            print(f"Recibido comando para reordenar roles: {payload}")
+            # await guild.edit_role_positions(positions=payload.get('positions'))
+
+        # --- FIN: NUEVOS MANEJADORES PARA EL DISEÑADOR ---
+            
     except Exception as e: print(f"[TAREA] ERROR: {e}")
 
 # --- EVENTOS DEL BOT ---
