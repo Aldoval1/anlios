@@ -39,6 +39,27 @@ def get_translation(text_key):
     lang = g.get('lang', 'en')
     return translations.get(lang, {}).get(text_key, text_key)
 
+# --- AÑADIDO: Verificación de membresía ---
+def is_premium(guild_id: int) -> bool:
+    if not r or not guild_id:
+        return False
+    sub_key = f"subscription:{guild_id}"
+    sub_info = r.hgetall(sub_key)
+    if not sub_info or sub_info.get('status') != 'active':
+        return False
+    try:
+        expires_at_str = sub_info.get('expires_at')
+        if not expires_at_str:
+            return False
+        expires_at = datetime.fromisoformat(expires_at_str)
+        if expires_at > datetime.utcnow():
+            return True
+        else:
+            r.hset(sub_key, 'status', 'expired')
+            return False
+    except (ValueError, TypeError):
+        return False
+
 @app.before_request
 def before_request_lang():
     if 'lang' not in session:
@@ -47,14 +68,18 @@ def before_request_lang():
             session['lang'] = 'es'
         else:
             session['lang'] = 'en'
-
     g.lang = session.get('lang', 'en')
+    # AÑADIDO: Verificar premium en cada petición
+    active_guild_id = session.get('active_guild_id')
+    g.is_premium = is_premium(int(active_guild_id)) if active_guild_id else False
+
 
 @app.context_processor
 def inject_translations():
     def _(text_key):
         return translations.get(g.lang, {}).get(text_key, text_key)
-    return dict(_=_)
+    # AÑADIDO: Inyectar g para que is_premium esté disponible en todas las plantillas
+    return dict(_=_, g=g)
 
 # --- CONFIGURACIÓN DE IA DE GEMINI ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -75,8 +100,6 @@ except Exception as e:
 CLIENT_ID, CLIENT_SECRET, BOT_TOKEN = os.getenv('DISCORD_CLIENT_ID'), os.getenv('DISCORD_CLIENT_SECRET'), os.getenv('DISCORD_BOT_TOKEN')
 DOMAIN = os.getenv('DOMAIN_URL', 'http://127.0.0.1:5000')
 
-# CORRECCIÓN: Definir la URL de redirección de forma dinámica.
-# Esto es crucial para manejar servidores proxy como Heroku, que usan HTTPS.
 def get_redirect_uri():
     protocol = 'https' if request.headers.get('X-Forwarded-Proto') == 'https' or request.is_secure else 'http'
     return f"{protocol}://{request.host}/callback"
@@ -90,10 +113,9 @@ REDIS_TRAINING_QUEUE_KEY = "training_queue"
 REDIS_LOG_KEY = "dashboard_audit_log"
 
 
-# Middleware para el Modo Mantenimiento (CORREGIDO)
+# Middleware para el Modo Mantenimiento
 @app.before_request
 def check_for_maintenance():
-    # Rutas que nunca deben ser comprobadas
     if request.path.startswith('/static'):
         return
 
@@ -103,15 +125,12 @@ def check_for_maintenance():
     maintenance_config = r.hgetall('maintenance_status')
     maintenance_mode = maintenance_config.get('status', 'disabled')
 
-    # Si el modo mantenimiento no está activado, no hacer nada.
     if maintenance_mode != 'enabled':
         return
 
-    # Si el modo está activado, los testers tienen acceso a todo.
     if session.get('is_tester'):
         return
 
-    # Si no es tester, solo puede acceder a páginas específicas.
     allowed_paths = [
         url_for('maintenance'),
         url_for('login'),
@@ -121,7 +140,6 @@ def check_for_maintenance():
     if request.path in allowed_paths or '/language/' in request.path:
         return
 
-    # Para todo lo demás, redirigir a mantenimiento.
     return redirect(url_for('maintenance'))
 
 # --- DECORADOR ---
@@ -147,10 +165,10 @@ def login_required(f):
                 return redirect(url_for('login'))
 
             except requests.exceptions.RequestException as e:
-                session.clear() # Limpia la sesión si la validación falla
+                session.clear() 
                 app.logger.error(f"Error al obtener datos del usuario durante la comprobación de login_required: {e}")
                 flash("No se pudo conectar con Discord. Por favor, inténtalo de nuevo más tarde.", "danger")
-                return redirect(url_for('login')) # Redirige a login para evitar un bucle
+                return redirect(url_for('login')) 
 
         return f(*args, **kwargs)
     return decorated_function
@@ -197,7 +215,6 @@ def save_data_to_redis(key: str, data):
     except Exception as e:
         app.logger.error(f"Error al guardar datos en Redis para la clave {key}: {e}")
 
-# INICIO: FUNCIONES AUXILIARES PARA EL MÓDULO DISEÑADOR
 def get_guild_data_bot(guild_id):
     headers = {'Authorization': f'Bot {BOT_TOKEN}'}
     response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}', headers=headers)
@@ -216,7 +233,6 @@ def get_guild_roles_bot(guild_id):
     if response.status_code == 200:
         return sorted(response.json(), key=lambda x: x.get('position', 0), reverse=True)
     return []
-# FIN: FUNCIONES AUXILIARES PARA EL MÓDULO DISEÑADOR
 
 def load_ticket_config(guild_id: int) -> dict:
     default_config = {'admin_roles': [], 'log_enabled': False, 'log_channel_id': None, 'language': 'es'}
@@ -347,7 +363,6 @@ def set_language(lang):
         session['lang'] = lang
     return redirect(request.referrer or url_for('index'))
 
-# Ruta para la página de Mantenimiento
 @app.route('/maintenance', methods=['GET', 'POST'])
 def maintenance():
     if not r:
@@ -443,7 +458,6 @@ def profile_page():
                            page='profile',
                            module_statuses=module_statuses)
 
-# Ruta para la página de Membresías
 @app.route("/dashboard/<int:guild_id>/membership", methods=['GET', 'POST'])
 @login_required
 def membership(guild_id):
@@ -601,8 +615,8 @@ def select_page(guild_id, page):
                 log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "moderation", "enabled": is_enabled})
                 flash("Módulo de Moderación actualizado.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
-            
-            # INICIO: LÓGICA PARA EL MÓDULO DISEÑADOR
+
+            # AÑADIDO: Manejador para el toggle del Módulo Diseñador
             elif action == 'toggle_designer_module':
                 config = load_module_config()
                 if guild_id not in config: config[guild_id] = {'modules': {}}
@@ -612,7 +626,6 @@ def select_page(guild_id, page):
                 log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "designer", "enabled": is_enabled})
                 flash("Módulo Diseñador actualizado.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='designer'))
-            # FIN: LÓGICA PARA EL MÓDULO DISEÑADOR
 
             elif action == 'save_moderation':
                 config = load_moderation_config(guild_id_int)
@@ -738,6 +751,7 @@ def select_page(guild_id, page):
 
     module_config = load_module_config()
 
+    # MODIFICADO: Añadir 'designer' a la lista de estados de módulos
     module_statuses = {
         'ticket_ia': module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False),
         'moderation': module_config.get(guild_id, {}).get('modules', {}).get('moderation', False),
@@ -753,17 +767,9 @@ def select_page(guild_id, page):
         "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page,
         "module_status": module_status, "module_statuses": module_statuses, "guild": current_guild
     }
-    
-    # INICIO: MAPEO DE PLANTILLAS CON DISEÑADOR
-    template_map = {
-        "modules": "module_ticket_ia.html", 
-        "profile": "profile.html", 
-        "training": "training.html", 
-        "moderation": "module_moderation.html", 
-        "membership": "membership.html",
-        "designer": "module_designer.html"
-    }
-    # FIN: MAPEO DE PLANTILLAS
+
+    # MODIFICADO: Añadir 'designer' al mapa de plantillas
+    template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html", "membership": "membership.html", "designer": "module_designer.html"}
     template_to_render = template_map.get(page, "under_construction.html")
 
     if page in ['modules', 'training', 'membership']:
@@ -812,9 +818,6 @@ def select_page(guild_id, page):
         render_data['moderation_config'] = load_moderation_config(guild_id_int)
         render_data['warnings_log'] = load_warnings_log(guild_id_int)
         render_data['backups'] = load_backups(guild_id_int)
-    
-    # Para la página del diseñador, no se necesita cargar datos extra aquí,
-    # ya que se hará por AJAX.
 
     return render_template(template_to_render, **render_data)
 
@@ -917,7 +920,6 @@ def designer_page(guild_id):
 @app.route('/api/designer/<guild_id>/structure')
 @login_required
 def get_server_structure(guild_id):
-    # Comprobación de permisos
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
     if guilds_response.status_code != 200:
@@ -927,7 +929,6 @@ def get_server_structure(guild_id):
     if not current_guild or (int(current_guild.get('permissions', 0)) & 0x8) != 0x8:
         return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
 
-    # Obtener datos del servidor con el token del bot
     channels = get_guild_channels_bot(guild_id)
     roles = get_guild_roles_bot(guild_id)
     guild_info = get_guild_data_bot(guild_id)
@@ -935,7 +936,6 @@ def get_server_structure(guild_id):
     if guild_info is None:
         return jsonify({"error": "No se pudo obtener la información del servidor."}), 500
 
-    # Estructurar los datos
     server_structure = {
         "id": guild_info.get('id'),
         "name": guild_info.get('name'),
@@ -945,7 +945,6 @@ def get_server_structure(guild_id):
         "channels_no_category": []
     }
 
-    # Procesar roles
     for role in roles:
         server_structure["roles"].append({
             "id": role.get('id'),
@@ -955,16 +954,15 @@ def get_server_structure(guild_id):
             "permissions": role.get('permissions')
         })
 
-    # Procesar canales y agruparlos por categoría
     for channel in channels:
         channel_type = channel.get('type')
-        if channel_type == 4: # Es una categoría
+        if channel_type == 4:
             if channel['id'] not in server_structure["categories"]:
                 server_structure["categories"][channel['id']] = {
                     "id": channel.get('id'), "name": channel.get('name'),
                     "position": channel.get('position'), "channels": []
                 }
-        elif channel.get('parent_id'): # Canal dentro de una categoría
+        elif channel.get('parent_id'):
             parent_id = channel['parent_id']
             if parent_id not in server_structure["categories"]:
                  server_structure["categories"][parent_id] = {"id": parent_id, "name": "Categoría Desconocida", "channels": []}
@@ -974,14 +972,13 @@ def get_server_structure(guild_id):
                 "type": "text" if channel_type == 0 else "voice",
                 "position": channel.get('position')
             })
-        else: # Canal sin categoría
+        else:
             server_structure["channels_no_category"].append({
                 "id": channel.get('id'), "name": channel.get('name'),
                 "type": "text" if channel_type == 0 else "voice",
                 "position": channel.get('position')
             })
             
-    # Convertir el diccionario de categorías a una lista ordenada
     server_structure["categories"] = sorted(server_structure["categories"].values(), key=lambda x: x.get('position', 0))
 
     return jsonify(server_structure)
@@ -990,7 +987,6 @@ def get_server_structure(guild_id):
 @app.route('/api/designer/<guild_id>/process_prompt', methods=['POST'])
 @login_required
 def process_designer_prompt(guild_id):
-    # Comprobación de permisos
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
     if guilds_response.status_code != 200:
@@ -1007,14 +1003,13 @@ def process_designer_prompt(guild_id):
     if not user_prompt or not current_structure:
         return jsonify({"error": "Faltan datos en la petición."}), 400
     
-    # Placeholder de la lógica de la IA. Por ahora, solo devuelve la estructura actual.
+    # Placeholder
     return jsonify(current_structure)
 
 
 @app.route('/api/designer/<guild_id>/apply_changes', methods=['POST'])
 @login_required
 def apply_designer_changes(guild_id):
-    # Comprobación de permisos
     discord = make_user_session()
     guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
     if guilds_response.status_code != 200:
@@ -1026,9 +1021,7 @@ def apply_designer_changes(guild_id):
 
     final_structure = request.json
     
-    # Placeholder para la lógica de encolado de comandos en Redis
-    # command = {'command': '...', 'guild_id': ..., 'payload': ...}
-    # r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
+    # Placeholder
     
     return jsonify({"status": "success", "message": "Los cambios se están aplicando. Puede tardar unos momentos."})
 # --- FIN: NUEVAS RUTAS PARA EL MÓDULO DISEÑADOR ---
@@ -1082,3 +1075,4 @@ def demo_extract_knowledge():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+
