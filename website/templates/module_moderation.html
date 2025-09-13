@@ -118,11 +118,7 @@
                                                 <td>{{ data.username }} ({{ user_id }})</td>
                                                 <td>{{ data.warnings | length }} / {{ moderation_config.warnings.limit }}</td>
                                                 <td>
-                                                    <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="action" value="remove_warning">
-                                                        <input type="hidden" name="user_id" value="{{ user_id }}">
-                                                        <button type="submit" class="btn btn-danger btn-sm">{{ _('Remove Last Warning') }}</button>
-                                                    </form>
+                                                    <button type="submit" name="action_remove_warning" value="{{ user_id }}" class="btn btn-danger btn-sm">{{ _('Remove Last Warning') }}</button>
                                                 </td>
                                             </tr>
                                             {% else %}
@@ -189,10 +185,7 @@
                             <div class="card-header"><h5>{{ _('Create Server Backup') }}</h5></div>
                             <div class="card-body">
                                 <p class="text-muted small">{{ _('This will create a backup of roles, channels, server icon, and permissions. You can load this backup on any other server where you are the owner.') }}</p>
-                                <form method="POST">
-                                    <input type="hidden" name="action" value="create_backup">
-                                    <button type="submit" class="btn btn-primary w-100">{{ _('Create Backup') }}</button>
-                                </form>
+                                <button type="submit" name="action" value="create_backup" class="btn btn-primary w-100">{{ _('Create Backup') }}</button>
                             </div>
                         </div>
                         <div class="card shadow-sm">
@@ -205,11 +198,7 @@
                                             <code>ID: {{ backup.id }}</code>
                                             <p class="text-muted small mb-0">{{ _('Created on:') }} {{ backup.timestamp | timestamp_to_date }}</p>
                                         </div>
-                                        <form method="POST" class="d-inline">
-                                            <input type="hidden" name="action" value="delete_backup">
-                                            <input type="hidden" name="backup_id" value="{{ backup.id }}">
-                                            <button type="submit" class="btn btn-danger btn-sm">{{ _('Delete') }}</button>
-                                        </form>
+                                        <button type="submit" name="action_delete_backup" value="{{ backup.id }}" class="btn btn-danger btn-sm">{{ _('Delete') }}</button>
                                     </li>
                                     {% else %}
                                     <li class="list-group-item text-muted">{{ _('No backups have been created yet.') }}</li>
