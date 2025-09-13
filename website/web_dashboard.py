@@ -20,7 +20,7 @@ from functools import wraps
 # --- CONFIGURACIÓN INICIAL ---
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.urandom(24)
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'super-secret-key-for-dev')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 logging.basicConfig(level=logging.INFO)
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -140,10 +140,10 @@ def login_required(f):
                 return redirect(url_for('login'))
 
             except requests.exceptions.RequestException as e:
-                session.clear() 
+                session.clear()
                 app.logger.error(f"Error al obtener datos del usuario durante la comprobación de login_required: {e}")
                 flash("No se pudo conectar con Discord. Por favor, inténtalo de nuevo más tarde.", "danger")
-                return redirect(url_for('login')) 
+                return redirect(url_for('login'))
 
         return f(*args, **kwargs)
     return decorated_function
@@ -313,18 +313,32 @@ def login():
 
 @app.route("/callback")
 def callback():
-    if request.values.get('error'): return request.values['error']
+    if request.values.get('error'):
+        return request.values['error']
+
     redirect_uri = get_redirect_uri()
-    discord = OAuth2Session(CLIENT_ID, state=session.get('oauth2_state'), redirect_uri=redirect_uri)
-    
+    state = session.get('oauth2_state')
+
+    if state is None:
+        app.logger.warning("oauth2_state no encontrado en la sesión durante el callback. El usuario podría tener las cookies desactivadas o la sesión expiró.")
+        flash("Tu sesión de autenticación ha expirado o es inválida. Por favor, intenta iniciar sesión de nuevo.", "warning")
+        return redirect(url_for('login'))
+
+    discord = OAuth2Session(CLIENT_ID, state=state, redirect_uri=redirect_uri)
+
     try:
-        token = discord.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=request.url)
+        token = discord.fetch_token(
+            TOKEN_URL,
+            client_secret=CLIENT_SECRET,
+            authorization_response=request.url
+        )
         session['discord_token'] = token
+        session.pop('oauth2_state', None)  # Limpiar el estado de la sesión
     except Exception as e:
         app.logger.error(f"Error al obtener token de Discord: {e}")
         flash("Error de autenticación. Por favor, inténtalo de nuevo.", "danger")
         return redirect(url_for('login'))
-        
+
     return redirect(url_for('dashboard_home'))
 
 @app.route("/logout")
@@ -507,7 +521,7 @@ def membership(guild_id):
                 else:
                     r.hset(f"subscription:{guild_id}", 'status', 'expired')
                     sub_info['status'] = 'expired'
-        
+
         module_config = load_module_config()
         module_statuses = {
             'ticket_ia': module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False),
@@ -740,7 +754,7 @@ def select_page(guild_id, page):
         "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page,
         "module_status": module_status, "module_statuses": module_statuses, "guild": current_guild
     }
-    
+
     template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html", "membership": "membership.html", "designer": "module_designer.html"}
     template_to_render = template_map.get(page, "under_construction.html")
 
@@ -759,7 +773,7 @@ def select_page(guild_id, page):
 
         elif page == 'training':
             render_data['pending_questions'] = load_data_from_redis(f"{REDIS_TRAINING_QUEUE_KEY}:{guild_id_int}", [])
-        
+
         elif page == 'membership':
             sub_info = r.hgetall(f"subscription:{guild_id}")
             time_left, is_active = None, False
@@ -773,7 +787,7 @@ def select_page(guild_id, page):
                     else:
                         r.hset(f"subscription:{guild_id}", 'status', 'expired')
                         sub_info['status'] = 'expired'
-            
+
             module_config = load_module_config()
             module_statuses = {
                 'ticket_ia': module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False),
@@ -790,7 +804,7 @@ def select_page(guild_id, page):
         render_data['moderation_config'] = load_moderation_config(guild_id_int)
         render_data['warnings_log'] = load_warnings_log(guild_id_int)
         render_data['backups'] = load_backups(guild_id_int)
-    
+
     return render_template(template_to_render, **render_data)
 
 # --- RUTAS DE CONOCIMIENTO ASÍNCRONO ---
@@ -938,7 +952,7 @@ def get_server_structure(guild_id):
             parent_id = channel['parent_id']
             if parent_id not in server_structure["categories"]:
                  server_structure["categories"][parent_id] = {"id": parent_id, "name": "Categoría Desconocida", "channels": []}
-            
+
             server_structure["categories"][parent_id]['channels'].append({
                 "id": channel.get('id'), "name": channel.get('name'),
                 "type": "text" if channel_type == 0 else "voice",
@@ -950,7 +964,7 @@ def get_server_structure(guild_id):
                 "type": "text" if channel_type == 0 else "voice",
                 "position": channel.get('position')
             })
-            
+
     server_structure["categories"] = sorted(server_structure["categories"].values(), key=lambda x: x.get('position', 0))
 
     return jsonify(server_structure)
@@ -974,7 +988,7 @@ def process_designer_prompt(guild_id):
 
     if not user_prompt or not current_structure:
         return jsonify({"error": "Faltan datos en la petición."}), 400
-    
+
     # Placeholder
     return jsonify(current_structure)
 
@@ -992,9 +1006,9 @@ def apply_designer_changes(guild_id):
         return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
 
     final_structure = request.json
-    
+
     # Placeholder
-    
+
     return jsonify({"status": "success", "message": "Los cambios se están aplicando. Puede tardar unos momentos."})
 
 @app.route("/demo_chat", methods=['POST'])
@@ -1046,5 +1060,3 @@ def demo_extract_knowledge():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
-
-
