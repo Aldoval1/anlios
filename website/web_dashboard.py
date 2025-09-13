@@ -942,6 +942,7 @@ def get_server_structure(guild_id):
     }
 
     for role in roles:
+        if role['name'] == '@everyone': continue # Omitir el rol @everyone
         server_structure["roles"].append({
             "id": role.get('id'), "name": role.get('name'),
             "color": f"#{role.get('color'):06x}" if role.get('color') else "#99aab5",
@@ -996,14 +997,16 @@ def process_designer_prompt(guild_id):
         return jsonify({"error": "Faltan datos en la petición."}), 400
     
     system_prompt = """
-    Eres un experto arquitecto de servidores de Discord. El usuario te proporcionará la estructura actual del servidor como un objeto JSON y una petición en lenguaje natural.
-    Tu tarea es analizar la petición y devolver ÚNICAMENTE un objeto JSON modificado que represente la nueva estructura del servidor.
-    - NO añadas explicaciones, comentarios, ni texto conversacional fuera del JSON.
-    - La estructura del JSON de salida debe ser idéntica a la del JSON de entrada.
-    - Puedes añadir, modificar o eliminar roles, categorías y canales.
-    - Para los permisos de rol, utiliza los valores de bits de la API de Discord. Infiere permisos comunes (ej. un rol "Admin" debería tener el bit de administrador activado, un rol "Mod" debería poder gestionar mensajes, etc.).
-    - Para los colores, usa códigos hexadecimales.
-    - Mantén los IDs existentes si no se pide explícitamente eliminar un elemento. Para elementos nuevos, omite el campo 'id'.
+    Eres un experto arquitecto de servidores de Discord. Tu tarea es analizar la petición del usuario y devolver ÚNICAMENTE un objeto JSON modificado que represente la nueva estructura del servidor.
+
+    REGLAS IMPORTANTES:
+    1.  **SALIDA SOLO JSON:** Tu respuesta debe ser solo el objeto JSON, sin explicaciones, comentarios, ni texto como "```json".
+    2.  **MANTENER ESTRUCTURA:** La estructura del JSON de salida debe ser idéntica a la de entrada.
+    3.  **ELIMINAR:** Si el usuario pide eliminar algo (canales, roles, categorías), DEBES quitarlos del JSON. Si pide "eliminar todo", vacía las listas de 'roles', 'categories' y 'channels_no_category'.
+    4.  **CREAR CON LÓGICA:** Si el usuario pide crear una categoría nueva (ej. "Crea categoría de Staff"), DEBES añadir también canales básicos dentro de ella, como un canal de texto '# staff-chat' y un canal de voz '🔊 Staff'.
+    5.  **PERMISOS:** Infiere permisos comunes. Un rol "Admin" debe tener el permiso de administrador (8). Un rol "Mod" debe poder gestionar mensajes, expulsar, etc.
+    6.  **IDs:** Mantén los IDs existentes. Para elementos nuevos, omite el campo 'id' o déjalo como null.
+    7.  **SER CREATIVO:** Si la petición es temática (ej. "servidor de Skyrim"), crea roles y canales que tengan sentido con ese tema ('# misiones', 'Compañeros').
     """
     
     final_prompt = f"{system_prompt}\n\n--- ESTRUCTURA ACTUAL DEL SERVIDOR ---\n{current_structure_json}\n\n--- PETICIÓN DEL USUARIO ---\n{user_prompt}\n\n--- NUEVO JSON DE ESTRUCTURA ---\n"
@@ -1012,41 +1015,92 @@ def process_designer_prompt(guild_id):
         model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(final_prompt)
         
-        # Limpiar la respuesta para obtener solo el JSON
-        cleaned_response = response.text.strip()
-        if cleaned_response.startswith("```json"):
-            cleaned_response = cleaned_response[7:]
-        if cleaned_response.endswith("```"):
-            cleaned_response = cleaned_response[:-3]
+        cleaned_response = response.text.strip().replace("```json", "").replace("```", "")
 
         new_structure = json.loads(cleaned_response)
         return jsonify(new_structure)
         
     except Exception as e:
-        app.logger.error(f"Error en la API de Gemini para el diseñador: {e}")
+        app.logger.error(f"Error en la API de Gemini para el diseñador: {e}. Respuesta recibida: {response.text}")
         return jsonify({'error': f'La IA no pudo procesar la petición: {str(e)}'}), 500
 
 def calculate_changes(initial, final):
     """Calcula la diferencia entre dos estructuras de servidor y genera comandos para el bot."""
     changes = []
     
-    # Detección de nuevos roles
-    initial_role_names = {role['name'] for role in initial.get('roles', [])}
-    for role in final.get('roles', []):
-        if role['name'] not in initial_role_names:
+    # --- Detección de Cambios en ROLES ---
+    initial_roles = {role['id']: role for role in initial.get('roles', []) if 'id' in role}
+    final_roles = {role.get('id'): role for role in final.get('roles', [])}
+
+    # Roles a eliminar
+    for role_id, role in initial_roles.items():
+        if role_id not in final_roles:
+            changes.append({'command': 'DELETE_ROLE', 'payload': {'id': role_id}})
+            
+    # Roles a crear o actualizar
+    for role_id, role_data in final_roles.items():
+        if role_id is None: # Crear rol nuevo
             changes.append({
                 'command': 'CREATE_ROLE',
                 'payload': {
-                    'name': role.get('name', 'new-role'),
-                    'permissions': str(role.get('permissions', '0')),
-                    'color': int(role.get('color', '#000000').lstrip('#'), 16)
+                    'name': role_data.get('name', 'new-role'),
+                    'permissions': str(role_data.get('permissions', '0')),
+                    'color': int(str(role_data.get('color', '#000000')).lstrip('#'), 16)
                 }
             })
-            
-    # Aquí iría la lógica para detectar roles eliminados, roles modificados,
-    # canales creados/eliminados/modificados, etc.
+        elif role_id in initial_roles: # Actualizar rol existente
+            initial_role = initial_roles[role_id]
+            if initial_role.get('name') != role_data.get('name') or \
+               initial_role.get('permissions') != role_data.get('permissions') or \
+               int(str(initial_role.get('color', '#000000')).lstrip('#'), 16) != int(str(role_data.get('color', '#000000')).lstrip('#'), 16):
+                changes.append({
+                    'command': 'UPDATE_ROLE',
+                    'payload': {
+                        'id': role_id,
+                        'name': role_data.get('name'),
+                        'permissions': str(role_data.get('permissions')),
+                        'color': int(str(role_data.get('color')).lstrip('#'), 16)
+                    }
+                })
+
+    # --- Detección de Cambios en CANALES Y CATEGORÍAS ---
+    initial_channels = {ch['id']: ch for cat in initial.get('categories', []) for ch in cat.get('channels', [])}
+    initial_channels.update({ch['id']: ch for ch in initial.get('channels_no_category', [])})
+    initial_categories = {cat['id']: cat for cat in initial.get('categories', [])}
+
+    final_channels = {ch.get('id'): ch for cat in final.get('categories', []) for ch in cat.get('channels', [])}
+    final_channels.update({ch.get('id'): ch for ch in final.get('channels_no_category', [])})
+    final_categories = {cat.get('id'): cat for cat in final.get('categories', [])}
+
+    # Canales y categorías a eliminar
+    all_initial_ids = set(initial_channels.keys()) | set(initial_categories.keys())
+    all_final_ids = set(final_channels.keys()) | set(final_categories.keys())
     
+    for item_id in all_initial_ids - all_final_ids:
+        changes.append({'command': 'DELETE_CHANNEL', 'payload': {'id': item_id}})
+
+    # Categorías a crear
+    for cat_id, cat_data in final_categories.items():
+        if cat_id is None:
+            changes.append({
+                'command': 'CREATE_CATEGORY',
+                'payload': {'name': cat_data.get('name', 'new-category')}
+            })
+            # La creación de canales dentro de esta nueva categoría se manejará por separado
+
+    # Canales a crear (asumiendo que las categorías ya existen o se crearán)
+    for ch_id, ch_data in final_channels.items():
+        if ch_id is None:
+            command = 'CREATE_TEXT_CHANNEL' if ch_data.get('type') == 'text' else 'CREATE_VOICE_CHANNEL'
+            # Nota: La lógica para asignar a la categoría correcta necesitaría un paso intermedio
+            # o una referencia temporal. Por ahora, se crearán sin categoría si la categoría es nueva.
+            changes.append({
+                'command': command,
+                'payload': {'name': ch_data.get('name', 'new-channel')}
+            })
+            
     return changes
+
 
 @app.route('/api/designer/<guild_id>/apply_changes', methods=['POST'])
 @login_required
@@ -1065,7 +1119,6 @@ def apply_designer_changes(guild_id):
         return jsonify({"status": "no_changes", "message": "No se detectaron cambios para aplicar."})
 
     for change in changes:
-        # Añade guild_id a cada comando
         change['guild_id'] = int(guild_id)
         r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(change))
 
