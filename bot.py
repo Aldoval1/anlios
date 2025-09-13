@@ -50,48 +50,28 @@ REDIS_GUILDS_KEY = "bot_guilds_list"
 REDIS_GUILD_NAMES_KEY = "guild_names_map"
 REDIS_COMMAND_QUEUE_KEY = "command_queue"
 REDIS_TRAINING_QUEUE_KEY = "training_queue"
-# Usaremos hashes individuales para mejor rendimiento como en el admin dashboard
-# REDIS_SUBSCRIPTIONS_KEY = "subscriptions" 
-# REDIS_CODES_KEY = "premium_codes"
 REDIS_MODERATION_CONFIG_KEY = "moderation_config:{}"
 REDIS_WARNINGS_LOG_KEY = "warnings_log:{}"
 REDIS_BACKUPS_KEY = "backups:{}"
 
 # --- FUNCIONES AUXILIARES CON REDIS ---
-
-# ===================================================================
-# NUEVO: Función de Verificación de Membresía
-# ===================================================================
 def is_premium(guild_id: int) -> bool:
-    """
-    Verifica si un servidor (guild) tiene una suscripción premium activa.
-    Consulta Redis para obtener el estado de la suscripción.
-    """
     if not redis_client or not guild_id:
         return False
-        
     sub_key = f"subscription:{guild_id}"
     sub_info = redis_client.hgetall(sub_key)
-    
-    # Si no hay información o el estado no es 'active', no es premium
     if not sub_info or sub_info.get('status') != 'active':
         return False
-        
     try:
-        # Verifica si la fecha de expiración es en el futuro
         expires_at_str = sub_info.get('expires_at')
-        if not expires_at_str:
-            return False
-            
+        if not expires_at_str: return False
         expires_at = datetime.fromisoformat(expires_at_str)
         if expires_at > datetime.utcnow():
             return True
         else:
-            # La suscripción ha expirado, actualizamos el estado en Redis
             redis_client.hset(sub_key, 'status', 'expired')
             return False
     except (ValueError, TypeError):
-        # En caso de que la fecha esté mal formateada o no exista
         print(f"Error al parsear la fecha de expiración para el guild {guild_id}")
         return False
 
@@ -112,12 +92,7 @@ def save_data_to_redis(key: str, data):
         print(f"Error guardando datos en Redis para la clave {key}: {e}")
 
 def load_ticket_config(guild_id: int) -> dict:
-    default_config = {
-        'admin_roles': [],
-        'log_enabled': False,
-        'log_channel_id': None,
-        'language': 'es'
-    }
+    default_config = {'admin_roles': [], 'log_enabled': False, 'log_channel_id': None, 'language': 'es'}
     config = load_data_from_redis(f"ticket_config:{guild_id}", default_config)
     config.setdefault('log_enabled', False)
     config.setdefault('log_channel_id', None)
@@ -184,14 +159,10 @@ def update_guilds_in_redis():
     print("Actualizando la lista y nombres de servidores en Redis...")
     guilds = bot.guilds
     guild_ids = [guild.id for guild in guilds]
-    # Usamos guild_name:id para consistencia con el admin dashboard
     for guild in guilds:
         redis_client.set(f"guild_name:{guild.id}", guild.name)
-    
-    # Guardamos la lista de IDs para otras operaciones
     save_data_to_redis(REDIS_GUILDS_KEY, guild_ids)
     print(f"El bot está ahora en {len(guild_ids)} servidores. Lista y nombres actualizados en Redis.")
-
 
 def build_embed_from_config(config: dict, user: discord.Member = None) -> discord.Embed:
     color_str = config.get('color', '#000000').lstrip('#')
@@ -399,45 +370,33 @@ async def check_command_queue():
             print(f"Backup creado para el servidor {guild.name} (ID: {backup['id']})")
             
         # --- INICIO: NUEVOS MANEJADORES PARA EL DISEÑADOR ---
+        elif command == 'CREATE_ROLE':
+            print(f"Executing command to create role: {payload}")
+            try:
+                await guild.create_role(
+                    name=payload.get('name'),
+                    permissions=discord.Permissions(int(payload.get('permissions', 0))),
+                    color=discord.Color(int(payload.get('color', 0))),
+                    reason="Acción desde el Módulo Diseñador"
+                )
+            except Exception as e:
+                print(f"Error al crear rol: {e}")
+
         elif command == 'CREATE_CATEGORY':
             print(f"Recibido comando para crear categoría: {payload}")
-            # await guild.create_category(name=payload.get('name'))
+            await guild.create_category(name=payload.get('name'), reason="Acción desde el Módulo Diseñador")
         
         elif command == 'CREATE_TEXT_CHANNEL':
             print(f"Recibido comando para crear canal de texto: {payload}")
-            # category_id = payload.get('category_id')
-            # category = guild.get_channel(category_id) if category_id else None
-            # await guild.create_text_channel(name=payload.get('name'), category=category)
+            category_id = payload.get('category_id')
+            category = guild.get_channel(category_id) if category_id else None
+            await guild.create_text_channel(name=payload.get('name'), category=category, reason="Acción desde el Módulo Diseñador")
 
         elif command == 'CREATE_VOICE_CHANNEL':
             print(f"Recibido comando para crear canal de voz: {payload}")
-            # category_id = payload.get('category_id')
-            # category = guild.get_channel(category_id) if category_id else None
-            # await guild.create_voice_channel(name=payload.get('name'), category=category)
-
-        elif command == 'CREATE_ROLE':
-            print(f"Recibido comando para crear rol: {payload}")
-            # await guild.create_role(name=payload.get('name'), permissions=discord.Permissions(int(payload.get('permissions', 0))), color=discord.Color(int(payload.get('color', 0))))
-
-        elif command == 'UPDATE_ROLE_PERMISSIONS':
-            print(f"Recibido comando para actualizar permisos de rol: {payload}")
-            # role = guild.get_role(int(payload.get('role_id')))
-            # if role:
-            #     await role.edit(permissions=discord.Permissions(int(payload.get('permissions'))))
-
-        elif command == 'DELETE_ROLE':
-            print(f"Recibido comando para eliminar rol: {payload}")
-            # role = guild.get_role(int(payload.get('role_id')))
-            # if role:
-            #     await role.delete()
-
-        elif command == 'REORDER_CHANNELS':
-            print(f"Recibido comando para reordenar canales: {payload}")
-            # await guild.edit_channel_positions(positions=payload.get('positions'))
-
-        elif command == 'REORDER_ROLES':
-            print(f"Recibido comando para reordenar roles: {payload}")
-            # await guild.edit_role_positions(positions=payload.get('positions'))
+            category_id = payload.get('category_id')
+            category = guild.get_channel(category_id) if category_id else None
+            await guild.create_voice_channel(name=payload.get('name'), category=category, reason="Acción desde el Módulo Diseñador")
 
         # --- FIN: NUEVOS MANEJADORES PARA EL DISEÑADOR ---
             
@@ -642,9 +601,6 @@ backup_commands = app_commands.Group(name="backup", description="Comandos para g
 @backup_commands.command(name="load", description="Carga un backup en el servidor actual. ¡Esto borrará toda la configuración!")
 @app_commands.describe(backup_id="El ID del backup a cargar.")
 async def load_backup(interaction: discord.Interaction, backup_id: str):
-    # ===================================================================
-    # NUEVO: Verificación de membresía para cargar backups
-    # ===================================================================
     if not is_premium(interaction.guild.id):
         embed = discord.Embed(
             title="Función Premium Requerida",
@@ -654,7 +610,6 @@ async def load_backup(interaction: discord.Interaction, backup_id: str):
         embed.add_field(name="¿Cómo activo la membresía?", value="Visita nuestro dashboard web para canjear un código y activar tu membresía.", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
-    # ===================================================================
 
     if interaction.user.id != interaction.guild.owner_id:
         await interaction.response.send_message(_(interaction.guild.id, "BACKUP_LOAD_NO_PERMISSION"), ephemeral=True)
@@ -771,3 +726,5 @@ if not BOT_TOKEN:
     print("❌ ERROR: No se encontró el token del bot.")
 else: 
     bot.run(BOT_TOKEN)
+
+
