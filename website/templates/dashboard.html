@@ -29,7 +29,7 @@
     <!-- Menú Lateral -->
     <aside class="sidebar">
         <!-- Selector de Servidor -->
-        <div class="mb-4 d-flex align-items-center">
+        <div class="mb-4 d-flex align-items.center">
             <select class="form-select" onchange="if (this.value) window.location.href=this.value;">
                 <option selected disabled>{{ _('Select Server...') }}</option>
                 {% for guild in guilds_with_bot %}
@@ -55,6 +55,8 @@
         <!-- Menú de Módulos -->
         <div class="menu-category">{{ _('Modules') }}</div>
         <nav class="nav flex-column">
+            
+            <!-- Módulo de Moderación -->
             <div class="nav-link nav-link-with-toggle {% if page == 'moderation' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}">
                     <input type="hidden" name="action" value="toggle_moderation_module">
@@ -74,7 +76,8 @@
                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='moderation') }}#vault-section">Anlios Vault</a>
                 </div>
             </div>
-
+            
+            <!-- Módulo Ticket I.A. -->
             <div class="nav-link nav-link-with-toggle {% if page == 'modules' or page == 'training' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}">
                     <input type="hidden" name="action" value="toggle_module">
@@ -94,6 +97,22 @@
                     <a class="nav-link sub-link" href="{{ url_for('select_page', guild_id=active_guild_id, page='modules') }}#configs-section">{{ _('Configuration') }}</a>
                 </div>
             </div>
+
+            <!-- AÑADIDO: Módulo Diseñador -->
+            {% if g.is_premium %}
+            <div class="nav-link nav-link-with-toggle {% if page == 'designer' %}active{% endif %}">
+                <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='designer') }}">
+                    <input type="hidden" name="action" value="toggle_designer_module">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" name="enabled" {% if module_statuses.designer %}checked{% endif %} onchange="this.form.submit()">
+                    </div>
+                </form>
+                <a href="{{ url_for('designer_page', guild_id=active_guild_id) }}" class="nav-link-text" role="button">
+                    {{ _('Designer') }}
+                </a>
+            </div>
+            {% endif %}
+
         </nav>
         {% endif %}
 
@@ -117,7 +136,7 @@
                 <img id="topbar-mustache" src="{{ url_for('static', filename='images/favicon.png') }}" alt="Anlios Mustache">
                 <div class="logo">{{ _('Anlios') }}</div>
             </div>
-
+            
             <div class="dropdown ms-auto">
                 <button class="btn btn-secondary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                     🌐 {{ g.lang.upper() }}
@@ -181,20 +200,16 @@
         const designSheets = document.querySelectorAll('link[id^="design-"]');
         const colorSheets = document.querySelectorAll('link[id^="color-"]');
         const body = document.body;
-
+        
         const designContainer = document.getElementById('design-selector-container');
         const colorContainer = document.getElementById('color-selector-container');
 
         let currentTheme = { design: 'anlios', color: 'furia-roja' };
-        let themeChangeTimeout; // MODIFICACIÓN: Para gestionar el temporizador del cambio de tema
 
         function applyTheme(design, color) {
-            // MODIFICACIÓN: Limpiar el temporizador anterior para evitar ejecuciones múltiples
-            clearTimeout(themeChangeTimeout);
-
             // Add a class to the body to smoothly transition visual changes.
             body.classList.add('theme-transition');
-
+            
             // Set a data attribute on the body. This is useful for CSS rules
             // that need to be specific to a certain design.
             body.dataset.design = design;
@@ -205,10 +220,10 @@
 
             // The browser will automatically apply the new styles from the enabled
             // stylesheets. We need to update the toast notifications to match the new theme.
-            themeChangeTimeout = setTimeout(() => {
+            setTimeout(() => {
                 const computedStyle = getComputedStyle(body);
                 const toastContainer = document.getElementById('toast-container');
-
+                
                 if (toastContainer) {
                     // Update CSS variables for the toast notifications using the new theme's colors.
                     toastContainer.style.setProperty('--toast-font-family', computedStyle.getPropertyValue('--font-pixel').trim());
@@ -217,11 +232,11 @@
                     toastContainer.style.setProperty('--toast-progress-bg', computedStyle.getPropertyValue('--bg-secondary').trim());
                     toastContainer.style.setProperty('--toast-progress-fill', computedStyle.getPropertyValue('--accent-main').trim());
                 }
-
+                
                 // Remove the transition class after a short delay to ensure
                 // future changes (like hover effects) are instant.
                 body.classList.remove('theme-transition');
-            }, 50);
+            }, 50); 
         }
 
         function saveTheme(design, color) {
@@ -234,7 +249,7 @@
             applyTheme(savedTheme.design, savedTheme.color);
             updateActiveSelectors();
         }
-
+        
         function updateActiveSelectors() {
             if (designContainer) {
                 const designCards = designContainer.querySelectorAll('.theme-card');
@@ -249,7 +264,7 @@
                 });
             }
         }
-
+        
         // Event listener for selecting a design
         if (designContainer) {
             designContainer.addEventListener('click', (e) => {
@@ -262,7 +277,7 @@
                 updateActiveSelectors();
             });
         }
-
+        
         // Event listener for selecting a color
         if (colorContainer) {
             colorContainer.addEventListener('click', (e) => {
