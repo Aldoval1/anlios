@@ -287,7 +287,7 @@ async def check_command_queue():
             print(f"Error: No se encontró el servidor con ID {guild_id} para el comando '{command}'")
             return
             
-        print(f"Procesando comando: {command} para el servidor: {guild.name}")
+        print(f"Procesando comando: {command} para el servidor: {guild.name} | Payload: {payload}")
         
         if command == 'send_panel':
             channel_id = command_data.get('channel_id')
@@ -369,9 +369,8 @@ async def check_command_queue():
             save_backups(guild_id, backups)
             print(f"Backup creado para el servidor {guild.name} (ID: {backup['id']})")
             
-        # --- INICIO: NUEVOS MANEJADORES PARA EL DISEÑADOR ---
+        # --- INICIO: MANEJADORES MEJORADOS PARA EL DISEÑADOR ---
         elif command == 'CREATE_ROLE':
-            print(f"Executing command to create role: {payload}")
             try:
                 await guild.create_role(
                     name=payload.get('name'),
@@ -379,26 +378,48 @@ async def check_command_queue():
                     color=discord.Color(int(payload.get('color', 0))),
                     reason="Acción desde el Módulo Diseñador"
                 )
-            except Exception as e:
-                print(f"Error al crear rol: {e}")
+            except Exception as e: print(f"Error al crear rol: {e}")
+
+        elif command == 'UPDATE_ROLE':
+            role = guild.get_role(int(payload['id']))
+            if role:
+                try:
+                    await role.edit(
+                        name=payload.get('name'),
+                        permissions=discord.Permissions(int(payload.get('permissions', 0))),
+                        color=discord.Color(int(payload.get('color', 0))),
+                        reason="Acción desde el Módulo Diseñador"
+                    )
+                except Exception as e: print(f"Error al actualizar rol {payload['id']}: {e}")
+
+        elif command == 'DELETE_ROLE':
+            role = guild.get_role(int(payload['id']))
+            if role:
+                try:
+                    await role.delete(reason="Acción desde el Módulo Diseñador")
+                except Exception as e: print(f"Error al eliminar rol {payload['id']}: {e}")
 
         elif command == 'CREATE_CATEGORY':
-            print(f"Recibido comando para crear categoría: {payload}")
             await guild.create_category(name=payload.get('name'), reason="Acción desde el Módulo Diseñador")
         
         elif command == 'CREATE_TEXT_CHANNEL':
-            print(f"Recibido comando para crear canal de texto: {payload}")
-            category_id = payload.get('category_id')
+            category_id = payload.get('category_id') # Aún no implementado en el cálculo
             category = guild.get_channel(category_id) if category_id else None
             await guild.create_text_channel(name=payload.get('name'), category=category, reason="Acción desde el Módulo Diseñador")
 
         elif command == 'CREATE_VOICE_CHANNEL':
-            print(f"Recibido comando para crear canal de voz: {payload}")
-            category_id = payload.get('category_id')
+            category_id = payload.get('category_id') # Aún no implementado en el cálculo
             category = guild.get_channel(category_id) if category_id else None
             await guild.create_voice_channel(name=payload.get('name'), category=category, reason="Acción desde el Módulo Diseñador")
+            
+        elif command == 'DELETE_CHANNEL': # Funciona para canales y categorías
+            channel = guild.get_channel(int(payload['id']))
+            if channel:
+                try:
+                    await channel.delete(reason="Acción desde el Módulo Diseñador")
+                except Exception as e: print(f"Error al eliminar canal/categoría {payload['id']}: {e}")
 
-        # --- FIN: NUEVOS MANEJADORES PARA EL DISEÑADOR ---
+        # --- FIN: MANEJADORES MEJORADOS ---
             
     except Exception as e: print(f"[TAREA] ERROR: {e}")
 
