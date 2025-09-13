@@ -97,7 +97,7 @@
                 </div>
             </div>
 
-            <!-- AÑADIDO: Módulo Diseñador (AHORA PÚBLICO) -->
+            <!-- Módulo Diseñador (PÚBLICO) -->
             <div class="nav-link nav-link-with-toggle {% if page == 'designer' %}active{% endif %}">
                 <form method="POST" class="module-toggle-form" action="{{ url_for('select_page', guild_id=active_guild_id, page='designer') }}">
                     <input type="hidden" name="action" value="toggle_designer_module">
