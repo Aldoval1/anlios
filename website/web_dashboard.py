@@ -35,7 +35,7 @@ except Exception as e:
     app.logger.error(f"Could not load translations file: {e}")
 
 def get_translation(text_key):
-    """Gets a translation to be used within Flask routes."""
+    """Gets a translation for use within Flask routes."""
     lang = g.get('lang', 'en')
     return translations.get(lang, {}).get(text_key, text_key)
 
@@ -117,7 +117,7 @@ def check_for_maintenance():
 
     return redirect(url_for('maintenance'))
 
-# --- DECORATOR ---
+# --- DECORATORS ---
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -148,7 +148,7 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- TEMPLATE FILTER ---
+# --- TEMPLATE FILTERS ---
 @app.template_filter('timestamp_to_date')
 def timestamp_to_date(s):
     if not s: return "N/A"
@@ -159,7 +159,7 @@ def timestamp_to_date(s):
             dt_object = datetime.fromtimestamp(float(s))
         return dt_object.strftime('%Y-%m-%d %H:%M:%S UTC')
     except (ValueError, TypeError):
-        return "Invalid date"
+        return "Invalid Date"
 
 
 # --- HELPER FUNCTIONS ---
@@ -227,7 +227,7 @@ def load_embed_config(guild_id: int) -> dict:
         "{personality}\n\n"
         "Your purpose is to help users and answer their questions. "
         "For specific questions about the server, consult the following 'Knowledge Base'. "
-        "If the answer is not there, you MUST start your response ONLY with the tag [NO_KNOWLEDGE] and nothing else. "
+        "If the answer is not there, you MUST start your response exclusively with the tag [NO_KNOWLEDGE] and nothing else. "
         "For general or conversational questions (like 'hello', 'how are you', 'who are you'), respond naturally and friendly.\n\n"
         "--- KNOWLEDGE BASE ---\n{knowledge}"
     )
@@ -333,9 +333,9 @@ def callback():
             authorization_response=request.url
         )
         session['discord_token'] = token
-        session.pop('oauth2_state', None) # Clean up the state from the session
+        session.pop('oauth2_state', None) # Clean up session state
     except Exception as e:
-        app.logger.error(f"Error fetching token from Discord: {e}")
+        app.logger.error(f"Error fetching Discord token: {e}")
         flash("Authentication error. Please try again.", "danger")
         return redirect(url_for('login'))
         
@@ -401,7 +401,7 @@ def dashboard_home():
     except TokenExpiredError:
         return redirect(url_for('logout'))
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"Error fetching Discord servers: {e}")
+        app.logger.error(f"Error fetching Discord guilds: {e}")
         flash("Could not fetch your Discord servers. Please try again later.", "warning")
         return render_template("select_server.html", user=session['user'], guilds_with_bot=[], guilds_without_bot=[], client_id=CLIENT_ID, active_guild_id=None, page=None)
 
@@ -428,7 +428,7 @@ def profile_page():
     except TokenExpiredError:
         return redirect(url_for('logout'))
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"Error fetching Discord servers on profile page: {e}")
+        app.logger.error(f"Error fetching Discord guilds on profile page: {e}")
         flash("Could not fetch your Discord servers. Please try again later.", "warning")
 
     module_config = load_module_config()
@@ -458,7 +458,7 @@ def membership(guild_id):
     try:
         guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
         if guilds_response.status_code != 200:
-            flash("Could not fetch the list of Discord servers.", "danger")
+            flash("Could not fetch Discord server list.", "danger")
             return redirect(url_for('dashboard_home'))
 
         user_guilds = guilds_response.json()
@@ -480,7 +480,7 @@ def membership(guild_id):
             else:
                 code_key = f"premium_code:{code}"
                 if not r.exists(code_key):
-                    flash('The entered premium code is not valid or does not exist.', 'danger')
+                    flash('The premium code entered is not valid or does not exist.', 'danger')
                 else:
                     code_data = r.hgetall(code_key)
                     if code_data.get('is_used') == 'True':
@@ -570,7 +570,7 @@ def select_page(guild_id, page):
                     save_warnings_log(guild_id_int, warnings_log)
                     flash("Last warning removed.", "success")
                 else:
-                    flash("The user has no warnings to remove.", "warning")
+                    flash("User has no warnings to remove.", "warning")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
             elif 'action_delete_backup' in request.form:
@@ -591,8 +591,8 @@ def select_page(guild_id, page):
                 is_enabled = 'enabled' in request.form
                 config[guild_id]['modules']['ticket_ia'] = is_enabled
                 save_module_config(config)
-                log_action(user_info, "Module Enabled/Disabled", {"guild_id": guild_id, "module": "ticket_ia", "enabled": is_enabled})
-                flash("Ticket AI Module updated.", "success")
+                log_action(user_info, "Module Toggled", {"guild_id": guild_id, "module": "ticket_ia", "enabled": is_enabled})
+                flash("Ticket I.A Module updated.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
             elif action == 'toggle_moderation_module':
@@ -601,7 +601,7 @@ def select_page(guild_id, page):
                 is_enabled = 'enabled' in request.form
                 config[guild_id]['modules']['moderation'] = is_enabled
                 save_module_config(config)
-                log_action(user_info, "Module Enabled/Disabled", {"guild_id": guild_id, "module": "moderation", "enabled": is_enabled})
+                log_action(user_info, "Module Toggled", {"guild_id": guild_id, "module": "moderation", "enabled": is_enabled})
                 flash("Moderation Module updated.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
@@ -611,7 +611,7 @@ def select_page(guild_id, page):
                 is_enabled = 'enabled' in request.form
                 config[guild_id]['modules']['designer'] = is_enabled
                 save_module_config(config)
-                log_action(user_info, "Module Enabled/Disabled", {"guild_id": guild_id, "module": "designer", "enabled": is_enabled})
+                log_action(user_info, "Module Toggled", {"guild_id": guild_id, "module": "designer", "enabled": is_enabled})
                 flash("Designer Module updated.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='designer'))
 
@@ -661,7 +661,7 @@ def select_page(guild_id, page):
                         "{personality}\n\n"
                         "Your purpose is to help users and answer their questions. "
                         "For specific questions about the server, consult the following 'Knowledge Base'. "
-                        "If the answer is not there, you MUST start your response ONLY with the tag [NO_KNOWLEDGE] and nothing else. "
+                        "If the answer is not there, you MUST start your response exclusively with the tag [NO_KNOWLEDGE] and nothing else. "
                         "For general or conversational questions (like 'hello', 'how are you', or 'who are you'), respond naturally and friendly.\n\n"
                         "--- KNOWLEDGE BASE ---\n{knowledge}"
                     )
@@ -718,9 +718,9 @@ def select_page(guild_id, page):
                         knowledge = load_knowledge(guild_id_int)
                         knowledge.append(knowledge_item)
                         save_knowledge(guild_id_int, knowledge)
-                        flash("Knowledge added successfully from the external source.", "success")
+                        flash("Knowledge added successfully from external source.", "success")
                 except Exception as e:
-                    flash(f"Error processing the source: {e}", "danger")
+                    flash(f"Error processing source: {e}", "danger")
                 return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
         except Exception as e:
             app.logger.error(f"Error processing form: {e}")
@@ -868,19 +868,19 @@ def training_action(guild_id):
     if action == 'train':
         answer = request.form.get('answer_text')
         if not answer:
-            flash("The answer cannot be empty.", "danger")
+            flash("Answer cannot be empty.", "danger")
         else:
             knowledge = load_knowledge(guild_id_int)
             new_knowledge_entry = {"type": "text", "content": answer}
             knowledge.append(new_knowledge_entry)
             save_knowledge(guild_id_int, knowledge)
-            log_action(user_info, "Trained AI", {"guild_id": guild_id, "question": question_to_process['question'], "answer": answer})
+            log_action(user_info, "AI Trained", {"guild_id": guild_id, "question": question_to_process['question'], "answer": answer})
             pending_questions = [q for q in pending_questions if q['id'] != question_id]
             save_data_to_redis(training_queue_key, pending_questions)
             flash("AI trained successfully!", "success")
 
     elif action == 'discard':
-        log_action(user_info, "Discarded Question", {"guild_id": guild_id, "question": question_to_process})
+        log_action(user_info, "Question Discarded", {"guild_id": guild_id, "question": question_to_process})
         pending_questions = [q for q in pending_questions if q['id'] != question_id]
         save_data_to_redis(training_queue_key, pending_questions)
         flash("Question discarded.", "info")
@@ -897,7 +897,7 @@ def send_panel(guild_id):
     flash("The ticket panel is being sent...", "info")
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
-# --- NEW ROUTES FOR DESIGNER MODULE ---
+# --- NEW ROUTES FOR THE DESIGNER MODULE ---
 def check_admin_permissions(f):
     @wraps(f)
     def decorated_function(guild_id, *args, **kwargs):
@@ -942,7 +942,7 @@ def get_server_structure(guild_id):
     }
 
     for role in roles:
-        if role['name'] == '@everyone': continue # Skip the @everyone role
+        if role['name'] == '@everyone': continue # Skip @everyone role
         server_structure["roles"].append({
             "id": role.get('id'), "name": role.get('name'),
             "color": f"#{role.get('color'):06x}" if role.get('color') else "#99aab5",
@@ -957,7 +957,7 @@ def get_server_structure(guild_id):
                     "id": channel.get('id'), "name": channel.get('name'),
                     "position": channel.get('position'), "channels": []
                 }
-        elif channel.get('parent_id'): # It's a channel inside a category
+        elif channel.get('parent_id'): # It's a channel within a category
             parent_id = channel['parent_id']
             if parent_id not in server_structure["categories"]:
                  server_structure["categories"][parent_id] = {"id": parent_id, "name": "Unknown Category", "position": 999, "channels": []}
@@ -1002,10 +1002,10 @@ def process_designer_prompt(guild_id):
     IMPORTANT RULES:
     1.  **JSON ONLY OUTPUT:** Your response must be only the JSON object, without explanations, comments, or text like "```json".
     2.  **MAINTAIN STRUCTURE:** The output JSON structure must be identical to the input.
-    3.  **DELETE:** If the user asks to delete something (channels, roles, categories), you MUST remove them from the JSON. If they ask to "delete everything", empty the 'roles', 'categories', and 'channels_no_category' lists.
-    4.  **CREATE WITH LOGIC:** If the user asks to create a new category (e.g., "Create a Staff category"), you MUST also add basic channels within it, like a text channel '# staff-chat' and a voice channel '🔊 Staff'.
+    3.  **DELETING:** If the user asks to delete something (channels, roles, categories), you MUST remove them from the JSON. If they ask to "delete everything," empty the 'roles', 'categories', and 'channels_no_category' lists.
+    4.  **CREATE WITH LOGIC:** If the user asks to create a new category (e.g., "Create a Staff category"), you MUST also add basic channels within it, such as a '# staff-chat' text channel and a '🔊 Staff' voice channel.
     5.  **PERMISSIONS:** Infer common permissions. An "Admin" role should have the administrator permission (8). A "Mod" role should be able to manage messages, kick, etc.
-    6.  **IDs:** Keep existing IDs. For new elements, omit the 'id' field or leave it as null.
+    6.  **IDs:** Keep existing IDs. For new items, omit the 'id' field or leave it as null.
     7.  **BE CREATIVE:** If the request is thematic (e.g., "Skyrim server"), create roles and channels that make sense with that theme ('# quests', 'Companions').
     """
     
@@ -1028,76 +1028,79 @@ def calculate_changes(initial, final):
     """Calculates the difference between two server structures and generates commands for the bot."""
     changes = []
     
-    # --- Dictionaries for quick lookups ---
+    # --- ROLE CHANGE DETECTION ---
     initial_roles = {role['id']: role for role in initial.get('roles', []) if 'id' in role}
-    initial_channels = {ch['id']: ch for cat in initial.get('categories', []) for ch in cat.get('channels', [])}
-    initial_channels.update({ch['id']: ch for ch in initial.get('channels_no_category', [])})
-    initial_categories = {cat['id']: cat for cat in initial.get('categories', [])}
-    all_initial_elements = {**initial_roles, **initial_channels, **initial_categories}
+    final_roles_by_id = {role.get('id'): role for role in final.get('roles', []) if role.get('id') is not None}
+    final_roles_by_name = {role['name']: role for role in final.get('roles', [])}
 
-    final_roles = {role.get('id'): role for role in final.get('roles', [])}
-    final_channels = {ch.get('id'): ch for cat in final.get('categories', []) for ch in cat.get('channels', [])}
-    final_channels.update({ch.get('id'): ch for ch in final.get('channels_no_category', [])})
-    final_categories = {cat.get('id'): cat for cat in final.get('categories', [])}
-    
-    # --- Step 1: Handle Creations ---
-    # Create new roles
-    for role_id, role_data in final_roles.items():
-        if role_id is None:
+    initial_role_names = {r['name'] for r in initial_roles.values()}
+
+    # Step 1: Creations and Updates
+    for role_data in final.get('roles', []):
+        role_id = role_data.get('id')
+        if role_id is None: # Create new role
             changes.append({
                 'command': 'CREATE_ROLE',
                 'payload': {
                     'name': role_data.get('name', 'new-role'),
                     'permissions': str(role_data.get('permissions', '0')),
-                    'color': int(str(role_data.get('color', '#000000')).lstrip('#'), 16),
-                    'temp_id': f"role_{role_data.get('name')}" # Temporary ID for reference
+                    'color': int(str(role_data.get('color', '#000000')).lstrip('#'), 16)
                 }
             })
-
-    # Create new categories
-    for cat_id, cat_data in final_categories.items():
-        if cat_id is None:
-            changes.append({
-                'command': 'CREATE_CATEGORY',
-                'payload': {
-                    'name': cat_data.get('name', 'new-category'),
-                    'temp_id': f"cat_{cat_data.get('name')}"
-                }
-            })
-
-    # Create new channels
-    all_final_channels = list(final_channels.values())
-    for cat in final.get('categories', []):
-        for ch in cat.get('channels', []):
-            if ch.get('id') is None:
-                command = 'CREATE_TEXT_CHANNEL' if ch.get('type') == 'text' else 'CREATE_VOICE_CHANNEL'
+        elif role_id in initial_roles: # Update existing role
+            initial_role = initial_roles[role_id]
+            if initial_role.get('name') != role_data.get('name') or \
+               str(initial_role.get('permissions')) != str(role_data.get('permissions')) or \
+               int(str(initial_role.get('color', '#000000')).lstrip('#'), 16) != int(str(role_data.get('color', '#000000')).lstrip('#'), 16):
                 changes.append({
-                    'command': command,
+                    'command': 'UPDATE_ROLE',
                     'payload': {
-                        'name': ch.get('name', 'new-channel'),
-                        'category_name': cat.get('name') # Reference category by name
+                        'id': role_id,
+                        'name': role_data.get('name'),
+                        'permissions': str(role_data.get('permissions')),
+                        'color': int(str(role_data.get('color')).lstrip('#'), 16)
                     }
                 })
 
-    # --- Step 2: Handle Deletions ---
-    all_final_ids = set(final_roles.keys()) | set(final_channels.keys()) | set(final_categories.keys())
+    # --- CHANNEL AND CATEGORY CHANGE DETECTION ---
+    initial_items = {item['id']: item for cat in initial.get('categories', []) for item in [cat] + cat.get('channels', [])}
+    initial_items.update({item['id']: item for item in initial.get('channels_no_category', [])})
     
-    for element_id in all_initial_elements:
-        if element_id not in all_final_ids:
-            # Determine if it's a role or channel/category
-            if element_id in initial_roles:
-                changes.append({'command': 'DELETE_ROLE', 'payload': {'id': element_id}})
-            else:
-                changes.append({'command': 'DELETE_CHANNEL', 'payload': {'id': element_id}})
-                
-    # --- Step 3: Handle Updates (for a future version) ---
-    # This section would compare existing elements and generate UPDATE commands.
-    
-    # Prioritize creations by putting them at the beginning
-    creations = [c for c in changes if c['command'].startswith('CREATE')]
-    deletions = [c for c in changes if c['command'].startswith('DELETE')]
-    
-    return creations + deletions
+    final_items_by_id = {item.get('id'): item for cat in final.get('categories', []) for item in [cat] + cat.get('channels', [])}
+    final_items_by_id.update({item.get('id'): item for item in final.get('channels_no_category', [])})
+
+    # Step 2: Creations (Categories first, then Channels)
+    # Categories
+    for cat_data in final.get('categories', []):
+        if cat_data.get('id') is None:
+            changes.append({
+                'command': 'CREATE_CATEGORY',
+                'payload': {'name': cat_data.get('name', 'new-category')}
+            })
+    # Channels
+    for cat_data in final.get('categories', []):
+        for ch_data in cat_data.get('channels', []):
+            if ch_data.get('id') is None:
+                command = 'CREATE_TEXT_CHANNEL' if ch_data.get('type') == 'text' else 'CREATE_VOICE_CHANNEL'
+                changes.append({
+                    'command': command,
+                    'payload': {'name': ch_data.get('name', 'new-channel'), 'category_name': cat_data.get('name')}
+                })
+    for ch_data in final.get('channels_no_category', []):
+        if ch_data.get('id') is None:
+            command = 'CREATE_TEXT_CHANNEL' if ch_data.get('type') == 'text' else 'CREATE_VOICE_CHANNEL'
+            changes.append({'command': command, 'payload': {'name': ch_data.get('name', 'new-channel')}})
+            
+    # Step 3: Deletions (Channels first, then Roles)
+    # Channels and Categories to delete
+    for item_id in set(initial_items.keys()) - set(final_items_by_id.keys()):
+        changes.append({'command': 'DELETE_CHANNEL', 'payload': {'id': item_id}})
+        
+    # Roles to delete
+    for role_id in set(initial_roles.keys()) - set(final_roles_by_id.keys()):
+        changes.append({'command': 'DELETE_ROLE', 'payload': {'id': role_id}})
+            
+    return changes
 
 
 @app.route('/api/designer/<guild_id>/apply_changes', methods=['POST'])
@@ -1149,13 +1152,13 @@ def demo_extract_knowledge():
             page_req = requests.get(url, timeout=10)
             page_req.raise_for_status()
             soup = BeautifulSoup(page_req.content, 'html.parser')
-            text = f"Content of {url}:\n{soup.get_text(separator=' ', strip=True)}"
+            text = f"Content from {url}:\n{soup.get_text(separator=' ', strip=True)}"
         elif source_type == 'youtube':
             url = request.form.get('url')
             if 'v=' not in url: raise ValueError("Invalid YouTube URL.")
             video_id = url.split('v=')[1].split('&')[0]
             transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-            text = f"YouTube Transcription {url}:\n{' '.join([t['text'] for t in transcript])}"
+            text = f"YouTube Transcript {url}:\n{' '.join([t['text'] for t in transcript])}"
         elif source_type == 'pdf':
             if 'file' not in request.files: raise ValueError("PDF file not found.")
             file = request.files['file']
@@ -1167,7 +1170,7 @@ def demo_extract_knowledge():
             return jsonify({'success': False, 'error': 'Invalid source type.'}), 400
         return jsonify({'success': True, 'text': text})
     except (NoTranscriptFound, TranscriptsDisabled):
-        return jsonify({'success': False, 'error': 'No transcriptions found or they are disabled for this video.'}), 400
+        return jsonify({'success': False, 'error': 'No transcripts found or they are disabled for this video.'}), 400
     except Exception as e:
         app.logger.error(f"Error in knowledge extraction for demo: {e}")
         return jsonify({'success': False, 'error': f'Error processing source: {e}'}), 500
