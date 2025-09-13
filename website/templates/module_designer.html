@@ -1,57 +1,55 @@
 {% extends "dashboard.html" %}
 
 {% block dashboard_content %}
-<div class="container-fluid h-100">
-    <div class="row h-100">
-        <!-- Panel Izquierdo: Simulación del Servidor -->
-        <div class="col-lg-5 h-100 d-flex flex-column">
-            <div class="card flex-grow-1">
-                <div class="card-header">
-                    <h4>{{ _('Server Simulation') }}</h4>
-                </div>
-                <div class="card-body" id="server-simulation-container" style="overflow-y: auto;">
-                    <!-- La simulación del servidor se renderizará aquí con JavaScript -->
-                    <p class="text-muted">{{ _('Loading server structure...') }}</p>
+<div class="container-fluid module-designer-container">
+
+    <!-- Fila para el selector de tema y el historial de acciones -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card theme-selector-card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ _('Theme Selector') }}</h5>
+                    <p class="card-text text-muted">{{ _('Choose a design and color palette to customize the dashboard appearance.') }}</p>
+                    
+                    <!-- Selector de Diseño -->
+                    <div id="design-selector-container" class="mb-3">
+                        <h6>{{ _('Design') }}</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <div class="theme-card" data-design="anlios">Anlios</div>
+                            <div class="theme-card" data-design="discord">Discord</div>
+                            <div class="theme-card" data-design="nordic">Nordic</div>
+                        </div>
+                    </div>
+
+                    <!-- Selector de Color -->
+                    <div id="color-selector-container">
+                        <h6>{{ _('Color Palette') }}</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <div class="color-swatch" data-color="furia-roja" style="background: linear-gradient(135deg, #ff4141, #ff7a7a);"></div>
+                            <div class="color-swatch" data-color="oceano-neon" style="background: linear-gradient(135deg, #00d2ff, #3a7bd5);"></div>
+                            <div class="color-swatch" data-color="atardecer" style="background: linear-gradient(135deg, #ff7e5f, #feb47b);"></div>
+                            <div class="color-swatch" data-color="bosque-encantado" style="background: linear-gradient(135deg, #28a745, #218838);"></div>
+                            <div class="color-swatch" data-color="menta-glacial" style="background: linear-gradient(135deg, #1abc9c, #16a085);"></div>
+                            <div class="color-swatch" data-color="cerezo-en-flor" style="background: linear-gradient(135deg, #f8cdda, #ffc0cb);"></div>
+                            <div class="color-swatch" data-color="grafito-y-oro" style="background: linear-gradient(135deg, #343a40, #ffc107);"></div>
+                            <div class="color-swatch" data-color="tierra-y-cielo" style="background: linear-gradient(135deg, #a0522d, #87ceeb);"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- Panel Derecho: Chat con IA y Controles -->
-        <div class="col-lg-7 h-100 d-flex flex-column">
-            <div class="card flex-grow-1">
-                <div class="card-header">
-                    <h4>{{ _('AI Assistant') }}</h4>
-                </div>
-                <div class="card-body d-flex flex-column" id="ai-chat-container">
-                    <!-- Área de Mensajes del Chat -->
-                    <div id="chat-messages" class="flex-grow-1 mb-3" style="overflow-y: auto; border: 1px solid var(--border-input); padding: 10px; border-radius: var(--border-radius);">
-                        <div class="ai-message">
-                            <p>{{ _('Hello! I am your server design assistant. Tell me what changes you would like to make. For example: "Create a category for staff with a private text channel and a voice channel."') }}</p>
-                        </div>
-                    </div>
-                    <!-- Input del Usuario -->
-                    <div class="input-group">
-                        <input type="text" id="user-prompt-input" class="form-control" placeholder="{{ _('Type your request here...') }}">
-                        <button class="btn btn-primary" id="send-prompt-btn">{{ _('Send') }}</button>
-                    </div>
-                </div>
-                <div class="card-footer text-center">
-                    <button class="btn btn-success w-100 mb-2" id="save-changes-btn">{{ _('Save and Apply Changes') }}</button>
-                    <div class="btn-group w-100" role="group">
-                        <button type="button" class="btn btn-secondary" id="undo-btn" title="{{ _('Undo') }}">←</button>
-                        <button type="button" class="btn btn-danger" id="cancel-btn" title="{{ _('Cancel All') }}">X</button>
-                        <button type="button" class="btn btn-secondary" id="redo-btn" title="{{ _('Redo') }}">→</button>
+        <div class="col-md-6">
+            <div class="card action-history-card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ _('Action History') }}</h5>
+                    <p class="text-muted">{{ _('Track the changes made. You can undo actions from here.') }}</p>
+                    <div class="history-list">
+                        <!-- Las acciones se agregarán aquí dinámicamente -->
+                        <div class="history-item placeholder">{{ _('No actions yet.') }}</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-{% block scripts %}
-{{ super() }} <!-- Importante para no sobreescribir los scripts del layout base -->
-<script>
-// La lógica del frontend para la Fase 2 irá aquí.
-console.log("Módulo Diseñador cargado para el servidor: {{ active_guild_id }}");
-</script>
 {% endblock %}
