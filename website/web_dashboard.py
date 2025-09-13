@@ -39,27 +39,6 @@ def get_translation(text_key):
     lang = g.get('lang', 'en')
     return translations.get(lang, {}).get(text_key, text_key)
 
-# --- AÑADIDO: Verificación de membresía ---
-def is_premium(guild_id: int) -> bool:
-    if not r or not guild_id:
-        return False
-    sub_key = f"subscription:{guild_id}"
-    sub_info = r.hgetall(sub_key)
-    if not sub_info or sub_info.get('status') != 'active':
-        return False
-    try:
-        expires_at_str = sub_info.get('expires_at')
-        if not expires_at_str:
-            return False
-        expires_at = datetime.fromisoformat(expires_at_str)
-        if expires_at > datetime.utcnow():
-            return True
-        else:
-            r.hset(sub_key, 'status', 'expired')
-            return False
-    except (ValueError, TypeError):
-        return False
-
 @app.before_request
 def before_request_lang():
     if 'lang' not in session:
@@ -68,18 +47,14 @@ def before_request_lang():
             session['lang'] = 'es'
         else:
             session['lang'] = 'en'
-    g.lang = session.get('lang', 'en')
-    # AÑADIDO: Verificar premium en cada petición
-    active_guild_id = session.get('active_guild_id')
-    g.is_premium = is_premium(int(active_guild_id)) if active_guild_id else False
 
+    g.lang = session.get('lang', 'en')
 
 @app.context_processor
 def inject_translations():
     def _(text_key):
         return translations.get(g.lang, {}).get(text_key, text_key)
-    # AÑADIDO: Inyectar g para que is_premium esté disponible en todas las plantillas
-    return dict(_=_, g=g)
+    return dict(_=_)
 
 # --- CONFIGURACIÓN DE IA DE GEMINI ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -616,7 +591,6 @@ def select_page(guild_id, page):
                 flash("Módulo de Moderación actualizado.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
 
-            # AÑADIDO: Manejador para el toggle del Módulo Diseñador
             elif action == 'toggle_designer_module':
                 config = load_module_config()
                 if guild_id not in config: config[guild_id] = {'modules': {}}
@@ -751,7 +725,6 @@ def select_page(guild_id, page):
 
     module_config = load_module_config()
 
-    # MODIFICADO: Añadir 'designer' a la lista de estados de módulos
     module_statuses = {
         'ticket_ia': module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False),
         'moderation': module_config.get(guild_id, {}).get('modules', {}).get('moderation', False),
@@ -767,8 +740,7 @@ def select_page(guild_id, page):
         "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page,
         "module_status": module_status, "module_statuses": module_statuses, "guild": current_guild
     }
-
-    # MODIFICADO: Añadir 'designer' al mapa de plantillas
+    
     template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html", "membership": "membership.html", "designer": "module_designer.html"}
     template_to_render = template_map.get(page, "under_construction.html")
 
@@ -818,7 +790,7 @@ def select_page(guild_id, page):
         render_data['moderation_config'] = load_moderation_config(guild_id_int)
         render_data['warnings_log'] = load_warnings_log(guild_id_int)
         render_data['backups'] = load_backups(guild_id_int)
-
+    
     return render_template(template_to_render, **render_data)
 
 # --- RUTAS DE CONOCIMIENTO ASÍNCRONO ---
@@ -911,7 +883,7 @@ def send_panel(guild_id):
     flash("El panel de tickets se está enviando...", "info")
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
-# --- INICIO: NUEVAS RUTAS PARA EL MÓDULO DISEÑADOR ---
+# --- NUEVAS RUTAS PARA EL MÓDULO DISEÑADOR ---
 @app.route('/designer/<guild_id>')
 @login_required
 def designer_page(guild_id):
@@ -1024,7 +996,6 @@ def apply_designer_changes(guild_id):
     # Placeholder
     
     return jsonify({"status": "success", "message": "Los cambios se están aplicando. Puede tardar unos momentos."})
-# --- FIN: NUEVAS RUTAS PARA EL MÓDULO DISEÑADOR ---
 
 @app.route("/demo_chat", methods=['POST'])
 def demo_chat():
@@ -1075,4 +1046,5 @@ def demo_extract_knowledge():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+
 
