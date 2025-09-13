@@ -48,12 +48,10 @@
     </div>
 </div>
 
-<!-- AÑADIDO: Bloque para el script específico de esta página -->
 {% block scripts %}
 {{ super() }} <!-- Importante para no sobreescribir los scripts del layout base -->
 <script>
-// Aquí irá toda la lógica del frontend para el módulo Diseñador en la Fase 2.
-// Por ahora, este es un placeholder.
-console.log("Módulo Diseñador cargado.");
+// La lógica del frontend para la Fase 2 irá aquí.
+console.log("Módulo Diseñador cargado para el servidor: {{ active_guild_id }}");
 </script>
 {% endblock %}
