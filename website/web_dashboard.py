@@ -197,6 +197,27 @@ def save_data_to_redis(key: str, data):
     except Exception as e:
         app.logger.error(f"Error al guardar datos en Redis para la clave {key}: {e}")
 
+# INICIO: FUNCIONES AUXILIARES PARA EL MÓDULO DISEÑADOR
+def get_guild_data_bot(guild_id):
+    headers = {'Authorization': f'Bot {BOT_TOKEN}'}
+    response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}', headers=headers)
+    return response.json() if response.status_code == 200 else None
+
+def get_guild_channels_bot(guild_id):
+    headers = {'Authorization': f'Bot {BOT_TOKEN}'}
+    response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/channels', headers=headers)
+    if response.status_code == 200:
+        return sorted(response.json(), key=lambda x: x.get('position', 0))
+    return []
+
+def get_guild_roles_bot(guild_id):
+    headers = {'Authorization': f'Bot {BOT_TOKEN}'}
+    response = requests.get(f'{API_BASE_URL}/guilds/{guild_id}/roles', headers=headers)
+    if response.status_code == 200:
+        return sorted(response.json(), key=lambda x: x.get('position', 0), reverse=True)
+    return []
+# FIN: FUNCIONES AUXILIARES PARA EL MÓDULO DISEÑADOR
+
 def load_ticket_config(guild_id: int) -> dict:
     default_config = {'admin_roles': [], 'log_enabled': False, 'log_channel_id': None, 'language': 'es'}
     config = load_data_from_redis(f"ticket_config:{guild_id}", default_config)
@@ -409,17 +430,18 @@ def profile_page():
     module_config = load_module_config()
     module_statuses = {
         'ticket_ia': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('ticket_ia', False),
-        'moderation': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('moderation', False)
+        'moderation': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('moderation', False),
+        'designer': module_config.get(session.get('active_guild_id', ''), {}).get('modules', {}).get('designer', False)
     }
 
     return render_template("profile.html",
-                             user=session['user'],
-                             guilds_with_bot=guilds_with_bot,
-                             guilds_without_bot=guilds_without_bot,
-                             client_id=CLIENT_ID,
-                             active_guild_id=None,
-                             page='profile',
-                             module_statuses=module_statuses)
+                           user=session['user'],
+                           guilds_with_bot=guilds_with_bot,
+                           guilds_without_bot=guilds_without_bot,
+                           client_id=CLIENT_ID,
+                           active_guild_id=None,
+                           page='profile',
+                           module_statuses=module_statuses)
 
 # Ruta para la página de Membresías
 @app.route("/dashboard/<int:guild_id>/membership", methods=['GET', 'POST'])
@@ -497,11 +519,11 @@ def membership(guild_id):
                     r.hset(f"subscription:{guild_id}", 'status', 'expired')
                     sub_info['status'] = 'expired'
         
-        # FIX: Define module_statuses for the template
         module_config = load_module_config()
         module_statuses = {
             'ticket_ia': module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False),
-            'moderation': module_config.get(str(guild_id), {}).get('modules', {}).get('moderation', False)
+            'moderation': module_config.get(str(guild_id), {}).get('modules', {}).get('moderation', False),
+            'designer': module_config.get(str(guild_id), {}).get('modules', {}).get('designer', False)
         }
 
         return render_template('membership.html',
@@ -579,6 +601,18 @@ def select_page(guild_id, page):
                 log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "moderation", "enabled": is_enabled})
                 flash("Módulo de Moderación actualizado.", "success")
                 return redirect(url_for('select_page', guild_id=guild_id, page='moderation'))
+            
+            # INICIO: LÓGICA PARA EL MÓDULO DISEÑADOR
+            elif action == 'toggle_designer_module':
+                config = load_module_config()
+                if guild_id not in config: config[guild_id] = {'modules': {}}
+                is_enabled = 'enabled' in request.form
+                config[guild_id]['modules']['designer'] = is_enabled
+                save_module_config(config)
+                log_action(user_info, "Módulo Activado/Desactivado", {"guild_id": guild_id, "module": "designer", "enabled": is_enabled})
+                flash("Módulo Diseñador actualizado.", "success")
+                return redirect(url_for('select_page', guild_id=guild_id, page='designer'))
+            # FIN: LÓGICA PARA EL MÓDULO DISEÑADOR
 
             elif action == 'save_moderation':
                 config = load_moderation_config(guild_id_int)
@@ -706,10 +740,11 @@ def select_page(guild_id, page):
 
     module_statuses = {
         'ticket_ia': module_config.get(guild_id, {}).get('modules', {}).get('ticket_ia', False),
-        'moderation': module_config.get(guild_id, {}).get('modules', {}).get('moderation', False)
+        'moderation': module_config.get(guild_id, {}).get('modules', {}).get('moderation', False),
+        'designer': module_config.get(guild_id, {}).get('modules', {}).get('designer', False)
     }
 
-    module_status = module_statuses.get('moderation' if page == 'moderation' else 'ticket_ia', False)
+    module_status = module_statuses.get('designer' if page == 'designer' else 'moderation' if page == 'moderation' else 'ticket_ia', False)
 
     current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
 
@@ -718,8 +753,17 @@ def select_page(guild_id, page):
         "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page,
         "module_status": module_status, "module_statuses": module_statuses, "guild": current_guild
     }
-
-    template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html", "membership": "membership.html"}
+    
+    # INICIO: MAPEO DE PLANTILLAS CON DISEÑADOR
+    template_map = {
+        "modules": "module_ticket_ia.html", 
+        "profile": "profile.html", 
+        "training": "training.html", 
+        "moderation": "module_moderation.html", 
+        "membership": "membership.html",
+        "designer": "module_designer.html"
+    }
+    # FIN: MAPEO DE PLANTILLAS
     template_to_render = template_map.get(page, "under_construction.html")
 
     if page in ['modules', 'training', 'membership']:
@@ -751,12 +795,12 @@ def select_page(guild_id, page):
                     else:
                         r.hset(f"subscription:{guild_id}", 'status', 'expired')
                         sub_info['status'] = 'expired'
-        
-            # FIX: Define module_statuses for the template
+            
             module_config = load_module_config()
             module_statuses = {
                 'ticket_ia': module_config.get(str(guild_id), {}).get('modules', {}).get('ticket_ia', False),
-                'moderation': module_config.get(str(guild_id), {}).get('modules', {}).get('moderation', False)
+                'moderation': module_config.get(str(guild_id), {}).get('modules', {}).get('moderation', False),
+                'designer': module_config.get(str(guild_id), {}).get('modules', {}).get('designer', False)
             }
 
             render_data['sub_info'] = sub_info
@@ -768,6 +812,9 @@ def select_page(guild_id, page):
         render_data['moderation_config'] = load_moderation_config(guild_id_int)
         render_data['warnings_log'] = load_warnings_log(guild_id_int)
         render_data['backups'] = load_backups(guild_id_int)
+    
+    # Para la página del diseñador, no se necesita cargar datos extra aquí,
+    # ya que se hará por AJAX.
 
     return render_template(template_to_render, **render_data)
 
@@ -860,6 +907,131 @@ def send_panel(guild_id):
     r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
     flash("El panel de tickets se está enviando...", "info")
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
+
+# --- INICIO: NUEVAS RUTAS PARA EL MÓDULO DISEÑADOR ---
+@app.route('/designer/<guild_id>')
+@login_required
+def designer_page(guild_id):
+    return redirect(url_for('select_page', guild_id=guild_id, page='designer'))
+
+@app.route('/api/designer/<guild_id>/structure')
+@login_required
+def get_server_structure(guild_id):
+    # Comprobación de permisos
+    discord = make_user_session()
+    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
+    if guilds_response.status_code != 200:
+        return jsonify({"error": "No se pudieron obtener los servidores del usuario"}), guilds_response.status_code
+    user_guilds = guilds_response.json()
+    current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
+    if not current_guild or (int(current_guild.get('permissions', 0)) & 0x8) != 0x8:
+        return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
+
+    # Obtener datos del servidor con el token del bot
+    channels = get_guild_channels_bot(guild_id)
+    roles = get_guild_roles_bot(guild_id)
+    guild_info = get_guild_data_bot(guild_id)
+
+    if guild_info is None:
+        return jsonify({"error": "No se pudo obtener la información del servidor."}), 500
+
+    # Estructurar los datos
+    server_structure = {
+        "id": guild_info.get('id'),
+        "name": guild_info.get('name'),
+        "icon_url": f"https://cdn.discordapp.com/icons/{guild_id}/{guild_info.get('icon')}.png" if guild_info.get('icon') else "https://cdn.discordapp.com/embed/avatars/0.png",
+        "roles": [],
+        "categories": {},
+        "channels_no_category": []
+    }
+
+    # Procesar roles
+    for role in roles:
+        server_structure["roles"].append({
+            "id": role.get('id'),
+            "name": role.get('name'),
+            "color": f"#{role.get('color'):06x}" if role.get('color') else "#99aab5",
+            "position": role.get('position'),
+            "permissions": role.get('permissions')
+        })
+
+    # Procesar canales y agruparlos por categoría
+    for channel in channels:
+        channel_type = channel.get('type')
+        if channel_type == 4: # Es una categoría
+            if channel['id'] not in server_structure["categories"]:
+                server_structure["categories"][channel['id']] = {
+                    "id": channel.get('id'), "name": channel.get('name'),
+                    "position": channel.get('position'), "channels": []
+                }
+        elif channel.get('parent_id'): # Canal dentro de una categoría
+            parent_id = channel['parent_id']
+            if parent_id not in server_structure["categories"]:
+                 server_structure["categories"][parent_id] = {"id": parent_id, "name": "Categoría Desconocida", "channels": []}
+            
+            server_structure["categories"][parent_id]['channels'].append({
+                "id": channel.get('id'), "name": channel.get('name'),
+                "type": "text" if channel_type == 0 else "voice",
+                "position": channel.get('position')
+            })
+        else: # Canal sin categoría
+            server_structure["channels_no_category"].append({
+                "id": channel.get('id'), "name": channel.get('name'),
+                "type": "text" if channel_type == 0 else "voice",
+                "position": channel.get('position')
+            })
+            
+    # Convertir el diccionario de categorías a una lista ordenada
+    server_structure["categories"] = sorted(server_structure["categories"].values(), key=lambda x: x.get('position', 0))
+
+    return jsonify(server_structure)
+
+
+@app.route('/api/designer/<guild_id>/process_prompt', methods=['POST'])
+@login_required
+def process_designer_prompt(guild_id):
+    # Comprobación de permisos
+    discord = make_user_session()
+    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
+    if guilds_response.status_code != 200:
+        return jsonify({"error": "No se pudieron obtener los servidores del usuario"}), guilds_response.status_code
+    user_guilds = guilds_response.json()
+    current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
+    if not current_guild or (int(current_guild.get('permissions', 0)) & 0x8) != 0x8:
+        return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
+
+    data = request.json
+    user_prompt = data.get('prompt')
+    current_structure = data.get('structure')
+
+    if not user_prompt or not current_structure:
+        return jsonify({"error": "Faltan datos en la petición."}), 400
+    
+    # Placeholder de la lógica de la IA. Por ahora, solo devuelve la estructura actual.
+    return jsonify(current_structure)
+
+
+@app.route('/api/designer/<guild_id>/apply_changes', methods=['POST'])
+@login_required
+def apply_designer_changes(guild_id):
+    # Comprobación de permisos
+    discord = make_user_session()
+    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
+    if guilds_response.status_code != 200:
+        return jsonify({"error": "No se pudieron obtener los servidores del usuario"}), guilds_response.status_code
+    user_guilds = guilds_response.json()
+    current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
+    if not current_guild or (int(current_guild.get('permissions', 0)) & 0x8) != 0x8:
+        return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
+
+    final_structure = request.json
+    
+    # Placeholder para la lógica de encolado de comandos en Redis
+    # command = {'command': '...', 'guild_id': ..., 'payload': ...}
+    # r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(command))
+    
+    return jsonify({"status": "success", "message": "Los cambios se están aplicando. Puede tardar unos momentos."})
+# --- FIN: NUEVAS RUTAS PARA EL MÓDULO DISEÑADOR ---
 
 @app.route("/demo_chat", methods=['POST'])
 def demo_chat():
