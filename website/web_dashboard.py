@@ -898,23 +898,33 @@ def send_panel(guild_id):
     return redirect(url_for('select_page', guild_id=guild_id, page='modules'))
 
 # --- NUEVAS RUTAS PARA EL MÓDULO DISEÑADOR ---
-@app.route('/designer/<guild_id>')
-@login_required
-def designer_page(guild_id):
-    return redirect(url_for('select_page', guild_id=guild_id, page='designer'))
+def check_admin_permissions(f):
+    @wraps(f)
+    def decorated_function(guild_id, *args, **kwargs):
+        discord = make_user_session()
+        try:
+            guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
+            if guilds_response.status_code != 200:
+                return jsonify({"error": "No se pudieron obtener los servidores del usuario"}), 401
+            
+            user_guilds = guilds_response.json()
+            current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
+            
+            if not current_guild or (int(current_guild.get('permissions', 0)) & 0x8) != 0x8:
+                return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
+
+            return f(guild_id, *args, **kwargs)
+        except TokenExpiredError:
+            return jsonify({"error": "Sesión expirada"}), 401
+        except Exception as e:
+            app.logger.error(f"Error en la comprobación de permisos: {e}")
+            return jsonify({"error": "Error interno del servidor"}), 500
+    return decorated_function
 
 @app.route('/api/designer/<guild_id>/structure')
 @login_required
+@check_admin_permissions
 def get_server_structure(guild_id):
-    discord = make_user_session()
-    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
-    if guilds_response.status_code != 200:
-        return jsonify({"error": "No se pudieron obtener los servidores del usuario"}), guilds_response.status_code
-    user_guilds = guilds_response.json()
-    current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
-    if not current_guild or (int(current_guild.get('permissions', 0)) & 0x8) != 0x8:
-        return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
-
     channels = get_guild_channels_bot(guild_id)
     roles = get_guild_roles_bot(guild_id)
     guild_info = get_guild_data_bot(guild_id)
@@ -933,84 +943,137 @@ def get_server_structure(guild_id):
 
     for role in roles:
         server_structure["roles"].append({
-            "id": role.get('id'),
-            "name": role.get('name'),
+            "id": role.get('id'), "name": role.get('name'),
             "color": f"#{role.get('color'):06x}" if role.get('color') else "#99aab5",
-            "position": role.get('position'),
-            "permissions": role.get('permissions')
+            "position": role.get('position'), "permissions": role.get('permissions')
         })
 
     for channel in channels:
         channel_type = channel.get('type')
-        if channel_type == 4:
+        if channel_type == 4: # Es una categoría
             if channel['id'] not in server_structure["categories"]:
                 server_structure["categories"][channel['id']] = {
                     "id": channel.get('id'), "name": channel.get('name'),
                     "position": channel.get('position'), "channels": []
                 }
-        elif channel.get('parent_id'):
+        elif channel.get('parent_id'): # Es un canal dentro de una categoría
             parent_id = channel['parent_id']
             if parent_id not in server_structure["categories"]:
-                 server_structure["categories"][parent_id] = {"id": parent_id, "name": "Categoría Desconocida", "channels": []}
+                 server_structure["categories"][parent_id] = {"id": parent_id, "name": "Categoría Desconocida", "position": 999, "channels": []}
             
             server_structure["categories"][parent_id]['channels'].append({
                 "id": channel.get('id'), "name": channel.get('name'),
-                "type": "text" if channel_type == 0 else "voice",
-                "position": channel.get('position')
+                "type": "text" if channel_type == 0 else "voice", "position": channel.get('position')
             })
-        else:
+        else: # Canal sin categoría
             server_structure["channels_no_category"].append({
                 "id": channel.get('id'), "name": channel.get('name'),
-                "type": "text" if channel_type == 0 else "voice",
-                "position": channel.get('position')
+                "type": "text" if channel_type == 0 else "voice", "position": channel.get('position')
             })
-            
+
+    # Ordenar canales dentro de cada categoría
+    for cat_id in server_structure["categories"]:
+        server_structure["categories"][cat_id]['channels'].sort(key=lambda x: x.get('position', 0))
+
     server_structure["categories"] = sorted(server_structure["categories"].values(), key=lambda x: x.get('position', 0))
+    server_structure["channels_no_category"].sort(key=lambda x: x.get('position', 0))
 
     return jsonify(server_structure)
 
 
 @app.route('/api/designer/<guild_id>/process_prompt', methods=['POST'])
 @login_required
+@check_admin_permissions
 def process_designer_prompt(guild_id):
-    discord = make_user_session()
-    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
-    if guilds_response.status_code != 200:
-        return jsonify({"error": "No se pudieron obtener los servidores del usuario"}), guilds_response.status_code
-    user_guilds = guilds_response.json()
-    current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
-    if not current_guild or (int(current_guild.get('permissions', 0)) & 0x8) != 0x8:
-        return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
-
+    if not GEMINI_API_KEY:
+        return jsonify({"error": "La API de IA no está configurada en el servidor."}), 503
+        
     data = request.json
     user_prompt = data.get('prompt')
-    current_structure = data.get('structure')
+    current_structure_json = json.dumps(data.get('structure'), indent=2)
 
-    if not user_prompt or not current_structure:
+    if not user_prompt or not current_structure_json:
         return jsonify({"error": "Faltan datos en la petición."}), 400
     
-    # Placeholder
-    return jsonify(current_structure)
+    system_prompt = """
+    Eres un experto arquitecto de servidores de Discord. El usuario te proporcionará la estructura actual del servidor como un objeto JSON y una petición en lenguaje natural.
+    Tu tarea es analizar la petición y devolver ÚNICAMENTE un objeto JSON modificado que represente la nueva estructura del servidor.
+    - NO añadas explicaciones, comentarios, ni texto conversacional fuera del JSON.
+    - La estructura del JSON de salida debe ser idéntica a la del JSON de entrada.
+    - Puedes añadir, modificar o eliminar roles, categorías y canales.
+    - Para los permisos de rol, utiliza los valores de bits de la API de Discord. Infiere permisos comunes (ej. un rol "Admin" debería tener el bit de administrador activado, un rol "Mod" debería poder gestionar mensajes, etc.).
+    - Para los colores, usa códigos hexadecimales.
+    - Mantén los IDs existentes si no se pide explícitamente eliminar un elemento. Para elementos nuevos, omite el campo 'id'.
+    """
+    
+    final_prompt = f"{system_prompt}\n\n--- ESTRUCTURA ACTUAL DEL SERVIDOR ---\n{current_structure_json}\n\n--- PETICIÓN DEL USUARIO ---\n{user_prompt}\n\n--- NUEVO JSON DE ESTRUCTURA ---\n"
 
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(final_prompt)
+        
+        # Limpiar la respuesta para obtener solo el JSON
+        cleaned_response = response.text.strip()
+        if cleaned_response.startswith("```json"):
+            cleaned_response = cleaned_response[7:]
+        if cleaned_response.endswith("```"):
+            cleaned_response = cleaned_response[:-3]
+
+        new_structure = json.loads(cleaned_response)
+        return jsonify(new_structure)
+        
+    except Exception as e:
+        app.logger.error(f"Error en la API de Gemini para el diseñador: {e}")
+        return jsonify({'error': f'La IA no pudo procesar la petición: {str(e)}'}), 500
+
+def calculate_changes(initial, final):
+    """Calcula la diferencia entre dos estructuras de servidor y genera comandos para el bot."""
+    changes = []
+    
+    # Detección de nuevos roles
+    initial_role_names = {role['name'] for role in initial.get('roles', [])}
+    for role in final.get('roles', []):
+        if role['name'] not in initial_role_names:
+            changes.append({
+                'command': 'CREATE_ROLE',
+                'payload': {
+                    'name': role.get('name', 'new-role'),
+                    'permissions': str(role.get('permissions', '0')),
+                    'color': int(role.get('color', '#000000').lstrip('#'), 16)
+                }
+            })
+            
+    # Aquí iría la lógica para detectar roles eliminados, roles modificados,
+    # canales creados/eliminados/modificados, etc.
+    
+    return changes
 
 @app.route('/api/designer/<guild_id>/apply_changes', methods=['POST'])
 @login_required
+@check_admin_permissions
 def apply_designer_changes(guild_id):
-    discord = make_user_session()
-    guilds_response = discord.get(f'{API_BASE_URL}/users/@me/guilds')
-    if guilds_response.status_code != 200:
-        return jsonify({"error": "No se pudieron obtener los servidores del usuario"}), guilds_response.status_code
-    user_guilds = guilds_response.json()
-    current_guild = next((g for g in user_guilds if g['id'] == guild_id), None)
-    if not current_guild or (int(current_guild.get('permissions', 0)) & 0x8) != 0x8:
-        return jsonify({"error": "No tienes permiso para administrar este servidor."}), 403
-
-    final_structure = request.json
+    data = request.json
+    initial_structure = data.get('initial_structure')
+    final_structure = data.get('final_structure')
     
-    # Placeholder
+    if not initial_structure or not final_structure:
+        return jsonify({"error": "Faltan datos de estructura inicial o final."}), 400
+        
+    changes = calculate_changes(initial_structure, final_structure)
     
-    return jsonify({"status": "success", "message": "Los cambios se están aplicando. Puede tardar unos momentos."})
+    if not changes:
+        return jsonify({"status": "no_changes", "message": "No se detectaron cambios para aplicar."})
 
+    for change in changes:
+        # Añade guild_id a cada comando
+        change['guild_id'] = int(guild_id)
+        r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(change))
+
+    log_action(session.get('user'), "Aplicados Cambios del Diseñador", {"guild_id": guild_id, "changes_count": len(changes)})
+    
+    return jsonify({"status": "success", "message": f"{len(changes)} cambios han sido encolados y se están aplicando en tu servidor."})
+
+# --- RUTAS DE DEMO ---
 @app.route("/demo_chat", methods=['POST'])
 def demo_chat():
     if not GEMINI_API_KEY: return jsonify({'reply': 'Error: La API de IA no está configurada en el servidor.'}), 500
