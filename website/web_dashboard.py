@@ -16,10 +16,18 @@ from datetime import datetime, timedelta
 import google.generativeai as genai
 import re
 from functools import wraps
+from werkzeug.middleware.proxy_fix import ProxyFix # Importante para Cloudflare
 
 # --- INITIAL CONFIGURATION ---
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 app = Flask(__name__)
+
+# --- MIDDLEWARE PARA CLOUDFLARE ---
+# Esto asegura que Flask vea la IP real del usuario en lugar de la de Cloudflare.
+# Debe ir después de la inicialización de la app.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'super-secret-key-for-dev')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 logging.basicConfig(level=logging.INFO)
@@ -1028,17 +1036,20 @@ def calculate_changes(initial, final):
     """Calculates the difference between two server structures and generates commands for the bot."""
     changes = []
     
-    # --- ROLE CHANGE DETECTION ---
+    # Dictionaries for quick lookups
     initial_roles = {role['id']: role for role in initial.get('roles', []) if 'id' in role}
     final_roles_by_id = {role.get('id'): role for role in final.get('roles', []) if role.get('id') is not None}
-    final_roles_by_name = {role['name']: role for role in final.get('roles', [])}
+    
+    initial_items = {item['id']: item for cat in initial.get('categories', []) for item in [cat] + cat.get('channels', [])}
+    initial_items.update({item['id']: item for item in initial.get('channels_no_category', [])})
+    
+    final_items_by_id = {item.get('id'): item for cat in final.get('categories', []) for item in [cat] + cat.get('channels', [])}
+    final_items_by_id.update({item.get('id'): item for item in final.get('channels_no_category', [])})
 
-    initial_role_names = {r['name'] for r in initial_roles.values()}
-
-    # Step 1: Creations and Updates
+    # --- PRIORITY 1: CREATIONS ---
+    # Roles
     for role_data in final.get('roles', []):
-        role_id = role_data.get('id')
-        if role_id is None: # Create new role
+        if role_data.get('id') is None:
             changes.append({
                 'command': 'CREATE_ROLE',
                 'payload': {
@@ -1047,29 +1058,6 @@ def calculate_changes(initial, final):
                     'color': int(str(role_data.get('color', '#000000')).lstrip('#'), 16)
                 }
             })
-        elif role_id in initial_roles: # Update existing role
-            initial_role = initial_roles[role_id]
-            if initial_role.get('name') != role_data.get('name') or \
-               str(initial_role.get('permissions')) != str(role_data.get('permissions')) or \
-               int(str(initial_role.get('color', '#000000')).lstrip('#'), 16) != int(str(role_data.get('color', '#000000')).lstrip('#'), 16):
-                changes.append({
-                    'command': 'UPDATE_ROLE',
-                    'payload': {
-                        'id': role_id,
-                        'name': role_data.get('name'),
-                        'permissions': str(role_data.get('permissions')),
-                        'color': int(str(role_data.get('color')).lstrip('#'), 16)
-                    }
-                })
-
-    # --- CHANNEL AND CATEGORY CHANGE DETECTION ---
-    initial_items = {item['id']: item for cat in initial.get('categories', []) for item in [cat] + cat.get('channels', [])}
-    initial_items.update({item['id']: item for item in initial.get('channels_no_category', [])})
-    
-    final_items_by_id = {item.get('id'): item for cat in final.get('categories', []) for item in [cat] + cat.get('channels', [])}
-    final_items_by_id.update({item.get('id'): item for item in final.get('channels_no_category', [])})
-
-    # Step 2: Creations (Categories first, then Channels)
     # Categories
     for cat_data in final.get('categories', []):
         if cat_data.get('id') is None:
@@ -1090,8 +1078,24 @@ def calculate_changes(initial, final):
         if ch_data.get('id') is None:
             command = 'CREATE_TEXT_CHANNEL' if ch_data.get('type') == 'text' else 'CREATE_VOICE_CHANNEL'
             changes.append({'command': command, 'payload': {'name': ch_data.get('name', 'new-channel')}})
-            
-    # Step 3: Deletions (Channels first, then Roles)
+
+    # --- PRIORITY 2: UPDATES ---
+    for role_id, role_data in final_roles_by_id.items():
+        if role_id in initial_roles:
+            initial_role = initial_roles[role_id]
+            if initial_role.get('name') != role_data.get('name') or \
+               str(initial_role.get('permissions')) != str(role_data.get('permissions')) or \
+               int(str(initial_role.get('color', '#000000')).lstrip('#'), 16) != int(str(role_data.get('color', '#000000')).lstrip('#'), 16):
+                changes.append({
+                    'command': 'UPDATE_ROLE',
+                    'payload': {
+                        'id': role_id, 'name': role_data.get('name'),
+                        'permissions': str(role_data.get('permissions')),
+                        'color': int(str(role_data.get('color')).lstrip('#'), 16)
+                    }
+                })
+
+    # --- PRIORITY 3: DELETIONS ---
     # Channels and Categories to delete
     for item_id in set(initial_items.keys()) - set(final_items_by_id.keys()):
         changes.append({'command': 'DELETE_CHANNEL', 'payload': {'id': item_id}})
@@ -1119,7 +1123,9 @@ def apply_designer_changes(guild_id):
     if not changes:
         return jsonify({"status": "no_changes", "message": "No changes were detected to apply."})
 
-    for change in changes:
+    # Reverse the list so that deletions are pushed first to Redis (LIFO)
+    # This means creations will be processed first by the bot.
+    for change in reversed(changes):
         change['guild_id'] = int(guild_id)
         r.lpush(REDIS_COMMAND_QUEUE_KEY, json.dumps(change))
 
