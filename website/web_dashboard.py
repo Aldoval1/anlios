@@ -20,7 +20,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix # Importante para Cloudflare
 
 # --- INITIAL CONFIGURATION ---
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-app = Flask(__name__)
+# Explicitly define template and static folder locations
+app = Flask(__name__, template_folder='templates', static_folder='static')
+
 
 # --- MIDDLEWARE PARA CLOUDFLARE ---
 # Esto asegura que Flask vea la IP real del usuario en lugar de la de Cloudflare.
@@ -306,11 +308,9 @@ def make_user_session(token=None):
 # --- WEB APPLICATION ROUTES ---
 @app.route("/")
 def index():
-    # --- CAMBIO DE DIAGNÓSTICO ---
-    # La línea original que renderiza la plantilla ha sido comentada.
-    # Descoméntala y elimina la siguiente línea una vez que confirmes que la app funciona.
-    # return render_template("login.html", stats=stats)
-    return "<h1>Test: La aplicación Flask está funcionando correctamente.</h1>"
+    bot_guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
+    stats = { "servers": len(bot_guild_ids), "users": "1K+", "uptime": "99.9%" }
+    return render_template("login.html", stats=stats)
 
 @app.route("/login")
 def login():
