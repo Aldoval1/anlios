@@ -306,9 +306,11 @@ def make_user_session(token=None):
 # --- WEB APPLICATION ROUTES ---
 @app.route("/")
 def index():
-    bot_guild_ids = load_data_from_redis(REDIS_GUILDS_KEY, [])
-    stats = { "servers": len(bot_guild_ids), "users": "1K+", "uptime": "99.9%" }
-    return render_template("login.html", stats=stats)
+    # --- CAMBIO DE DIAGNÓSTICO ---
+    # La línea original que renderiza la plantilla ha sido comentada.
+    # Descoméntala y elimina la siguiente línea una vez que confirmes que la app funciona.
+    # return render_template("login.html", stats=stats)
+    return "<h1>Test: La aplicación Flask está funcionando correctamente.</h1>"
 
 @app.route("/login")
 def login():
