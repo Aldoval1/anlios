@@ -520,7 +520,7 @@ async def on_message(message: discord.Message):
         final_prompt = f"{system_prompt}\n\n--- RECENT CONVERSATION ---\n{history_log}--- END ---\n\nRespond to the last user message."
         
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             response = await model.generate_content_async(final_prompt)
             response_text = response.text
 
@@ -747,6 +747,7 @@ if not BOT_TOKEN:
     print("❌ ERROR: Bot token not found.")
 else: 
     bot.run(BOT_TOKEN)
+
 
 
 
