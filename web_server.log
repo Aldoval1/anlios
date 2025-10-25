@@ -1,0 +1,7 @@
+[2025-10-25 18:05:03 +0000] [3661] [INFO] Starting gunicorn 22.0.0
+[2025-10-25 18:05:03 +0000] [3661] [INFO] Listening at: http://127.0.0.1:8000 (3661)
+[2025-10-25 18:05:03 +0000] [3661] [INFO] Using worker: sync
+[2025-10-25 18:05:03 +0000] [3782] [INFO] Booting worker with pid: 3782
+[2025-10-25 18:05:03 +0000] [3783] [INFO] Booting worker with pid: 3783
+[2025-10-25 18:05:03 +0000] [3784] [INFO] Booting worker with pid: 3784
+[2025-10-25 18:05:03 +0000] [3786] [INFO] Booting worker with pid: 3786
