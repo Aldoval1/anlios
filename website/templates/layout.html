@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Anlios Dashboard{% endblock %}</title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
     <!-- Estilos personalizados -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/toast.css') }}">
-    
+
     <!-- Bloque para estilos de tema -->
     {% block theme_styles %}{% endblock %}
 
@@ -37,17 +37,31 @@
 
 </head>
 <body>
-    <div id="toast-container"></div>
+    <div id="toast-container">
+        <div class="toast-card">
+            <img id="toast-gif" src="" alt="Notification Gif">
+            <div class="toast-content">
+                <p id="toast-message"></p>
+                <div id="toast-buttons">
+                    <button id="toast-confirm">{{ _('Confirm') }}</button>
+                    <button id="toast-cancel">{{ _('Cancel') }}</button>
+                </div>
+            </div>
+            <div class="toast-progress-bar">
+                <div id="toast-progress"></div>
+            </div>
+        </div>
+    </div>
 
     {% block body_content %}{% endblock %}
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <!-- Scripts de Toast y Temas -->
     <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
     {% block theme_scripts %}{% endblock %}
-    
+
     <!-- Scripts adicionales de la página -->
     {% block scripts %}{% endblock %}
 </body>
