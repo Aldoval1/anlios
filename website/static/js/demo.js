@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const landingPage = document.getElementById('landing-page');
     const demoPage = document.getElementById('demo-page');
     const exitDemoBtn = document.getElementById('exit-demo-btn');
-    
+
     // Elementos de la animación
     const overlay = document.getElementById('animation-overlay');
     const animatedMustache = document.getElementById('animated-mustache');
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     trigger.addEventListener('click', () => {
         const rect = trigger.getBoundingClientRect();
-        
+
         animatedMustache.style.width = `${rect.width}px`;
         animatedMustache.style.height = `${rect.height}px`;
         animatedMustache.style.top = `${rect.top}px`;
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             demoPage.classList.add('active');
             overlay.style.opacity = '0';
-            
+
             // CHANGE: Show the new introductory toast
             if (!sessionStorage.getItem('demoWelcomed')) {
                 showIntroductoryToast();
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfForm.reset();
         sessionStorage.removeItem('demoWelcomed');
     }
-    
+
     // --- Lógica del Chat y Bienvenida de la Demo ---
 
     // CHANGE: New function for the animated welcome toast
@@ -92,13 +92,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const toastMessage = document.getElementById('toast-message');
         const toastButtons = document.getElementById('toast-buttons');
         const progressBar = document.getElementById('toast-progress');
-        
+
         const introDuration = 8000; // 8 seconds
 
         toastGif.src = '/static/images/hablando.gif';
         toastMessage.textContent = '¡Bienvenido a la demo! Aquí puedes probar mi IA. Define mi personalidad y conocimiento a la izquierda, y luego chatea conmigo a la derecha.';
         toastButtons.style.display = 'none';
-        
+
         toastContainer.classList.add('show');
 
         progressBar.style.transition = 'none';
@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         appendMessage(messageText, 'Usuario', 'https://cdn.discordapp.com/embed/avatars/0.png'); // Generic user avatar
         chatInput.value = '';
-        
+
         const typingIndicator = appendMessage('Anlios está escribiendo...', 'Anlios Bot', '/static/images/favicon.png', true);
 
         try {
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
-            
+
             // Update typing indicator with the actual response
             const textElement = typingIndicator.querySelector('.text');
             if (textElement) {
@@ -191,18 +191,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const form = event.target;
         const submitButton = form.querySelector('button[type="submit"]');
         const originalButtonText = submitButton.textContent;
-        
+
         submitButton.disabled = true;
         submitButton.textContent = '...';
         knowledgeFeedback.textContent = 'Extrayendo información...';
         knowledgeFeedback.style.color = '#ffb3b3';
 
         const formData = new FormData(form);
-        // The source_type is now passed directly, no need to append
-        // formData.append('source_type', sourceType);
+        formData.append('source_type', sourceType);
 
         try {
-            const response = await fetch(`/demo_extract_knowledge?source_type=${sourceType}`, { method: 'POST', body: formData });
+            const response = await fetch('/demo_extract_knowledge', { method: 'POST', body: formData });
             const data = await response.json();
 
             if (data.success) {

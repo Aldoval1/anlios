@@ -62,6 +62,20 @@
 document.addEventListener('DOMContentLoaded', () => {
     const guildId = '{{ active_guild_id }}';
 
+    // Translations passed from Flask
+    const translations = {
+        roles: "{{ _('Roles') }}",
+        channels: "{{ _('Channels') }}",
+        errorInvalidStructure: "{{ _('Error: Invalid server structure received.') }}",
+        changesReverted: "{{ _('All changes have been reverted to the initial state.') }}",
+        failedToLoad: "{{ _('Failed to load server structure.') }}",
+        aiFailed: "{{ _('The AI assistant failed to process the request.') }}",
+        structureUpdated: "{{ _('Done! Here is the updated structure. You can continue making changes or save them.') }}",
+        errorPrefix: "{{ _('Error:') }}",
+        unknownError: "{{ _('An unknown error occurred.') }}",
+        errorApplying: "{{ _('Error applying changes:') }}"
+    };
+
     // UI Elements
     const simulationContainer = document.getElementById('server-simulation-container');
     const chatMessages = document.getElementById('chat-messages');
@@ -83,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderServer(structure) {
         // CORRECCIÓN: Verificar que la estructura y sus componentes existan antes de renderizar
         if (!structure || !structure.roles || !structure.categories || !structure.channels_no_category) {
-            simulationContainer.innerHTML = '<p class="text-danger">Error: Invalid server structure received.</p>';
+            simulationContainer.innerHTML = `<p class="text-danger">${translations.errorInvalidStructure}</p>`;
             return;
         }
 
@@ -98,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         simulationContainer.appendChild(serverHeader);
 
         const rolesHeader = document.createElement('h6');
-        rolesHeader.textContent = 'Roles';
+        rolesHeader.textContent = translations.roles;
         rolesHeader.className = 'mt-3';
         simulationContainer.appendChild(rolesHeader);
         const rolesContainer = document.createElement('div');
@@ -113,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         simulationContainer.appendChild(rolesContainer);
 
         const channelsHeader = document.createElement('h6');
-        channelsHeader.textContent = 'Channels';
+        channelsHeader.textContent = translations.channels;
         channelsHeader.className = 'mt-3';
         simulationContainer.appendChild(channelsHeader);
 
@@ -192,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         historyIndex = 0;
         renderServer(currentStructure);
         updateControlButtons();
-        addChatMessage('All changes have been reverted to the initial state.', 'ai');
+        addChatMessage(translations.changesReverted, 'ai');
     }
 
     // --- API CALLS ---
@@ -200,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         spinner.style.display = 'inline-block';
         try {
             const response = await fetch(`/api/designer/${guildId}/structure`);
-            if (!response.ok) throw new Error('Failed to load server structure.');
+            if (!response.ok) throw new Error(translations.failedToLoad);
             const data = await response.json();
             initialStructure = JSON.parse(JSON.stringify(data));
             currentStructure = JSON.parse(JSON.stringify(data));
@@ -232,16 +246,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const newStructure = await response.json();
-            if (!response.ok) throw new Error(newStructure.error || 'The AI assistant failed to process the request.');
+            if (!response.ok) throw new Error(newStructure.error || translations.aiFailed);
 
 
             currentStructure = newStructure;
             updateHistory(currentStructure);
             renderServer(currentStructure);
-            addChatMessage('Done! Here is the updated structure. You can continue making changes or save them.', 'ai');
+            addChatMessage(translations.structureUpdated, 'ai');
 
         } catch (error) {
-            addChatMessage(`Error: ${error.message}`, 'ai');
+            addChatMessage(`${translations.errorPrefix} ${error.message}`, 'ai');
         } finally {
             spinner.style.display = 'none';
             sendBtn.disabled = false;
@@ -260,12 +274,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'An unknown error occurred.');
+            if (!response.ok) throw new Error(result.error || translations.unknownError);
 
             addChatMessage(result.message, 'ai');
             fetchServerStructure();
         } catch (error) {
-            addChatMessage(`Error applying changes: ${error.message}`, 'ai');
+            addChatMessage(`${translations.errorApplying} ${error.message}`, 'ai');
         } finally {
             spinner.style.display = 'none';
             saveBtn.disabled = false;

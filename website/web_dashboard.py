@@ -718,7 +718,7 @@ def select_page(guild_id, page):
                             raise ValueError("Could not get subtitles for this video.")
                     elif action == 'knowledge_pdf':
                         if 'pdf_file' not in request.files: raise ValueError("PDF file not found.")
-                        file = request.files['file']
+                        file = request.files['pdf_file']
                         if file.filename == '': raise ValueError("No file selected.")
                         reader = PyPDF2.PdfReader(file.stream)
                         pdf_text = ''.join(page.extract_text() for page in reader.pages)
@@ -1020,7 +1020,7 @@ def process_designer_prompt(guild_id):
     """
     
     final_prompt = f"{system_prompt}\n\n--- CURRENT SERVER STRUCTURE ---\n{current_structure_json}\n\n--- USER REQUEST ---\n{user_prompt}\n\n--- NEW STRUCTURE JSON ---\n"
-
+    response = None
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(final_prompt)
@@ -1031,7 +1031,10 @@ def process_designer_prompt(guild_id):
         return jsonify(new_structure)
         
     except Exception as e:
-        app.logger.error(f"Error in Gemini API for designer: {e}. Response received: {response.text}")
+        error_message = f"Error in Gemini API for designer: {e}."
+        if response:
+            error_message += f" Response received: {response.text}"
+        app.logger.error(error_message)
         return jsonify({'error': f'The AI could not process the request: {str(e)}'}), 500
 
 def calculate_changes(initial, final):
