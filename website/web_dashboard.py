@@ -71,7 +71,11 @@ babel = Babel(app, locale_selector=get_locale)
 # Cargar traducciones
 def load_translations():
     try:
-        with open('website/translations.json', 'r', encoding='utf-8') as f:
+        # Obtener la ruta absoluta al directorio actual del script
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        # Construir la ruta al archivo de traducciones
+        translations_path = os.path.join(dir_path, 'translations.json')
+        with open(translations_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         logger.error(f"Error cargando translations.json: {e}")
