@@ -53,20 +53,6 @@ app.config.from_mapping({
 # ----------------------------------------
 # Configuración de Babel para i18n
 # ----------------------------------------
-babel = Babel(app)
-
-# Cargar traducciones
-def load_translations():
-    try:
-        with open('website/translations.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
-        logger.error(f"Error cargando translations.json: {e}")
-        return {}
-
-translations = load_translations()
-
-@babel.localeselector
 def get_locale():
     # 1. Obtener de la sesión del usuario
     if 'lang' in session:
@@ -79,6 +65,19 @@ def get_locale():
     # 3. Valor por defecto
     session['lang'] = 'es'
     return 'es'
+
+babel = Babel(app, locale_selector=get_locale)
+
+# Cargar traducciones
+def load_translations():
+    try:
+        with open('website/translations.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Error cargando translations.json: {e}")
+        return {}
+
+translations = load_translations()
 
 @app.before_request
 def before_request():
