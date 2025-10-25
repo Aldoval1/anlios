@@ -762,7 +762,7 @@ def select_page(guild_id, page):
     render_data = {
         "user": session['user'], "guilds_with_bot": guilds_with_bot, "guilds_without_bot": guilds_without_bot,
         "client_id": CLIENT_ID, "active_guild_id": guild_id, "page": page,
-        "module_status": module_status, "module_statuses": module_statuses, "guild": current_guild
+        "module_status": module_status, "module_statuses": module_statuses, "server": current_guild
     }
     
     template_map = {"modules": "module_ticket_ia.html", "profile": "profile.html", "training": "training.html", "moderation": "module_moderation.html", "membership": "membership.html", "designer": "module_designer.html"}
