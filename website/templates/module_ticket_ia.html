@@ -1,464 +1,457 @@
-{% extends "dashboard.html" %}
-{% block title %}{{ _('Module: Ticket I.A') }}{% endblock %}
+{% extends "layout.html" %}
 
-{% block dashboard_content %}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>{{ _('Module: Ticket I.A') }}</h1>
-        <form method="POST">
-            <input type="hidden" name="action" value="toggle_module">
-            <input type="hidden" name="module_name" value="ticket_ia">
-            <div class="form-check form-switch fs-5">
-                <input class="form-check-input" type="checkbox" role="switch" id="module-toggle" name="enabled" {% if module_status %}checked{% endif %} onchange="this.form.submit()">
-                <label class="form-check-label" for="module-toggle">{{ _('Enabled') }}</label>
-            </div>
-        </form>
+{% block title %}{{ title }} - {{ server.name }}{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    <!-- Incluir scripts para el editor de embeds -->
+    <script src="{{ url_for('static', filename='js/preview.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="main-content-header">
+    <a href="{{ url_for('manage_server', server_id=server.id) }}" class="back-button">&larr; {{ _('volver_a_modulos') }}</a>
+    <h1>
+        <img src="https://cdn.discordapp.com/icons/{{ server.id }}/{{ server.icon }}.png?size=64" alt="{{ _('icono_servidor') }}" class="server-icon-title">
+        {{ server.name }}
+    </h1>
+</div>
+
+<div class="module-container">
+    <div class="module-header">
+        <i class="fas fa-ticket-alt icon-ia-ticket"></i>
+        <div class="module-header-info">
+            <h2>{{ _('ia_ticket_titulo') }}</h2>
+            <p>{{ _('ia_ticket_descripcion') }}</p>
+        </div>
+        <button class="button-primary save-button" id="save-general-config" data-form-id="general-config-form">
+            <i class="fas fa-save"></i> {{ _('guardar_cambios') }}
+        </button>
     </div>
 
-    {% if module_status %}
-    <div class="row g-5">
-        <!-- Columna Izquierda: Formularios de Configuración -->
-        <div class="col-md-7">
-            <form method="POST" id="main-config-form">
+    <!-- Configuración General y Panel -->
+    <div class="form-section-horizontal">
+        
+        <!-- Columna Izquierda: Configuración -->
+        <div class="form-column">
+            <form id="general-config-form" class="card">
+                <h3>{{ _('ia_ticket_config_panel') }}</h3>
                 
-                <!-- SECCIÓN 1: Editor de Embeds -->
-                <section id="embeds-section" class="mb-5">
-                    <h2>{{ _('Embeds Editor') }}</h2>
-                    <hr class="border-danger">
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header">
-                            <ul class="nav nav-tabs card-header-tabs" id="embedTabs" role="tablist">
-                                <li class="nav-item" role="presentation"><button class="nav-link active" id="panel-tab" data-bs-toggle="tab" data-bs-target="#panel-editor" type="button" role="tab">{{ _('Ticket Panel') }}</button></li>
-                                <li class="nav-item" role="presentation"><button class="nav-link" id="welcome-tab" data-bs-toggle="tab" data-bs-target="#welcome-editor" type="button" role="tab">{{ _('Welcome Embed') }}</button></li>
-                            </ul>
-                        </div>
-                        <div class="card-body tab-content" id="embedTabsContent">
-                            <!-- Editor del Panel de Tickets -->
-                            <div class="tab-pane fade show active" id="panel-editor" role="tabpanel">
-                                <div class="mb-3"><label class="form-label small">{{ _('Button Text') }}</label><input type="text" class="form-control" id="panel_button_label" name="panel_button_label" value="{{ embed_config.panel.button_label }}" oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Title') }}</label><input type="text" class="form-control" id="panel_title" name="panel_title" value="{{ embed_config.panel.title }}" oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Description') }}</label><textarea class="form-control" id="panel_description" name="panel_description" rows="3" oninput="updatePreview()">{{ embed_config.panel.description }}</textarea></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Author') }}</label><input type="text" class="form-control" id="panel_author_name" name="panel_author_name" value="{{ embed_config.panel.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Author Icon (URL)') }}</label><input type="url" class="form-control" id="panel_author_icon" name="panel_author_icon" value="{{ embed_config.panel.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Main Image (URL)') }}</label><input type="url" class="form-control" id="panel_image" name="panel_image" value="{{ embed_config.panel.image }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Thumbnail (URL)') }}</label><input type="url" class="form-control" id="panel_thumbnail" name="panel_thumbnail" value="{{ embed_config.panel.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Footer') }}</label><input type="text" class="form-control" id="panel_footer_text" name="panel_footer_text" value="{{ embed_config.panel.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Footer Icon (URL)') }}</label><input type="url" class="form-control" id="panel_footer_icon" name="panel_footer_icon" value="{{ embed_config.panel.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Color') }}</label><input type="color" class="form-control form-control-color" id="panel_color" name="panel_color" value="{{ embed_config.panel.color }}" oninput="updatePreview()"></div>
-                            </div>
-                            <!-- Editor del Embed de Bienvenida -->
-                            <div class="tab-pane fade" id="welcome-editor" role="tabpanel">
-                                <p class="text-muted small">{{ _('You can use {user} to mention the user.') }}</p>
-                                <div class="mb-3"><label class="form-label small">{{ _('Title') }}</label><input type="text" class="form-control" id="welcome_title" name="welcome_title" value="{{ embed_config.welcome.title }}" oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Description') }}</label><textarea class="form-control" id="welcome_description" name="welcome_description" rows="3" oninput="updatePreview()">{{ embed_config.welcome.description }}</textarea></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Author') }}</label><input type="text" class="form-control" id="welcome_author_name" name="welcome_author_name" value="{{ embed_config.welcome.author_name }}" placeholder="Texto del autor..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Author Icon (URL)') }}</label><input type="url" class="form-control" id="welcome_author_icon" name="welcome_author_icon" value="{{ embed_config.welcome.author_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Main Image (URL)') }}</label><input type="url" class="form-control" id="welcome_image" name="welcome_image" value="{{ embed_config.welcome.image }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Thumbnail (URL)') }}</label><input type="url" class="form-control" id="welcome_thumbnail" name="welcome_thumbnail" value="{{ embed_config.welcome.thumbnail }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Footer') }}</label><input type="text" class="form-control" id="welcome_footer_text" name="welcome_footer_text" value="{{ embed_config.welcome.footer_text }}" placeholder="Texto del pie de página..." oninput="updatePreview()" maxlength="2048"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Footer Icon (URL)') }}</label><input type="url" class="form-control" id="welcome_footer_icon" name="welcome_footer_icon" value="{{ embed_config.welcome.footer_icon }}" placeholder="https://..." oninput="updatePreview()"></div>
-                                <div class="mb-3"><label class="form-label small">{{ _('Color') }}</label><input type="color" class="form-control form-control-color" id="welcome_color" name="welcome_color" value="{{ embed_config.welcome.color }}" oninput="updatePreview()"></div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+                <!-- Personalidad IA -->
+                <label for="ai-personality">{{ _('ia_ticket_personalidad_ia') }}</label>
+                <textarea id="ai-personality" name="ai_personality" rows="4" class="input-field" placeholder="{{ _('ia_ticket_personalidad_placeholder') }}">{{ config.ai_personality or '' }}</textarea>
+                
+                <!-- Mensaje Bienvenida Ticket -->
+                <label for="ticket-welcome-message">{{ _('ia_ticket_bienvenida_ticket') }}</label>
+                <textarea id="ticket-welcome-message" name="ticket_welcome_message" rows="3" class="input-field" placeholder="{{ _('ia_ticket_bienvenida_placeholder') }}">{{ config.ticket_welcome_message or '' }}</textarea>
 
-                <!-- SECCIÓN 2: Personalidad de la IA -->
-                <section id="ai-section" class="mb-5">
-                    <h2>{{ _('AI Personality') }}</h2>
-                    <hr class="border-danger">
-                    <div class="card mt-4 shadow-sm">
-                        <div class="card-body">
-                            <p class="text-muted small">{{ _('Define the base personality of the AI. The system will handle giving it instructions on how to use the knowledge base and how to act if it doesn\'t know an answer.') }}</p>
-                            <textarea class="form-control" name="ai_personality" rows="8">{{ embed_config.ai_personality }}</textarea>
-                        </div>
-                    </div>
-                </section>
+                <!-- Idioma IA -->
+                <label for="ai-language">{{ _('ia_ticket_idioma_ia') }}</label>
+                <select id="ai-language" name="ai_language" class="input-field">
+                    <option value="es" {% if config.ai_language == 'es' %}selected{% endif %}>{{ _('ia_ticket_idioma_es') }}</option>
+                    <option value="en" {% if config.ai_language == 'en' %}selected{% endif %}>{{ _('ia_ticket_idioma_en') }}</option>
+                </select>
 
-                <!-- SECCIÓN 4: Configuración General -->
-                <section id="configs-section" class="mb-5">
-                    <h2>{{ _('General Settings') }}</h2>
-                    <hr class="border-danger">
-                    <!-- Configuración de Roles -->
-                    <div class="card mt-4 shadow-sm">
-                        <div class="card-header"><h5>{{ _('Administrator Roles') }}</h5></div>
-                        <div class="card-body">
-                            <p class="text-muted small">{{ _('Double-click on a role to add it to the list of ticket administrators.') }}</p>
-                            <div id="role-list-container">
-                                {% for role in roles %}
-                                    <div class="role-item" data-role-id="{{ role.id }}" data-role-name="{{ role.name }}">{{ role.name }}</div>
-                                {% endfor %}
-                            </div>
-                            <hr>
-                            <div class="d-flex align-items-start mt-2">
-                                <span class="text-muted small me-3 pt-2" style="white-space: nowrap;">{{ _('Roles with permission:') }}</span>
-                                <div id="selected-roles-container" class="w-100" style="min-height: 40px;"></div>
-                            </div>
-                            <input type="hidden" name="admin_roles_json" id="admin-roles-json">
-                        </div>
-                    </div>
-                    <!-- Configuración de Logs -->
-                    <div class="card mt-4 shadow-sm">
-                        <div class="card-header"><h5>{{ _('Ticket Logs') }}</h5></div>
-                        <div class="card-body">
-                            <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" role="switch" id="log-enabled-switch" name="log_enabled" {% if ticket_config.log_enabled %}checked{% endif %}>
-                                <label class="form-check-label" for="log-enabled-switch">{{ _('Enable ticket logs') }}</label>
-                            </div>
-                            <div id="log-channel-selector-wrapper">
-                                <label for="log-channel-select" class="form-label small">{{ _('Channel to send logs') }}</label>
-                                <select class="form-select" name="log_channel_id" id="log-channel-select">
-                                    <option value="" {% if not ticket_config.log_channel_id %}selected{% endif %} disabled>{{ _('Select a channel...') }}</option>
-                                    {% for channel in channels %}
-                                    <option value="{{ channel.id }}" {% if ticket_config.log_channel_id == channel.id|string %}selected{% endif %}>#{{ channel.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- INICIO DE LA MODIFICACIÓN: Selector de Idioma del Bot -->
-                    <div class="card mt-4 shadow-sm">
-                        <div class="card-header"><h5>{{ _('Bot Language') }}</h5></div>
-                        <div class="card-body">
-                            <p class="text-muted small">{{ _('Choose the language the bot will use in this server.') }}</p>
-                            <select class="form-select" name="bot_language">
-                                <option value="es" {% if ticket_config.language == 'es' %}selected{% endif %}>{{ _('Spanish') }}</option>
-                                <option value="en" {% if ticket_config.language == 'en' %}selected{% endif %}>{{ _('English') }}</option>
-                            </select>
-                        </div>
-                    </div>
-                    <!-- FIN DE LA MODIFICACIÓN -->
-                </section>
+                <hr>
 
-                <button type="submit" name="action" value="save_all" class="btn btn-success w-100 btn-lg">{{ _('Save All Settings') }}</button>
+                <!-- Enviar Panel -->
+                <h4>{{ _('ia_ticket_enviar_panel_titulo') }}</h4>
+                <p class="description">{{ _('ia_ticket_enviar_panel_descripcion') }}</p>
+                <div class="input-group">
+                    <select id="send-panel-channel" class="input-field">
+                        <option value="">{{ _('ia_ticket_seleccionar_canal') }}</option>
+                        <!-- (JS cargará los canales aquí) -->
+                    </select>
+                    <button class="button-secondary" type="button" id="send-panel-btn">{{ _('ia_ticket_enviar_boton') }}</button>
+                </div>
             </form>
-
-            <!-- SECCIÓN 3: Base de Conocimiento -->
-            <section id="knowledge-section" class="mb-5 mt-5">
-                <h2>{{ _('Knowledge Base') }}</h2>
-                <hr class="border-danger">
-                <div class="card mt-4 shadow-sm">
-                    <div class="card-body">
-                        <h6>{{ _('Current Knowledge:') }}</h6>
-                        <ul id="knowledge-list" class="list-group list-group-flush mb-3" style="max-height: 200px; overflow-y: auto;">
-                            {% for item in knowledge_base %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span class="me-2 text-truncate" style="white-space: pre-wrap;">
-                                    {% if item is mapping %}
-                                        {% if item.type == 'pdf' %}
-                                            📄 Archivo PDF: <strong>{{ item.filename }}</strong>
-                                        {% elif item.type == 'web' %}
-                                            🌐 Página Web: <strong>{{ item.source }}</strong>
-                                        {% elif item.type == 'youtube' %}
-                                            🎥 Video de YouTube: <strong>{{ item.source }}</strong>
-                                        {% else %}
-                                            {{ item.content }}
-                                        {% endif %}
-                                    {% else %}
-                                        {{ item }}
-                                    {% endif %}
-                                </span>
-                                <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="{{ loop.index0 }}" title="Eliminar">×</button>
-                            </li>
-                            {% endfor %}
-                            {% if not knowledge_base %}
-                            <li id="empty-knowledge-msg" class="list-group-item text-muted">{{ _('The knowledge base is empty.') }}</li>
-                            {% endif %}
-                        </ul>
-                        <hr>
-                        <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
-                            <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-text-tab" data-bs-toggle="pill" data-bs-target="#pills-text" type="button" role="tab">{{ _('Add Text') }}</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-web-tab" data-bs-toggle="pill" data-bs-target="#pills-web" type="button" role="tab">{{ _('Read Web') }}</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-youtube-tab" data-bs-toggle="pill" data-bs-target="#pills-youtube" type="button" role="tab">YouTube</button></li>
-                            <li class="nav-item" role="presentation"><button class="nav-link" id="pills-pdf-tab" data-bs-toggle="pill" data-bs-target="#pills-pdf" type="button" role="tab">{{ _('Upload PDF') }}</button></li>
-                        </ul>
-                        <div class="tab-content" id="pills-tabContent">
-                            <div class="tab-pane fade show active" id="pills-text" role="tabpanel">
-                                <div class="mb-3"><textarea class="form-control" id="new-knowledge-text" rows="4" placeholder="Ej: Las normas del servidor están en el canal #reglas."></textarea></div>
-                                <button type="button" id="add-knowledge-btn" class="btn btn-info w-100">{{ _('Add Text') }}</button>
-                            </div>
-                            <div class="tab-pane fade" id="pills-web" role="tabpanel">
-                                <form method="POST">
-                                    <div class="input-group">
-                                        <input type="url" class="form-control" name="web_url" placeholder="https://ejemplo.com" required>
-                                        <button type="submit" name="action" value="knowledge_web" class="btn btn-info">{{ _('Read Web Page') }}</button>
-                                    </div>
-                                </form>
-                            </div>
-                            <div class="tab-pane fade" id="pills-youtube" role="tabpanel">
-                                <form method="POST">
-                                    <div class="input-group">
-                                        <input type="url" class="form-control" name="youtube_url" placeholder="https://youtube.com/watch?v=..." required>
-                                        <button type="submit" name="action" value="knowledge_youtube" class="btn btn-info">{{ _('Transcribe Video') }}</button>
-                                    </div>
-                                </form>
-                            </div>
-                            <div class="tab-pane fade" id="pills-pdf" role="tabpanel">
-                                <form method="POST" enctype="multipart/form-data">
-                                    <div class="input-group">
-                                        <input type="file" class="form-control" name="pdf_file" accept=".pdf" required>
-                                        <button type="submit" name="action" value="knowledge_pdf" class="btn btn-info">{{ _('Upload PDF') }}</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
         </div>
-        <!-- Columna Derecha: Vista Previa y Acciones -->
-        <div class="col-md-5">
-            <div class="sticky-top" style="top: 2rem;">
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header"><h5 class="mb-0">{{ _('Publish Ticket Panel') }}</h5></div>
-                    <div class="card-body">
-                        <p class="small text-muted">{{ _('Choose a channel to send the panel.') }}</p>
-                        <form action="{{ url_for('send_panel', guild_id=active_guild_id) }}" method="POST">
-                            <div class="input-group"><select class="form-select" name="channel_id" required><option value="" disabled selected>{{ _('Select a channel...') }}</option>{% for channel in channels %}<option value="{{ channel.id }}">#{{ channel.name }}</option>{% endfor %}</select><button class="btn btn-primary" type="submit">{{ _('Send') }}</button></div>
-                        </form>
+        
+        <!-- Columna Derecha: Editor de Embed -->
+        <div class="form-column">
+            <div class="card embed-editor-card">
+                <h3>{{ _('ia_ticket_vista_previa') }}</h3>
+                <div class="embed-editor-container">
+                    <!-- Inputs para editar el Embed -->
+                    <div class="embed-editor-fields">
+                        <label>Title</label>
+                        <input type="text" id="embed-title" class="input-field" data-preview="embed-preview-title" value="{{ config.embed_config.title or '' }}">
+                        
+                        <label>Description</label>
+                        <textarea id="embed-description" class="input-field" rows="5" data-preview="embed-preview-description">{{ config.embed_config.description or '' }}</textarea>
+                        
+                        <label>Color (Hex)</label>
+                        <input type="color" id="embed-color-picker" value="{{ config.embed_config.color or '#5865F2' }}">
+                        <input type="text" id="embed-color" class="input-field" data-preview="embed-preview-color" value="{{ config.embed_config.color or '#5865F2' }}">
+                        
+                        <label>Button Text</label>
+                        <input type="text" id="embed-button-text" class="input-field" data-preview="embed-preview-button" value="{{ config.embed_config.button_text or 'Abrir Ticket' }}">
                     </div>
-                </div>
-                <div class="card shadow-sm">
-                    <div class="card-header"><h5 class="mb-0">{{ _('Preview') }}</h5></div>
-                    <div class="card-body" style="background-color: #36393f; padding: 20px;">
-                        <div class="discord-chat-message">
-                            <img src="{{ url_for('static', filename='images/favicon.png') }}" class="discord-avatar">
-                            <div>
-                                <span class="discord-username">Anlios Bot</span>
-                                <div id="panel-preview" class="discord-embed">
-                                    <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
-                                    <div class="embed-image-container"><img class="embed-image" src=""></div>
-                                    <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
-                                </div>
-                                <div id="welcome-preview" class="discord-embed" style="display:none;">
-                                     <div class="embed-grid"><div class="embed-content"><div class="embed-author"><img class="embed-author-icon" src=""><span class="embed-author-name"></span></div><div class="embed-title"></div><div class="embed-description"></div></div><div class="embed-thumbnail-container"><img class="embed-thumbnail" src=""></div></div>
-                                     <div class="embed-image-container"><img class="embed-image" src=""></div>
-                                     <div class="embed-footer"><img class="embed-footer-icon" src=""><span class="embed-footer-text"></span></div>
-                                </div>
-                            </div>
+                    
+                    <!-- Vista Previa del Embed (estilo Discord) -->
+                    <div class="discord-embed-preview">
+                        <div class="embed-preview-color-bar" id="embed-preview-color" style="background-color: {{ config.embed_config.color or '#5865F2' }};"></div>
+                        <div class="embed-preview-content">
+                            <div class="embed-preview-title" id="embed-preview-title">{{ config.embed_config.title or 'Título del Panel' }}</div>
+                            <div class="embed-preview-description" id="embed-preview-description">{{ config.embed_config.description or 'Haz clic en el botón de abajo para abrir un ticket y recibir soporte.' }}</div>
                         </div>
                     </div>
                 </div>
+                <!-- Botón de Discord simulado -->
+                <button class="discord-button-preview" type="button" disabled>
+                    <i class="fas fa-ticket-alt"></i>
+                    <span id="embed-preview-button">{{ config.embed_config.button_text or 'Abrir Ticket' }}</span>
+                </button>
             </div>
         </div>
     </div>
-    {% endif %}
+    
+    <!-- Sección Knowledge Base -->
+    <div class="card form-section" id="knowledge-base-form">
+        <h3>{{ _('ia_ticket_kb_titulo') }}</h3>
+        <p class="description">{{ _('ia_ticket_kb_descripcion') }}</p>
+        
+        <div class="kb-input-tabs">
+            <button class="kb-tab-button active" data-tab="text">{{ _('ia_ticket_kb_tipo_texto') }}</button>
+            <button class="kb-tab-button" data-tab="url">{{ _('ia_ticket_kb_tipo_url') }}</button>
+            <button class="kb-tab-button" data-tab="youtube">{{ _('ia_ticket_kb_tipo_youtube') }}</button>
+            <button class="kb-tab-button" data-tab="file">{{ _('ia_ticket_kb_tipo_archivo') }}</button>
+        </div>
+        
+        <div class="kb-input-content">
+            <!-- Tab: Texto -->
+            <div id="kb-tab-text" class="kb-tab-pane active">
+                <div class="input-group">
+                    <textarea id="kb-input-text" rows="3" class="input-field" placeholder="{{ _('ia_ticket_kb_texto_placeholder') }}"></textarea>
+                    <button class="button-secondary" type="button" data-type="text" id="add-kb-text">{{ _('ia_ticket_kb_agregar_boton') }}</button>
+                </div>
+            </div>
+            <!-- Tab: URL -->
+            <div id="kb-tab-url" class="kb-tab-pane">
+                <div class="input-group">
+                    <input type="text" id="kb-input-url" class="input-field" placeholder="{{ _('ia_ticket_kb_url_placeholder') }}">
+                    <button class="button-secondary" type="button" data-type="url" id="add-kb-url">{{ _('ia_ticket_kb_agregar_boton') }}</button>
+                </div>
+            </div>
+            <!-- Tab: YouTube -->
+            <div id="kb-tab-youtube" class="kb-tab-pane">
+                <div class="input-group">
+                    <input type="text" id="kb-input-youtube" class="input-field" placeholder="{{ _('ia_ticket_kb_youtube_placeholder') }}">
+                    <button class="button-secondary" type="button" data-type="youtube" id="add-kb-youtube">{{ _('ia_ticket_kb_agregar_boton') }}</button>
+                </div>
+            </div>
+            <!-- Tab: File -->
+            <div id="kb-tab-file" class="kb-tab-pane">
+                <div class="input-group">
+                    <input type="file" id="file-upload" class="input-field" accept=".pdf,.txt,.md">
+                    <label for="file-upload" class="button-secondary file-upload-label">{{ _('ia_ticket_kb_subir_archivo') }}</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Knowledge Base -->
+        <h4>{{ _('ia_ticket_kb_archivos_actuales') }}</h4>
+        <ul class="knowledge-base-list" id="file-list">
+            {% if knowledge.texts %}
+                {% for item in knowledge.texts %}
+                <li>
+                    <span><i class="fas fa-file-alt"></i> [Texto] {{ item | truncate(80) }}</span>
+                    <button type="button" class="delete-file-btn" onclick="deleteKnowledge('{{ item | e }}', 'text')">&times;</button>
+                </li>
+                {% endfor %}
+            {% endif %}
+            {% if knowledge.urls %}
+                {% for item in knowledge.urls %}
+                <li>
+                    <span><i class="fas fa-link"></i> [URL] {{ item }}</span>
+                    <button type="button" class="delete-file-btn" onclick="deleteKnowledge('{{ item | e }}', 'url')">&times;</button>
+                </li>
+                {% endfor %}
+            {% endif %}
+            {% if knowledge.youtubes %}
+                {% for item in knowledge.youtubes %}
+                <li>
+                    <span><i class="fab fa-youtube"></i> [YouTube] {{ item }}</span>
+                    <button type="button" class="delete-file-btn" onclick="deleteKnowledge('{{ item | e }}', 'youtube')">&times;</button>
+                </li>
+                {% endfor %}
+            {% endif %}
+            {% if knowledge.files %}
+                {% for item in knowledge.files %}
+                <li>
+                    <span><i class="fas fa-file-pdf"></i> [Archivo] {{ item }}</span>
+                    <button type="button" class="delete-file-btn" onclick="deleteKnowledge('{{ item | e }}', 'file')">&times;</button>
+                </li>
+                {% endfor %}
+            {% endif %}
+        </ul>
+        
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/preview.js') }}"></script>
-<script src="{{ url_for('static', filename='js/validation.js') }}"></script>
-<script src="{{ url_for('static', filename='js/unsaved-changes.js') }}"></script>
-<script id="initial-roles-data" type="application/json">{{ ticket_config.admin_roles | tojson | safe }}</script>
-<script id="all-roles-data" type="application/json">{{ roles | tojson | safe }}</script>
-
-<script id="flashed-messages" type="application/json">
-    {{ get_flashed_messages(with_categories=true) | tojson | safe }}
-</script>
-
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const logSwitch = document.getElementById('log-enabled-switch');
-    const channelSelector = document.getElementById('log-channel-selector-wrapper');
-
-    function toggleChannelSelector() {
-        if (logSwitch.checked) {
-            channelSelector.style.display = 'block';
-        } else {
-            channelSelector.style.display = 'none';
-        }
-    }
-
-    if (logSwitch && channelSelector) {
-        logSwitch.addEventListener('change', toggleChannelSelector);
-        toggleChannelSelector();
-    }
-
-    const messagesData = document.getElementById('flashed-messages');
-    if (messagesData) {
+document.addEventListener('DOMContentLoaded', function() {
+    const serverId = "{{ server.id }}";
+    const saveBtn = document.getElementById('save-general-config');
+    const sendPanelBtn = document.getElementById('send-panel-btn');
+    const channelSelect = document.getElementById('send-panel-channel');
+    
+    // --- Cargar Canales de Discord ---
+    async function loadChannels() {
         try {
-            const messages = JSON.parse(messagesData.textContent);
-            if (typeof showToast === 'function' && Array.isArray(messages)) {
-                messages.forEach(([category, message]) => {
-                    let toastType = 'info'; 
-                    if (category === 'log_error' || category === 'danger') {
-                        toastType = 'error';
-                    } else if (category === 'success') {
-                        toastType = 'success';
-                    } else if (category === 'warning') {
-                        toastType = 'warning';
-                    }
-                    showToast(toastType, message, false, 5000);
-                });
+            // (En un proyecto real, esto debería venir de una API del bot o del backend)
+            // Simulación: asumimos que el usuario sabe el ID o lo tenemos en 'g'
+            // Para una implementación real, necesitaríamos un endpoint /api/get_channels
+            
+            // Simulación simple con canales de texto
+            const guildChannels = {{ server.channels | tojson | safe if server.channels else '[]' }};
+            
+            // Si no tenemos canales (desde select_server), pedirlos
+            if (guildChannels.length === 0) {
+                // Esto es más complejo, requiere una llamada a la API de Discord
+                // Por ahora, lo dejamos así, asumiendo que el usuario pegará el ID
+                // o que la info está en la sesión (lo cual no está)
+                // console.warn('No se pudieron cargar canales del servidor.');
             }
-        } catch (e) {
-            console.error("Could not parse flashed messages:", e);
+
+            channelSelect.innerHTML = '<option value="">{{ _('ia_ticket_seleccionar_canal') }}</option>';
+            guildChannels.filter(c => c.type === 0 || c.type === 5) // Tipo 0=Texto, 5=Anuncio
+                .sort((a, b) => a.position - b.position)
+                .forEach(c => {
+                    const option = document.createElement('option');
+                    option.value = c.id;
+                    option.textContent = `#${c.name}`;
+                    channelSelect.appendChild(option);
+                });
+
+        } catch (error) {
+            console.error('Error cargando canales:', error);
         }
     }
-});
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const guildId = '{{ active_guild_id }}';
-    const addBtn = document.getElementById('add-knowledge-btn');
-    const knowledgeList = document.getElementById('knowledge-list');
+    // loadChannels(); // Descomentar si tenemos 'server.channels'
+    
+    // --- Guardar Configuración General (POST) ---
+    saveBtn.addEventListener('click', async function() {
+        showToast('warning', 'Guardando...'); // (Asumiendo que showToast existe)
 
-    if (addBtn) {
-        addBtn.addEventListener('click', async () => {
-            const textArea = document.getElementById('new-knowledge-text');
-            const text = textArea.value.trim();
-            if (!text) return;
+        const embedConfig = {
+            title: document.getElementById('embed-title').value,
+            description: document.getElementById('embed-description').value,
+            color: document.getElementById('embed-color').value,
+            button_text: document.getElementById('embed-button-text').value,
+        };
 
-            const response = await fetch(`/dashboard/${guildId}/knowledge/add`, {
+        const data = {
+            ai_personality: document.getElementById('ai-personality').value,
+            ticket_welcome_message: document.getElementById('ticket-welcome-message').value,
+            ai_language: document.getElementById('ai-language').value,
+            embed_config: embedConfig
+        };
+
+        try {
+            const response = await fetch("{{ url_for('save_ia_ticket', server_id=serverId) }}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text })
+                body: JSON.stringify(data)
             });
+            const result = await response.json();
+            if (result.success) {
+                showToast('success', result.message);
+            } else {
+                showToast('error', result.error);
+            }
+        } catch (error) {
+            showToast('error', 'Error de conexión al guardar.');
+        }
+    });
+
+    // --- Enviar Panel (POST) ---
+    sendPanelBtn.addEventListener('click', async function() {
+        const channelId = channelSelect.value;
+        if (!channelId) {
+            showToast('error', '{{ _('ia_ticket_error_canal_invalido') }}');
+            return;
+        }
+        
+        showToast('warning', 'Enviando panel...');
+        
+        try {
+            const response = await fetch("{{ url_for('send_ticket_panel', server_id=serverId) }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel_id: channelId })
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast('success', result.message);
+            } else {
+                showToast('error', result.error);
+            }
+        } catch (error) {
+            showToast('error', 'Error de conexión al enviar panel.');
+        }
+    });
+
+    // --- Knowledge Base: Tabs ---
+    const tabButtons = document.querySelectorAll('.kb-tab-button');
+    const tabPanes = document.querySelectorAll('.kb-tab-pane');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabPanes.forEach(pane => pane.classList.remove('active'));
+            
+            button.classList.add('active');
+            document.getElementById('kb-tab-' + button.dataset.tab).classList.add('active');
+        });
+    });
+
+    // --- Knowledge Base: Añadir Fuente (Texto, URL, YouTube) ---
+    async function addKnowledge(type, content) {
+        if (!content.trim()) {
+            showToast('error', 'El contenido no puede estar vacío.');
+            return;
+        }
+        
+        showToast('warning', 'Añadiendo fuente...');
+        
+        try {
+            const response = await fetch("{{ url_for('save_knowledge', server_id=serverId) }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: type, content: content })
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast('success', result.message);
+                // Recargar la página para ver la lista actualizada
+                location.reload(); 
+            } else {
+                showToast('error', result.error);
+            }
+        } catch (error) {
+            showToast('error', 'Error de conexión al añadir fuente.');
+        }
+    }
+    
+    document.getElementById('add-kb-text').addEventListener('click', () => {
+        addKnowledge('text', document.getElementById('kb-input-text').value);
+    });
+    document.getElementById('add-kb-url').addEventListener('click', () => {
+        addKnowledge('url', document.getElementById('kb-input-url').value);
+    });
+    document.getElementById('add-kb-youtube').addEventListener('click', () => {
+        addKnowledge('youtube', document.getElementById('kb-input-youtube').value);
+    });
+
+    // --- Knowledge Base: Subir Archivo (File) ---
+    const fileInput = document.getElementById('file-upload');
+    fileInput.addEventListener('change', handleFileUpload);
+
+    async function handleFileUpload() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        showToast('warning', 'Subiendo archivo: ' + file.name);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch("{{ url_for('upload_knowledge', server_id=serverId) }}", {
+                method: 'POST',
+                body: formData
+                // No 'Content-Type' header, el navegador lo pone (multipart/form-data)
+            });
+            
             const data = await response.json();
 
+            // ### INICIO DEL FIX (Bug 1) ###
             if (data.success) {
-                const newItem = document.createElement('li');
-                newItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                showToast('success', 'Archivo subido con éxito: ' + data.filename);
                 
-                const newItemData = data.newItem;
-                let itemDisplayHTML = '';
+                // Actualizar la UI dinámicamente
+                const fileList = document.getElementById('file-list');
+                const newFileItem = document.createElement('li');
+                
+                // Crear el contenido del 'li'
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-file-pdf'; // Asumir PDF por defecto, o cambiar
+                
+                const fileNameSpan = document.createElement('span');
+                fileNameSpan.textContent = ` [Archivo] ${data.filename}`;
+                fileNameSpan.prepend(icon); // Poner icono al inicio
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'delete-file-btn';
+                deleteButton.innerHTML = '&times;'; // '×'
+                deleteButton.onclick = function() {
+                    // 'data.filename' es el nombre del archivo que se usa como ID
+                    deleteKnowledge(data.filename, 'file');
+                };
+                
+                // Ensamblar y añadir a la lista
+                newFileItem.appendChild(fileNameSpan);
+                newFileItem.appendChild(deleteButton);
+                fileList.appendChild(newFileItem);
+                
+                // Limpiar el input de archivo
+                fileInput.value = ''; 
 
-                if (newItemData.type === 'text') {
-                    itemDisplayHTML = newItemData.content;
-                } else {
-                    itemDisplayHTML = newItemData.content; 
-                }
-
-                newItem.innerHTML = `
-                    <span class="me-2 text-truncate" style="white-space: pre-wrap;">${itemDisplayHTML}</span>
-                    <button type="button" class="btn btn-danger btn-sm py-0 px-2 knowledge-delete-btn" data-index="${newItemData.index}" title="Eliminar">×</button>
-                `;
-
-                knowledgeList.appendChild(newItem);
-                textArea.value = '';
-                const emptyMsg = document.getElementById('empty-knowledge-msg');
-                if (emptyMsg) emptyMsg.style.display = 'none';
-                if (typeof showToast === 'function') {
-                    showToast('success', 'Conocimiento añadido con éxito.', false, 3000);
-                }
             } else {
-                if (typeof showToast === 'function') {
-                    showToast('error', `Error: ${data.error}`, false, 5000);
-                }
+                showToast('error', data.error || 'Error al subir el archivo');
             }
-        });
+            // ### FIN DEL FIX ###
+
+        } catch (error) {
+            console.error('Error subiendo archivo:', error);
+            showToast('error', 'Error de conexión al subir archivo.');
+        }
     }
 
-    if (knowledgeList) {
-        knowledgeList.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('knowledge-delete-btn')) {
-                const button = e.target;
-                const index = button.dataset.index;
-
-                const response = await fetch(`/dashboard/${guildId}/knowledge/delete`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ index: index })
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    button.parentElement.remove();
-                    if (knowledgeList.children.length === 1 && document.getElementById('empty-knowledge-msg')) {
-                         const emptyMsg = document.getElementById('empty-knowledge-msg');
-                         if (emptyMsg) emptyMsg.style.display = 'block';
-                    } else if (knowledgeList.children.length === 0) {
-                        const emptyMsg = document.createElement('li');
-                        emptyMsg.id = 'empty-knowledge-msg';
-                        emptyMsg.className = 'list-group-item text-muted';
-                        emptyMsg.textContent = 'La base de conocimientos está vacía.';
-                        knowledgeList.appendChild(emptyMsg);
-                    }
-                    if (typeof showToast === 'function') {
-                        showToast('info', 'Conocimiento eliminado.', false, 3000);
-                    }
-                } else {
-                     if (typeof showToast === 'function') {
-                        showToast('error', `Error: ${data.error}`, false, 5000);
-                    }
-                }
-            }
-        });
-    }
 });
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const roleListContainer = document.getElementById('role-list-container');
-    const selectedRolesContainer = document.getElementById('selected-roles-container');
-    const hiddenRolesInput = document.getElementById('admin-roles-json');
+
+// --- Knowledge Base: Eliminar Fuente ---
+// (Se deja fuera del DOMContentLoaded para que sea global y accesible por 'onclick')
+async function deleteKnowledge(content, type) {
+    if (!confirm(`¿Estás seguro de que quieres eliminar esta fuente?\n\n(${type}: ${content.substring(0, 50)}...)`)) {
+        return;
+    }
     
-    const initiallySelectedRoles = JSON.parse(document.getElementById('initial-roles-data').textContent || '[]');
-    const allRoles = JSON.parse(document.getElementById('all-roles-data').textContent || '[]');
+    showToast('warning', 'Eliminando fuente...');
     
-    let selectedRoleIds = new Set(initiallySelectedRoles.map(String));
-
-    function updateHiddenInput() {
-        hiddenRolesInput.value = JSON.stringify(Array.from(selectedRoleIds));
-    }
-
-    function renderPills() {
-        selectedRolesContainer.innerHTML = '';
-        const availableRoleItems = roleListContainer.querySelectorAll('.role-item');
-
-        availableRoleItems.forEach(item => {
-            item.style.display = 'block';
+    try {
+        const response = await fetch("{{ url_for('delete_knowledge', server_id=server.id) }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: type, content: content })
         });
-
-        selectedRoleIds.forEach(roleId => {
-            const role = allRoles.find(r => String(r.id) === roleId);
-            if (role) {
-                const pill = document.createElement('div');
-                pill.className = 'selected-role-pill';
-                pill.dataset.roleId = role.id;
-                pill.innerHTML = `<span>${role.name}</span><button type="button" class="remove-role-btn">×</button>`;
-                selectedRolesContainer.appendChild(pill);
-
-                const availableRoleItem = roleListContainer.querySelector(`.role-item[data-role-id='${roleId}']`);
-                if (availableRoleItem) {
-                    availableRoleItem.style.display = 'none';
-                }
-            }
-        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('success', result.message);
+            // Recargar la página para ver la lista actualizada
+            location.reload();
+        } else {
+            showToast('error', result.error);
+        }
+    } catch (error) {
+        showToast('error', 'Error de conexión al eliminar fuente.');
     }
+}
 
-    function addRole(roleId) {
-        selectedRoleIds.add(roleId);
-        updateAndRender();
-    }
-
-    function removeRole(roleId) {
-        selectedRoleIds.delete(roleId);
-        updateAndRender();
-    }
-
-    function updateAndRender() {
-        renderPills();
-        updateHiddenInput();
-    }
-
-    if (roleListContainer) {
-        roleListContainer.addEventListener('dblclick', e => {
-            if (e.target && e.target.classList.contains('role-item')) {
-                addRole(e.target.dataset.roleId);
-            }
-        });
-    }
-
-    if (selectedRolesContainer) {
-        selectedRolesContainer.addEventListener('click', e => {
-            if (e.target && e.target.classList.contains('remove-role-btn')) {
-                removeRole(e.target.parentElement.dataset.roleId);
-            }
-        });
-    }
-
-    updateAndRender();
+// --- Color Picker ---
+document.getElementById('embed-color-picker').addEventListener('input', function() {
+    document.getElementById('embed-color').value = this.value;
+    // Disparar evento 'input' en el campo de texto para que el preview.js lo detecte
+    document.getElementById('embed-color').dispatchEvent(new Event('input'));
 });
+document.getElementById('embed-color').addEventListener('input', function() {
+    document.getElementById('embed-color-picker').value = this.value;
+});
+
 </script>
 {% endblock %}
